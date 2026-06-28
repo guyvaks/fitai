@@ -1,0 +1,124 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./hooks/useAuth";
+import Layout from "./components/layout/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
+import Nutrition from "./pages/Nutrition";
+import FoodLog from "./pages/FoodLog";
+import Workouts from "./pages/Workouts";
+import LiveWorkout from "./pages/LiveWorkout";
+import AISuggestion from "./pages/AISuggestion";
+import Progress from "./pages/Progress";
+
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-primary text-xl">טוען...</div>
+      </div>
+    );
+  }
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Navigate to="/dashboard" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Profile />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/nutrition"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Nutrition />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/food-log"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <FoodLog />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workouts"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Workouts />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/live-workout"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <LiveWorkout />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai-suggestion"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <AISuggestion />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/progress"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Progress />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
+  );
+}

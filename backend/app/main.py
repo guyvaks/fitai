@@ -1,0 +1,25 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title="FitAI API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "https://*.railway.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+from app.api.v1.endpoints import auth, users, nutrition, agents, workouts
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(nutrition.router, prefix="/api/v1/nutrition", tags=["nutrition"])
+app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
+app.include_router(workouts.router, prefix="/api/v1/workouts", tags=["workouts"])
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
