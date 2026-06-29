@@ -12,6 +12,10 @@ const navItems = [
   { to: "/ai-suggestion", label: "הצעות AI", icon: "🤖" },
 ];
 
+const adminItems = [
+  { to: "/admin", label: "ניהול משתמשים", icon: "⚙️" },
+];
+
 export default function Sidebar({ onClose }) {
   const { user } = useAuth();
 
@@ -55,6 +59,28 @@ export default function Sidebar({ onClose }) {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        {user?.is_admin && (
+          <>
+            <div className="pt-2 pb-1 px-4 text-xs text-text-muted uppercase tracking-wider">ניהול</div>
+            {adminItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 rounded-elem text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary text-white"
+                      : "text-text-muted hover:bg-slate-700 hover:text-text-main"
+                  }`
+                }
+              >
+                <span className="text-lg">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* User footer */}
@@ -64,9 +90,14 @@ export default function Sidebar({ onClose }) {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-text-main text-sm font-medium truncate">
-              {user?.full_name || "משתמש"}
-            </p>
+            <div className="flex items-center gap-1">
+              <p className="text-text-main text-sm font-medium truncate">
+                {user?.full_name || "משתמש"}
+              </p>
+              {user?.is_admin && (
+                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded font-medium flex-shrink-0">אדמין 👑</span>
+              )}
+            </div>
             <p className="text-text-muted text-xs truncate">{user?.email}</p>
           </div>
           <button

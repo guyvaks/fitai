@@ -11,6 +11,7 @@ import Workouts from "./pages/Workouts";
 import LiveWorkout from "./pages/LiveWorkout";
 import AISuggestion from "./pages/AISuggestion";
 import Progress from "./pages/Progress";
+import Admin from "./pages/Admin";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -114,6 +115,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <Progress />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Admin />
               </Layout>
             </ProtectedRoute>
           }
