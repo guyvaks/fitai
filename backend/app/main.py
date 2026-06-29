@@ -5,7 +5,7 @@ app = FastAPI(title="FitAI API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://*.railway.app"],
+    allow_origins=["http://localhost:5173", "https://*.railway.app", "https://poetic-vitality-production-41ea.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
