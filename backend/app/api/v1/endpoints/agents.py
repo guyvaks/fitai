@@ -7,7 +7,6 @@ from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User, UserProfile
 from app.models.fitness import AISuggestion, UserMemory, NutritionPlan, WorkoutPlan
-import json
 
 router = APIRouter()
 
@@ -15,23 +14,46 @@ router = APIRouter()
 task_store: Dict[str, dict] = {}
 
 
-def run_crew_sync(task_id: str, profile_dict: dict, memory_dict: dict, user_id: str, db_url: str):
-    """Run in background thread."""
-    from app.services.crew_agents import run_ai_crew
+def _build_profile_dict(profile) -> dict:
+    return {
+        "age": profile.age,
+        "gender": profile.gender,
+        "height_cm": profile.height_cm,
+        "weight_kg": profile.weight_kg,
+        "target_calories": profile.target_calories,
+        "goal": profile.goal,
+        "allergies": profile.allergies,
+        "injuries": profile.injuries,
+        "equipment": profile.equipment,
+        "meals_per_day": profile.meals_per_day,
+        "activity_level": profile.activity_level,
+    }
+
+
+def _run_in_background(task_id: str, crew_fn_name: str, profile_dict: dict, memory_dict: dict, user_id: str, suggestion_type: str):
+    """Generic background runner — calls the named crew function."""
+    from app.services.crew_agents import run_nutrition_crew, run_workout_crew, run_full_crew
     from app.core.database import SessionLocal
+
+    crew_fns = {
+        "nutrition": run_nutrition_crew,
+        "workout": run_workout_crew,
+        "full": run_full_crew,
+    }
+    crew_fn = crew_fns[crew_fn_name]
 
     task_store[task_id] = {"status": "running", "progress": "AI עובד על ההמלצות שלך..."}
 
     try:
         loop = asyncio.new_event_loop()
-        result = loop.run_until_complete(run_ai_crew(profile_dict, memory_dict))
+        result = loop.run_until_complete(crew_fn(profile_dict, memory_dict))
         loop.close()
 
         db = SessionLocal()
         try:
             suggestion = AISuggestion(
                 user_id=user_id,
-                suggestion_type="both",
+                suggestion_type=suggestion_type,
                 content=result,
                 status="pending",
                 task_id=task_id,
@@ -50,12 +72,8 @@ def run_crew_sync(task_id: str, profile_dict: dict, memory_dict: dict, user_id: 
         task_store[task_id] = {"status": "error", "error": str(e)}
 
 
-@router.post("/generate")
-def generate_ai_plan(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: User, crew_fn_name: str, suggestion_type: str) -> dict:
+    """Shared logic: validate profile, create task_id, enqueue background job."""
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="נא להשלים את הפרופיל תחילה")
@@ -66,26 +84,48 @@ def generate_ai_plan(
     task_id = str(uuid.uuid4())
     task_store[task_id] = {"status": "pending", "progress": "מתחיל..."}
 
-    profile_dict = {
-        "age": profile.age,
-        "gender": profile.gender,
-        "height_cm": profile.height_cm,
-        "weight_kg": profile.weight_kg,
-        "target_calories": profile.target_calories,
-        "goal": profile.goal,
-        "allergies": profile.allergies,
-        "injuries": profile.injuries,
-        "equipment": profile.equipment,
-        "meals_per_day": profile.meals_per_day,
-        "activity_level": profile.activity_level,
-    }
-
-    from app.core.config import settings
     background_tasks.add_task(
-        run_crew_sync, task_id, profile_dict, memory, str(current_user.id), settings.DATABASE_URL
+        _run_in_background,
+        task_id,
+        crew_fn_name,
+        _build_profile_dict(profile),
+        memory,
+        str(current_user.id),
+        suggestion_type,
     )
+    return {"task_id": task_id, "status": "pending", "suggestion_type": suggestion_type}
 
-    return {"task_id": task_id, "status": "pending"}
+
+# ─── Endpoints ────────────────────────────────────────────────────────────────
+
+@router.post("/nutrition")
+def generate_nutrition_plan(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Run only the nutrition agent — builds a weekly meal plan."""
+    return _start_task(background_tasks, db, current_user, "nutrition", "nutrition")
+
+
+@router.post("/workout")
+def generate_workout_plan(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Run only the workout agent — builds a weekly workout plan."""
+    return _start_task(background_tasks, db, current_user, "workout", "workout")
+
+
+@router.post("/full-plan")
+def generate_full_plan(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Run all 3 agents: nutrition + workout + supervisor."""
+    return _start_task(background_tasks, db, current_user, "full", "both")
 
 
 @router.get("/status/{task_id}")
@@ -104,38 +144,21 @@ def approve_suggestion(
 ):
     suggestion = db.query(AISuggestion).filter(
         AISuggestion.id == suggestion_id,
-        AISuggestion.user_id == current_user.id
+        AISuggestion.user_id == current_user.id,
     ).first()
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
 
     suggestion.status = "approved"
-
     content = suggestion.content
 
     if "meal_plan" in content:
-        db.query(NutritionPlan).filter(
-            NutritionPlan.user_id == current_user.id
-        ).update({"is_active": False})
-
-        plan = NutritionPlan(
-            user_id=current_user.id,
-            plan_data=content,
-            is_active=True,
-        )
-        db.add(plan)
+        db.query(NutritionPlan).filter(NutritionPlan.user_id == current_user.id).update({"is_active": False})
+        db.add(NutritionPlan(user_id=current_user.id, plan_data=content, is_active=True))
 
     if "workout_plan" in content:
-        db.query(WorkoutPlan).filter(
-            WorkoutPlan.user_id == current_user.id
-        ).update({"is_active": False})
-
-        plan = WorkoutPlan(
-            user_id=current_user.id,
-            plan_data=content,
-            is_active=True,
-        )
-        db.add(plan)
+        db.query(WorkoutPlan).filter(WorkoutPlan.user_id == current_user.id).update({"is_active": False})
+        db.add(WorkoutPlan(user_id=current_user.id, plan_data=content, is_active=True))
 
     db.commit()
     return {"status": "approved", "message": "התכנית אושרה ונשמרה"}
@@ -149,7 +172,7 @@ def reject_suggestion(
 ):
     suggestion = db.query(AISuggestion).filter(
         AISuggestion.id == suggestion_id,
-        AISuggestion.user_id == current_user.id
+        AISuggestion.user_id == current_user.id,
     ).first()
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
@@ -166,6 +189,6 @@ def get_pending_suggestions(
 ):
     suggestions = db.query(AISuggestion).filter(
         AISuggestion.user_id == current_user.id,
-        AISuggestion.status == "pending"
+        AISuggestion.status == "pending",
     ).order_by(AISuggestion.created_at.desc()).all()
     return suggestions

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { agentsAPI } from "../services/api";
 import {
@@ -32,14 +32,45 @@ const BMI_CATEGORY_COLOR = {
 export default function Dashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [hasPendingSuggestion, setHasPendingSuggestion] = useState(false);
+  const [fullPlanLoading, setFullPlanLoading] = useState(false);
+  const [fullPlanError, setFullPlanError] = useState(null);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
+  const greeting = profile?.gender === 'female' ? `ברוכה הבאה, ${firstName}!` : `ברוך הבא, ${firstName}!`;
 
   useEffect(() => {
     agentsAPI.getPending()
-      .then(r => setHasPendingSuggestion(r.data?.length > 0))
-      .catch(() => {});
-  }, []);
+      .then(r => setHasPendingSuggestion((r.data?.length ?? 0) > 0))
+      .catch(() => setHasPendingSuggestion(false));
+  }, [location.pathname]);
+
+  const handleFullPlan = async () => {
+    setFullPlanLoading(true);
+    setFullPlanError(null);
+    try {
+      const r = await agentsAPI.generateFullPlan();
+      const taskId = r.data.task_id;
+      // Poll until ready
+      const poll = setInterval(async () => {
+        try {
+          const s = await agentsAPI.getStatus(taskId);
+          if (s.data.status === 'ready') {
+            clearInterval(poll);
+            setFullPlanLoading(false);
+            navigate('/ai-suggestion');
+          } else if (s.data.status === 'error') {
+            clearInterval(poll);
+            setFullPlanLoading(false);
+            setFullPlanError(s.data.error || 'שגיאה ביצירת התכנית');
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+    } catch (e) {
+      setFullPlanLoading(false);
+      setFullPlanError(e.response?.data?.detail || 'שגיאה בהפעלת ה-AI');
+    }
+  };
 
   const targetCal = profile?.target_calories;
   const bmi = profile?.bmi;
@@ -95,7 +126,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold text-text-main">
-          ברוך הבא, {firstName}! 👋
+          {greeting} 👋
         </h2>
         <p className="text-text-muted mt-1">הנה סיכום היום שלך</p>
       </div>
@@ -141,19 +172,40 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* AI suggestion */}
-      <div className="bg-surface rounded-card p-5">
-        <div className="flex items-center gap-2 mb-3">
+      {/* AI full plan card */}
+      <div className="bg-surface rounded-card p-5" dir="rtl">
+        <div className="flex items-center gap-2 mb-2">
           <span className="text-xl">🤖</span>
-          <h3 className="text-text-main font-semibold">המלצת AI היום</h3>
+          <h3 className="text-text-main font-semibold">בנה תכנית שבועית מלאה</h3>
         </div>
-        <p className="text-text-muted text-sm leading-relaxed">
-          על בסיס ביצועי האימון האחרון שלך, מומלץ להוסיף 5% משקל לתרגיל הסקוואט.
-          גם שים לב שצריכת החלבון שלך ירדה ב-3 ימים האחרונים — נסה לשלב ארוחת ביניים עם גבינת קוטג'.
+        <div className="flex gap-3 mb-4">
+          <span className="bg-primary/15 text-primary text-xs px-2 py-1 rounded-full font-medium">🥗 תזונה</span>
+          <span className="bg-blue-500/15 text-blue-400 text-xs px-2 py-1 rounded-full font-medium">💪 אימונים</span>
+          <span className="bg-purple-500/15 text-purple-400 text-xs px-2 py-1 rounded-full font-medium">✅ מפקח AI</span>
+        </div>
+        <p className="text-text-muted text-sm mb-4 leading-relaxed">
+          מפעיל 3 סוכני AI — תזונאי, מאמן כושר ומפקח — ליצירת תפריט תזונה שבועי מלא + תכנית אימונים. שניהם יישמרו לאחר האישור.
         </p>
-        <button className="mt-3 text-primary text-sm font-medium hover:underline">
-          צפה בכל ההמלצות ←
+        {fullPlanLoading && (
+          <div className="mb-3 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 text-primary text-xs text-center">
+            ⏳ הסוכנים עובדים... זה לוקח כ-60-90 שניות
+          </div>
+        )}
+        {fullPlanError && (
+          <div className="mb-3 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 text-red-400 text-xs">
+            {fullPlanError}
+          </div>
+        )}
+        <button
+          onClick={handleFullPlan}
+          disabled={fullPlanLoading || !profile}
+          className="w-full bg-primary text-white py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition"
+        >
+          {fullPlanLoading ? '⏳ יוצר תפריט + אימונים...' : '✨ בנה לי תכנית מלאה (תזונה + אימונים)'}
         </button>
+        {!profile && (
+          <p className="text-text-muted text-xs mt-2 text-center">יש להשלים פרופיל לפני יצירת תכנית</p>
+        )}
       </div>
 
       {/* Weekly calories chart */}

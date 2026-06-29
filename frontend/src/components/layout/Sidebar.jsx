@@ -13,7 +13,12 @@ const navItems = [
 ];
 
 export default function Sidebar({ onClose }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    localStorage.clear()
+    window.location.href = '/login'
+  }
 
   const initials = user?.full_name
     ? user.full_name
@@ -65,11 +70,11 @@ export default function Sidebar({ onClose }) {
             <p className="text-text-muted text-xs truncate">{user?.email}</p>
           </div>
           <button
-            onClick={logout}
-            className="text-text-muted hover:text-text-main transition-colors text-xs"
+            onClick={handleLogout}
+            className="text-red-400 hover:text-red-300 transition-colors text-xs font-medium px-2 py-1 rounded hover:bg-red-500/10"
             title="התנתק"
           >
-            ↩
+            התנתק
           </button>
         </div>
       </div>

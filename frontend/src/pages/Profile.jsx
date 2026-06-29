@@ -50,6 +50,7 @@ const defaultForm = {
 };
 
 export default function Profile() {
+  console.log('[Profile] component rendering')
   const [form, setForm] = useState(defaultForm);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -59,9 +60,11 @@ export default function Profile() {
 
   // Load existing profile on mount
   useEffect(() => {
+    console.log('[Profile] fetching profile...')
     api
       .get("/api/v1/users/profile")
       .then(({ data }) => {
+        console.log('[Profile] API response:', data)
         setForm({
           age: data.age ?? "",
           gender: data.gender ?? "male",
@@ -88,7 +91,9 @@ export default function Profile() {
           setSaved(true);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.log('[Profile] fetch error:', err?.response?.status, err?.response?.data || err?.message)
+      })
       .finally(() => setFetchingProfile(false));
   }, []);
 

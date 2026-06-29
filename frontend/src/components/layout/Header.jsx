@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 const pageTitles = {
@@ -14,6 +14,7 @@ const pageTitles = {
 
 export default function Header({ onToggleSidebar }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const title = pageTitles[location.pathname] || "FitAI";
 
@@ -53,6 +54,15 @@ export default function Header({ onToggleSidebar }) {
 
       {/* Mobile: page title */}
       <h1 className="md:hidden text-base font-semibold text-text-main">{title}</h1>
+
+      {/* Mobile: home button */}
+      <button
+        className="md:hidden text-text-muted hover:text-primary p-2 transition-colors"
+        onClick={() => navigate('/dashboard')}
+        aria-label="בית"
+      >
+        🏠
+      </button>
     </header>
   );
 }

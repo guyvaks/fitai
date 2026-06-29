@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { nutritionAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
@@ -34,6 +34,9 @@ export default function Nutrition() {
   const [generating, setGenerating] = useState(false)
   const [taskId, setTaskId] = useState(null)
   const [error, setError] = useState(null)
+  const [progress, setProgress] = useState(0)
+  const [done, setDone] = useState(false)
+  const progressRef = useRef(null)
 
   useEffect(() => {
     nutritionAPI.getPlan()
@@ -41,17 +44,41 @@ export default function Nutrition() {
       .catch(() => setPlan(null))
   }, [])
 
+  // Tick progress forward slowly — never past 90% until done
+  useEffect(() => {
+    if (!generating) return
+    setProgress(0)
+    setDone(false)
+    progressRef.current = setInterval(() => {
+      setProgress(p => {
+        if (p >= 90) { clearInterval(progressRef.current); return 90 }
+        // slow crawl: faster at start, slower near 90
+        const step = p < 30 ? 3 : p < 60 ? 1.5 : 0.5
+        return Math.min(p + step, 90)
+      })
+    }, 600)
+    return () => clearInterval(progressRef.current)
+  }, [generating])
+
   const pollStatus = useCallback(async () => {
     if (!taskId) return
     try {
       const r = await agentsAPI.getStatus(taskId)
       if (r.data.status === 'ready') {
-        setGenerating(false)
-        setTaskId(null)
-        navigate('/ai-suggestion')
+        // Jump to 100%, show "הושלם!" for 1.2s, then navigate
+        clearInterval(progressRef.current)
+        setProgress(100)
+        setDone(true)
+        setTimeout(() => {
+          setGenerating(false)
+          setTaskId(null)
+          navigate('/ai-suggestion')
+        }, 1200)
       } else if (r.data.status === 'error') {
+        clearInterval(progressRef.current)
         setGenerating(false)
         setTaskId(null)
+        setProgress(0)
         setError('שגיאה ביצירת התכנית: ' + r.data.error)
       }
     } catch {
@@ -65,10 +92,12 @@ export default function Nutrition() {
     setError(null)
     setGenerating(true)
     try {
-      const r = await agentsAPI.generate()
+      const r = await agentsAPI.generateNutrition()
       setTaskId(r.data.task_id)
     } catch (e) {
+      clearInterval(progressRef.current)
       setGenerating(false)
+      setProgress(0)
       setError(e.response?.data?.detail || 'שגיאה בהפעלת ה-AI')
     }
   }
@@ -100,13 +129,54 @@ export default function Nutrition() {
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-surface rounded-card p-6 text-center space-y-3">
-          <div className="text-4xl">⚙️</div>
-          <p className="text-text-main font-medium">ה-AI בונה את התפריט שלך...</p>
-          <p className="text-text-muted text-sm">(כ-30-60 שניות)</p>
-          <div className="w-full bg-slate-700 rounded-full h-2 mt-2">
-            <div className="bg-primary h-2 rounded-full animate-pulse" style={{ width: '66%' }} />
+        <div className="bg-surface rounded-card p-6 text-center space-y-4">
+          <div className="text-4xl">{done ? '✅' : '⚙️'}</div>
+          <p className={`font-medium transition-colors duration-300 ${done ? 'text-green-400' : 'text-text-main'}`}>
+            {done ? 'הושלם! עובר לתכנית...' : 'ה-AI בונה את התפריט שלך...'}
+          </p>
+          {!done && <p className="text-text-muted text-sm">כ-30–60 שניות</p>}
+
+          {/* Progress bar */}
+          <div className="space-y-1.5">
+            <div className="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+              <div
+                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
+                  done ? 'bg-green-500' : 'bg-primary'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className={`text-xs font-medium text-left transition-colors duration-300 ${done ? 'text-green-400' : 'text-text-muted'}`}>
+              {Math.round(progress)}%
+            </p>
           </div>
+
+          {/* Step progress with numbers */}
+          {!done && (
+            <div className="text-right space-y-2 mt-1">
+              {[
+                { num: 1, label: 'ניתוח פרופיל משתמש', from: 0,  to: 50 },
+                { num: 2, label: 'בניית תפריט תזונה',  from: 50, to: 100 },
+              ].map(step => {
+                const active  = progress >= step.from && progress < step.to
+                const completed = progress >= step.to
+                return (
+                  <div key={step.num} className={`flex items-center gap-2 text-xs transition-colors duration-300 ${
+                    completed ? 'text-green-400' : active ? 'text-text-main' : 'text-text-muted/40'
+                  }`}>
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300 ${
+                      completed ? 'bg-green-500 text-white' : active ? 'bg-primary text-white' : 'bg-slate-700 text-slate-500'
+                    }`}>
+                      {completed ? '✓' : step.num}
+                    </span>
+                    <span>{step.label}</span>
+                    {active && <span className="text-primary animate-pulse mr-auto">בתהליך...</span>}
+                    {completed && <span className="text-green-400 mr-auto">הושלם</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

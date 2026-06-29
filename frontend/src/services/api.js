@@ -32,10 +32,12 @@ export const nutritionAPI = {
 }
 
 export const agentsAPI = {
-  generate: () => api.post('/api/v1/agents/generate'),
+  generateNutrition: () => api.post('/api/v1/agents/nutrition'),
+  generateWorkout:   () => api.post('/api/v1/agents/workout'),
+  generateFullPlan:  () => api.post('/api/v1/agents/full-plan'),
   getStatus: (taskId) => api.get(`/api/v1/agents/status/${taskId}`),
   approve: (id) => api.post(`/api/v1/agents/approve/${id}`),
-  reject: (id) => api.post(`/api/v1/agents/reject/${id}`),
+  reject:  (id) => api.post(`/api/v1/agents/reject/${id}`),
   getPending: () => api.get('/api/v1/agents/pending'),
 }
 
@@ -47,6 +49,10 @@ export const workoutsAPI = {
   completeSession: (sessionId) => api.post(`/api/v1/workouts/sessions/${sessionId}/complete`),
   abandonSession: (sessionId) => api.delete(`/api/v1/workouts/sessions/${sessionId}`),
   getPersonalRecords: () => api.get('/api/v1/workouts/personal-records'),
+}
+
+export const foodsAPI = {
+  search: (q, category = '') => api.get('/api/v1/foods/search', { params: { q, category } }),
 }
 
 export default api;
