@@ -20,6 +20,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     profile = relationship("UserProfile", back_populates="user", uselist=False)
