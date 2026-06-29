@@ -132,7 +132,7 @@ export default function Admin() {
                     {u.is_admin ? <span className="text-yellow-400">👑</span> : <span className="text-slate-600">—</span>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                    <div className="flex flex-col items-stretch gap-1">
                       <button
                         onClick={() => setResetTarget(u)}
                         disabled={busy}
