@@ -5,11 +5,13 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 from app.models.fitness import NutritionPlan, Meal, FoodLog
 from app.schemas.nutrition import (
-    NutritionPlanResponse, FoodLogCreate, FoodLogResponse
+    NutritionPlanResponse, FoodLogCreate, FoodLogResponse, ManualPlanCreate
 )
 import datetime
 
 router = APIRouter()
+
+VALID_DAYS = {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
 
 
 @router.get("/plan")
@@ -20,6 +22,60 @@ def get_nutrition_plan(db: Session = Depends(get_db), current_user: User = Depen
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="No active nutrition plan found")
+    return plan
+
+
+@router.post("/plan/manual")
+def create_manual_plan(
+    payload: ManualPlanCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    unknown_days = set(payload.week.keys()) - VALID_DAYS
+    if unknown_days:
+        raise HTTPException(status_code=400, detail=f"ימים לא תקינים: {', '.join(unknown_days)}")
+
+    meal_plan = {}
+    daily_totals = {}
+    has_items = False
+
+    for day, meals in payload.week.items():
+        day_meals = []
+        totals = {"calories": 0, "protein": 0, "carbs": 0, "fat": 0}
+        for meal in meals:
+            if not meal.items:
+                continue
+            has_items = True
+            meal_totals = {
+                "calories": sum(i.calories for i in meal.items),
+                "protein": sum(i.protein for i in meal.items),
+                "carbs": sum(i.carbs for i in meal.items),
+                "fat": sum(i.fat for i in meal.items),
+            }
+            day_meals.append({
+                "meal_type": meal.meal_type,
+                "items": [i.model_dump() for i in meal.items],
+                "total_calories": round(meal_totals["calories"], 1),
+                "total_protein": round(meal_totals["protein"], 1),
+                "total_carbs": round(meal_totals["carbs"], 1),
+                "total_fat": round(meal_totals["fat"], 1),
+            })
+            for k in totals:
+                totals[k] += meal_totals[k]
+        if day_meals:
+            meal_plan[day] = day_meals
+            daily_totals[day] = {k: round(v, 1) for k, v in totals.items()}
+
+    if not has_items:
+        raise HTTPException(status_code=400, detail="לא נוספו פריטי מזון לתפריט")
+
+    plan_data = {"meal_plan": meal_plan, "daily_totals": daily_totals}
+
+    db.query(NutritionPlan).filter(NutritionPlan.user_id == current_user.id).update({"is_active": False})
+    plan = NutritionPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
     return plan
 
 

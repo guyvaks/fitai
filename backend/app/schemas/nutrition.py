@@ -26,6 +26,22 @@ class FoodLogResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class ManualFoodItem(BaseModel):
+    name: str
+    qty_g: float
+    calories: float
+    protein: float = 0
+    carbs: float = 0
+    fat: float = 0
+
+class ManualMeal(BaseModel):
+    meal_type: str  # breakfast, lunch, dinner, snack
+    items: List[ManualFoodItem]
+
+class ManualPlanCreate(BaseModel):
+    # keyed by day_of_week (sunday..saturday) -> list of meals for that day
+    week: dict[str, List[ManualMeal]]
+
 class NutritionPlanResponse(BaseModel):
     id: str
     user_id: str

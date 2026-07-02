@@ -26,6 +26,7 @@ api.interceptors.response.use(
 
 export const nutritionAPI = {
   getPlan: () => api.get('/api/v1/nutrition/plan'),
+  createManualPlan: (week) => api.post('/api/v1/nutrition/plan/manual', { week }),
   logFood: (entry) => api.post('/api/v1/nutrition/food-log', entry),
   getDayLog: (date) => api.get(`/api/v1/nutrition/food-log/${date}`),
   deleteLog: (id) => api.delete(`/api/v1/nutrition/food-log/entry/${id}`),

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { nutritionAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
+import ManualPlanModal from '../components/ManualPlanModal'
 
 const DAYS = [
   { key: 'sunday', label: 'ראשון' },
@@ -36,6 +37,7 @@ export default function Nutrition() {
   const [error, setError] = useState(null)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
+  const [showManualBuilder, setShowManualBuilder] = useState(false)
   const progressRef = useRef(null)
 
   useEffect(() => {
@@ -119,13 +121,23 @@ export default function Nutrition() {
             {generating ? '⏳ יוצר תפריט...' : '🤖 בנה לי תפריט עם AI'}
           </button>
           <button
-            onClick={() => navigate('/food-log')}
+            onClick={() => setShowManualBuilder(true)}
             className="border border-primary text-primary px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/10 transition"
           >
             בנה ידנית
           </button>
         </div>
       </div>
+
+      {showManualBuilder && (
+        <ManualPlanModal
+          onClose={() => setShowManualBuilder(false)}
+          onSaved={() => {
+            setShowManualBuilder(false)
+            nutritionAPI.getPlan().then(r => setPlan(r.data)).catch(() => setPlan(null))
+          }}
+        />
+      )}
 
       {/* Generating state */}
       {generating && (
