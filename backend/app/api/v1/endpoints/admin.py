@@ -5,7 +5,13 @@ from sqlalchemy.orm import Session
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.core.security import get_password_hash
-from app.models.user import User
+from app.models.user import User, UserProfile
+from app.models.fitness import (
+    NutritionPlan, Meal, FoodLog, WorkoutPlan, WorkoutExercise,
+    WorkoutSession, ExerciseLog, AISuggestion, SmartProgression,
+    UserMemory, ExerciseMemory, FoodMemory, PersonalRecord,
+    EnduranceLog, StrengthLog, HydrationLog,
+)
 
 
 class ResetPasswordRequest(BaseModel):
@@ -43,6 +49,26 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # No ON DELETE CASCADE is configured on these FKs at the DB level, so
+    # dependent rows must be removed explicitly (children before parents)
+    # or db.delete(user) raises an IntegrityError that FastAPI turns into
+    # an unhandled 500.
+    workout_plan_ids = db.query(WorkoutPlan.id).filter(WorkoutPlan.user_id == user_id)
+    nutrition_plan_ids = db.query(NutritionPlan.id).filter(NutritionPlan.user_id == user_id)
+    session_ids = db.query(WorkoutSession.id).filter(WorkoutSession.user_id == user_id)
+
+    db.query(Meal).filter(Meal.nutrition_plan_id.in_(nutrition_plan_ids)).delete(synchronize_session=False)
+    db.query(WorkoutExercise).filter(WorkoutExercise.workout_plan_id.in_(workout_plan_ids)).delete(synchronize_session=False)
+    db.query(ExerciseLog).filter(ExerciseLog.session_id.in_(session_ids)).delete(synchronize_session=False)
+
+    for model in (
+        WorkoutSession, NutritionPlan, WorkoutPlan, FoodLog, AISuggestion,
+        SmartProgression, UserMemory, ExerciseMemory, FoodMemory,
+        PersonalRecord, EnduranceLog, StrengthLog, HydrationLog, UserProfile,
+    ):
+        db.query(model).filter(model.user_id == user_id).delete(synchronize_session=False)
+
     db.delete(user)
     db.commit()
     return {"ok": True}

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import uuid
 from typing import Dict
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
@@ -12,6 +13,40 @@ router = APIRouter()
 
 # In-memory task status store (use Redis in production)
 task_store: Dict[str, dict] = {}
+
+
+def _normalise_content(raw: dict) -> dict:
+    """Mirror of the frontend's normaliseContent() in AISuggestion.jsx —
+    the AI crew doesn't always return a clean {meal_plan/workout_plan} dict,
+    so approval must recognise the same shapes the UI already displays."""
+    if not isinstance(raw, dict):
+        return {}
+
+    if "meal_plan" in raw or "workout_plan" in raw:
+        return raw
+
+    if raw.get("raw_output"):
+        try:
+            parsed = json.loads(raw["raw_output"])
+            if isinstance(parsed, dict):
+                if "meal_plan" in parsed or "workout_plan" in parsed:
+                    return parsed
+                if "meal_type" in parsed or "items" in parsed:
+                    return {"meal_plan": {"sunday": [parsed]}}
+                return parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if "meal_type" in raw or "items" in raw:
+        return {"meal_plan": {"sunday": [raw]}}
+
+    if isinstance(raw.get("meals"), list):
+        return {"meal_plan": {"sunday": raw["meals"]}}
+
+    if isinstance(raw.get("content"), dict):
+        return _normalise_content(raw["content"])
+
+    return raw
 
 
 def _build_profile_dict(profile) -> dict:
@@ -149,17 +184,23 @@ def approve_suggestion(
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
 
-    suggestion.status = "approved"
-    content = suggestion.content
+    content = _normalise_content(suggestion.content)
+    saved_something = False
 
     if "meal_plan" in content:
         db.query(NutritionPlan).filter(NutritionPlan.user_id == current_user.id).update({"is_active": False})
         db.add(NutritionPlan(user_id=current_user.id, plan_data=content, is_active=True))
+        saved_something = True
 
     if "workout_plan" in content:
         db.query(WorkoutPlan).filter(WorkoutPlan.user_id == current_user.id).update({"is_active": False})
         db.add(WorkoutPlan(user_id=current_user.id, plan_data=content, is_active=True))
+        saved_something = True
 
+    if not saved_something:
+        raise HTTPException(status_code=400, detail="לא נמצא תוכן תקין לשמירה — נסה ליצור תכנית מחדש")
+
+    suggestion.status = "approved"
     db.commit()
     return {"status": "approved", "message": "התכנית אושרה ונשמרה"}
 

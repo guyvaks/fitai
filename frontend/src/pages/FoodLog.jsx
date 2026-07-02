@@ -320,9 +320,9 @@ export default function FoodLog() {
 
       {/* Date picker */}
       <div className="flex items-center justify-center gap-4 bg-surface rounded-card p-3">
-        <button onClick={() => changeDay(1)}  className="text-text-muted hover:text-text-main text-lg px-2">→</button>
+        <button onClick={() => changeDay(-1)} className="text-text-muted hover:text-text-main text-lg px-2">→</button>
         <span className="text-text-main font-medium">{dayLabel}</span>
-        <button onClick={() => changeDay(-1)} className="text-text-muted hover:text-text-main text-lg px-2">←</button>
+        <button onClick={() => changeDay(1)}  className="text-text-muted hover:text-text-main text-lg px-2">←</button>
       </div>
 
       {/* Daily summary */}

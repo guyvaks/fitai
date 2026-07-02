@@ -12,12 +12,21 @@ const DAYS = [
   { key: 'friday',    label: 'שישי' },
   { key: 'saturday',  label: 'שבת' },
 ]
+const DAY_KEYS = DAYS.map(d => d.key)
+const ACTIVE_DAY_STORAGE_KEY = 'fitai_workouts_active_day'
 
 export default function Workouts() {
   const navigate = useNavigate()
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeDay, setActiveDay] = useState('sunday')
+  const [activeDay, setActiveDayState] = useState(() => {
+    const saved = localStorage.getItem(ACTIVE_DAY_STORAGE_KEY)
+    return DAY_KEYS.includes(saved) ? saved : 'sunday'
+  })
+  const setActiveDay = (day) => {
+    setActiveDayState(day)
+    localStorage.setItem(ACTIVE_DAY_STORAGE_KEY, day)
+  }
   const [generating, setGenerating] = useState(false)
   const [taskId, setTaskId] = useState(null)
   const [progress, setProgress] = useState(0)
