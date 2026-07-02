@@ -100,14 +100,14 @@ export default function ManualPlanModal({ onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" dir="rtl">
-      <div className="bg-surface rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div className="bg-white rounded-card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-lg">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text-main">בניית תפריט שבועי ידני</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text-main text-xl px-1">×</button>
+          <h3 className="text-lg font-bold text-dark-text">בניית תפריט שבועי ידני</h3>
+          <button onClick={onClose} className="text-dark-text-muted hover:text-dark-text text-xl px-1">×</button>
         </div>
 
         {error && (
-          <div className="bg-red-900/20 border border-red-500/30 rounded-card p-3 text-red-400 text-sm">
+          <div className="bg-red-50 border border-red-200 rounded-card p-3 text-red-600 text-sm">
             {error}
           </div>
         )}
@@ -122,8 +122,8 @@ export default function ManualPlanModal({ onClose, onSaved }) {
                 onClick={() => setActiveDay(d.key)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
                   activeDay === d.key
-                    ? 'bg-primary text-white'
-                    : 'bg-background text-text-muted hover:text-text-main'
+                    ? 'bg-accent-blue text-white'
+                    : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
                 }`}
               >
                 {d.label}{dayItemCount > 0 && <span className="mr-1 opacity-70">({dayItemCount})</span>}
@@ -140,8 +140,8 @@ export default function ManualPlanModal({ onClose, onSaved }) {
               onClick={() => setActiveMeal(m.key)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                 activeMeal === m.key
-                  ? 'bg-primary text-white'
-                  : 'bg-background border border-slate-700 text-text-muted hover:text-text-main'
+                  ? 'bg-accent-blue text-white'
+                  : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
               }`}
             >
               {m.icon} {m.label}
@@ -154,22 +154,22 @@ export default function ManualPlanModal({ onClose, onSaved }) {
           <FoodSearch onSelect={handleFoodSelect} />
 
           {selectedFood && (
-            <div className="col-span-2 flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 flex-wrap">
-              <span className="text-primary text-sm font-medium">{selectedFood.name}</span>
-              <span className="text-text-muted text-xs">לכל 100ג׳: {selectedFood.calories} קק״ל</span>
+            <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex-wrap">
+              <span className="text-accent-blue text-sm font-medium">{selectedFood.name}</span>
+              <span className="text-dark-text-muted text-xs">לכל 100ג׳: {selectedFood.calories} קק״ל</span>
               <div className="flex items-center gap-2 mr-auto">
-                <label className="text-text-muted text-xs">כמות (גרם)</label>
+                <label className="text-dark-text-muted text-xs">כמות (גרם)</label>
                 <input
                   type="number"
                   min="1"
                   value={qty}
                   onChange={e => setQty(e.target.value)}
-                  className="w-20 bg-background border border-slate-700 rounded-lg px-2 py-1 text-text-main text-sm focus:outline-none focus:border-primary"
+                  className="w-20 bg-white border border-light-border rounded-lg px-2 py-1 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
                 />
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="bg-primary text-white px-3 py-1 rounded-lg text-xs font-medium hover:bg-primary/90 transition"
+                  className="bg-accent-blue text-white px-3 py-1 rounded-lg text-xs font-medium hover:bg-accent-blue/90 transition"
                 >
                   + הוסף
                 </button>
@@ -180,21 +180,21 @@ export default function ManualPlanModal({ onClose, onSaved }) {
 
         {/* Current meal items */}
         <div className="space-y-2">
-          <h4 className="text-text-main font-medium text-sm">
+          <h4 className="text-dark-text font-medium text-sm">
             {DAYS.find(d => d.key === activeDay)?.label} · {MEAL_TYPES.find(m => m.key === activeMeal)?.label}
           </h4>
           {dayMeal.length === 0 ? (
-            <p className="text-text-muted text-sm text-center py-3 bg-background rounded-lg">אין פריטים עדיין</p>
+            <p className="text-dark-text-muted text-sm text-center py-3 bg-gray-50 rounded-lg">אין פריטים עדיין</p>
           ) : (
             <div className="space-y-1.5">
               {dayMeal.map((item, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 bg-background rounded-lg px-3 py-2">
-                  <span className="text-text-main text-sm">{item.name} ({item.qty_g}g)</span>
+                <div key={i} className="flex items-center justify-between gap-2 bg-gray-50 border border-light-border rounded-lg px-3 py-2">
+                  <span className="text-dark-text text-sm">{item.name} ({item.qty_g}g)</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-text-muted text-xs">{item.calories} קק"ל</span>
+                    <span className="text-dark-text-muted text-xs">{item.calories} קק"ל</span>
                     <button
                       onClick={() => handleRemoveItem(i)}
-                      className="text-text-muted hover:text-red-400 transition text-lg px-1"
+                      className="text-dark-text-muted hover:text-red-600 transition text-lg px-1"
                     >
                       ×
                     </button>
@@ -210,13 +210,13 @@ export default function ManualPlanModal({ onClose, onSaved }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-primary text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition"
+            className="flex-1 bg-accent-blue text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
           >
             {saving ? 'שומר...' : `שמור תפריט (${totalItemCount} פריטים)`}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-medium border border-slate-700 text-text-muted hover:text-text-main transition"
+            className="px-4 py-2.5 rounded-lg text-sm font-medium border border-light-border text-dark-text-muted hover:text-dark-text transition"
           >
             ביטול
           </button>
