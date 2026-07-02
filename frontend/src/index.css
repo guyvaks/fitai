@@ -7,6 +7,13 @@
   --color-text-main: #F8FAFC;
   --color-text-muted: #94A3B8;
 
+  --color-accent-blue: #2563EB;
+  --color-light-bg: #FFFFFF;
+  --color-light-surface: #FFFFFF;
+  --color-light-border: #E5E7EB;
+  --color-dark-text: #111827;
+  --color-dark-text-muted: #6B7280;
+
   --font-family-heebo: "Heebo", sans-serif;
 
   --radius-card: 12px;

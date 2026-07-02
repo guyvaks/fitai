@@ -6,10 +6,10 @@ export default function BMIMeter({ bmi, category }) {
   const percent = ((clampedBmi - MIN) / (MAX - MIN)) * 100;
 
   const categoryColor = {
-    "תת משקל": "bg-blue-500 text-blue-400",
-    "משקל תקין": "bg-green-500 text-green-400",
-    "עודף משקל": "bg-yellow-500 text-yellow-400",
-    "השמנה": "bg-red-500 text-red-400",
+    "תת משקל": "bg-blue-500 text-blue-600",
+    "משקל תקין": "bg-green-500 text-green-600",
+    "עודף משקל": "bg-yellow-500 text-yellow-600",
+    "השמנה": "bg-red-500 text-red-600",
   };
 
   const badgeColor = categoryColor[category] || "bg-gray-500 text-gray-400";
@@ -45,7 +45,7 @@ export default function BMIMeter({ bmi, category }) {
       />
 
       {/* Labels */}
-      <div className="flex justify-between mt-1 text-xs text-text-muted">
+      <div className="flex justify-between mt-1 text-xs text-dark-text-muted">
         <span>תת משקל</span>
         <span>תקין</span>
         <span>עודף</span>

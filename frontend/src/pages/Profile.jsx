@@ -138,20 +138,20 @@ export default function Profile() {
 
   if (fetchingProfile) {
     return (
-      <div className="flex justify-center items-center h-40 text-text-muted">
+      <div className="flex justify-center items-center h-40 text-dark-text-muted bg-light-bg rounded-card">
         טוען פרופיל...
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto" dir="rtl">
-      <h2 className="text-2xl font-bold text-text-main">פרופיל ומדדים</h2>
+    <div className="space-y-8 max-w-2xl mx-auto bg-light-bg p-6 rounded-card" dir="rtl">
+      <h2 className="text-2xl font-bold text-dark-text">פרופיל ומדדים</h2>
 
       {/* Metrics Section */}
       {saved && metrics && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-text-main border-b border-slate-700 pb-2">
+          <h3 className="text-lg font-semibold text-dark-text border-b border-light-border pb-2">
             המדדים שלך
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -161,12 +161,12 @@ export default function Profile() {
               subtitle={metrics.bmi_category}
               color={
                 metrics.bmi < 18.5
-                  ? "text-blue-400"
+                  ? "text-blue-600"
                   : metrics.bmi < 25
-                  ? "text-green-400"
+                  ? "text-green-600"
                   : metrics.bmi < 30
-                  ? "text-yellow-400"
-                  : "text-red-400"
+                  ? "text-yellow-600"
+                  : "text-red-600"
               }
             />
             <MetricCard
@@ -174,27 +174,27 @@ export default function Profile() {
               value={metrics.bmr?.toLocaleString()}
               unit='קק"ל'
               subtitle="קלוריות בסיסיות ביום"
-              color="text-blue-400"
+              color="text-blue-600"
             />
             <MetricCard
               title="TDEE — סה״כ קלוריות"
               value={metrics.tdee?.toLocaleString()}
               unit='קק"ל'
               subtitle="כולל פעילות גופנית"
-              color="text-cyan-400"
+              color="text-cyan-600"
             />
             <MetricCard
               title="יעד קלוריות"
               value={metrics.target_calories?.toLocaleString()}
               unit='קק"ל'
               subtitle={GOAL_LABELS[metrics.goal] || metrics.goal}
-              color="text-primary"
+              color="text-accent-blue"
             />
           </div>
 
           {/* BMI Meter */}
-          <div className="bg-surface rounded-card p-5">
-            <h4 className="text-text-main font-medium mb-4">מד BMI</h4>
+          <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+            <h4 className="text-dark-text font-medium mb-4">מד BMI</h4>
             <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} />
           </div>
         </div>
@@ -202,14 +202,14 @@ export default function Profile() {
 
       {/* Profile Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <h3 className="text-lg font-semibold text-text-main border-b border-slate-700 pb-2">
+        <h3 className="text-lg font-semibold text-dark-text border-b border-light-border pb-2">
           נתוני משתמש
         </h3>
 
         {/* Age + Gender */}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-text-muted text-sm">גיל</label>
+            <label className="text-dark-text-muted text-sm">גיל</label>
             <input
               type="number"
               min="10"
@@ -217,11 +217,11 @@ export default function Profile() {
               required
               value={form.age}
               onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
-              className="bg-slate-800 border border-slate-600 rounded-elem px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-text-muted text-sm">מין</label>
+            <label className="text-dark-text-muted text-sm">מין</label>
             <div className="flex gap-2 mt-1">
               {[{ value: "male", label: "זכר" }, { value: "female", label: "נקבה" }].map((g) => (
                 <button
@@ -230,8 +230,8 @@ export default function Profile() {
                   onClick={() => setForm((p) => ({ ...p, gender: g.value }))}
                   className={`flex-1 py-2 rounded-elem border text-sm font-medium transition-colors ${
                     form.gender === g.value
-                      ? "bg-primary border-primary text-white"
-                      : "bg-slate-800 border-slate-600 text-text-muted hover:border-primary"
+                      ? "bg-accent-blue border-accent-blue text-white"
+                      : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
                   }`}
                 >
                   {g.label}
@@ -244,7 +244,7 @@ export default function Profile() {
         {/* Height + Weight + Target */}
         <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-text-muted text-sm">גובה ס״מ</label>
+            <label className="text-dark-text-muted text-sm">גובה ס״מ</label>
             <input
               type="number"
               min="100"
@@ -252,11 +252,11 @@ export default function Profile() {
               required
               value={form.height_cm}
               onChange={(e) => setForm((p) => ({ ...p, height_cm: e.target.value }))}
-              className="bg-slate-800 border border-slate-600 rounded-elem px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-text-muted text-sm">משקל נוכחי ק״ג</label>
+            <label className="text-dark-text-muted text-sm">משקל נוכחי ק״ג</label>
             <input
               type="number"
               min="20"
@@ -265,11 +265,11 @@ export default function Profile() {
               required
               value={form.weight_kg}
               onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
-              className="bg-slate-800 border border-slate-600 rounded-elem px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-text-muted text-sm">משקל יעד ק״ג</label>
+            <label className="text-dark-text-muted text-sm">משקל יעד ק״ג</label>
             <input
               type="number"
               min="20"
@@ -277,14 +277,14 @@ export default function Profile() {
               step="0.1"
               value={form.target_weight_kg}
               onChange={(e) => setForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
-              className="bg-slate-800 border border-slate-600 rounded-elem px-3 py-2 text-text-main focus:outline-none focus:border-primary"
+              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
             />
           </div>
         </div>
 
         {/* Activity Level */}
         <div className="flex flex-col gap-2">
-          <label className="text-text-muted text-sm">רמת פעילות</label>
+          <label className="text-dark-text-muted text-sm">רמת פעילות</label>
           <div className="grid grid-cols-1 gap-2">
             {ACTIVITY_OPTIONS.map((opt) => (
               <button
@@ -293,14 +293,14 @@ export default function Profile() {
                 onClick={() => setForm((p) => ({ ...p, activity_level: opt.value }))}
                 className={`flex items-center gap-3 px-4 py-3 rounded-elem border text-right transition-colors ${
                   form.activity_level === opt.value
-                    ? "bg-primary/20 border-primary"
-                    : "bg-slate-800 border-slate-600 hover:border-slate-500"
+                    ? "bg-blue-50 border-accent-blue"
+                    : "bg-white border-light-border hover:border-gray-300"
                 }`}
               >
                 <span className="text-xl">{opt.icon}</span>
                 <div>
-                  <div className="text-text-main text-sm font-medium">{opt.label}</div>
-                  <div className="text-text-muted text-xs">{opt.desc}</div>
+                  <div className="text-dark-text text-sm font-medium">{opt.label}</div>
+                  <div className="text-dark-text-muted text-xs">{opt.desc}</div>
                 </div>
               </button>
             ))}
@@ -309,7 +309,7 @@ export default function Profile() {
 
         {/* Goal */}
         <div className="flex flex-col gap-2">
-          <label className="text-text-muted text-sm">מטרה</label>
+          <label className="text-dark-text-muted text-sm">מטרה</label>
           <div className="grid grid-cols-2 gap-2">
             {GOAL_OPTIONS.map((opt) => (
               <button
@@ -318,12 +318,12 @@ export default function Profile() {
                 onClick={() => setForm((p) => ({ ...p, goal: opt.value }))}
                 className={`flex items-center gap-2 px-4 py-3 rounded-elem border text-right transition-colors ${
                   form.goal === opt.value
-                    ? "bg-primary/20 border-primary"
-                    : "bg-slate-800 border-slate-600 hover:border-slate-500"
+                    ? "bg-blue-50 border-accent-blue"
+                    : "bg-white border-light-border hover:border-gray-300"
                 }`}
               >
                 <span className="text-xl">{opt.icon}</span>
-                <span className="text-text-main text-sm font-medium">{opt.label}</span>
+                <span className="text-dark-text text-sm font-medium">{opt.label}</span>
               </button>
             ))}
           </div>
@@ -337,12 +337,12 @@ export default function Profile() {
             { key: "allergies", label: "אלרגיות" },
           ].map(({ key, label }) => (
             <div key={key} className="flex flex-col gap-1">
-              <label className="text-text-muted text-sm">{label}</label>
+              <label className="text-dark-text-muted text-sm">{label}</label>
               <textarea
                 rows={2}
                 value={form[key]}
                 onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                className="bg-slate-800 border border-slate-600 rounded-elem px-3 py-2 text-text-main focus:outline-none focus:border-primary resize-none text-sm"
+                className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue resize-none text-sm"
                 placeholder={`הכנס ${label.toLowerCase()}...`}
               />
             </div>
@@ -351,7 +351,7 @@ export default function Profile() {
 
         {/* Equipment */}
         <div className="flex flex-col gap-2">
-          <label className="text-text-muted text-sm">ציוד זמין</label>
+          <label className="text-dark-text-muted text-sm">ציוד זמין</label>
           <div className="flex flex-wrap gap-2">
             {EQUIPMENT_OPTIONS.map((item) => (
               <button
@@ -360,8 +360,8 @@ export default function Profile() {
                 onClick={() => handleEquipmentToggle(item)}
                 className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
                   form.equipment.includes(item)
-                    ? "bg-primary border-primary text-white"
-                    : "bg-slate-800 border-slate-600 text-text-muted hover:border-primary"
+                    ? "bg-accent-blue border-accent-blue text-white"
+                    : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
                 }`}
               >
                 {item}
@@ -372,7 +372,7 @@ export default function Profile() {
 
         {/* Meals per day */}
         <div className="flex flex-col gap-2">
-          <label className="text-text-muted text-sm">מספר ארוחות ביום</label>
+          <label className="text-dark-text-muted text-sm">מספר ארוחות ביום</label>
           <div className="flex gap-2">
             {[3, 4, 5, 6].map((n) => (
               <button
@@ -381,8 +381,8 @@ export default function Profile() {
                 onClick={() => setForm((p) => ({ ...p, meals_per_day: n }))}
                 className={`flex-1 py-2 rounded-elem border text-sm font-medium transition-colors ${
                   form.meals_per_day === n
-                    ? "bg-primary border-primary text-white"
-                    : "bg-slate-800 border-slate-600 text-text-muted hover:border-primary"
+                    ? "bg-accent-blue border-accent-blue text-white"
+                    : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
                 }`}
               >
                 {n}
@@ -392,7 +392,7 @@ export default function Profile() {
         </div>
 
         {error && (
-          <div className="bg-red-900/30 border border-red-500 text-red-400 rounded-elem px-4 py-2 text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-600 rounded-elem px-4 py-2 text-sm">
             {error}
           </div>
         )}
@@ -400,7 +400,7 @@ export default function Profile() {
         <button
           type="submit"
           disabled={loading || !form.activity_level || !form.goal}
-          className="w-full bg-primary hover:bg-green-400 text-white font-semibold py-3 rounded-elem transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-accent-blue hover:bg-accent-blue/90 text-white font-semibold py-3 rounded-elem transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {loading ? "שומר..." : saved ? "עדכן פרופיל וחשב מחדש" : "שמור פרופיל וחשב מדדים"}
         </button>

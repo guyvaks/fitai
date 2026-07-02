@@ -28,14 +28,14 @@ function round1(n) {
   return Math.round(n * 10) / 10
 }
 
-function ProgressBar({ value, max, color = 'bg-primary' }) {
+function ProgressBar({ value, max, color = 'bg-accent-blue' }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 bg-slate-700 rounded-full h-2">
+      <div className="flex-1 bg-gray-200 rounded-full h-2">
         <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-text-muted w-8 text-left">{pct}%</span>
+      <span className="text-xs text-dark-text-muted w-8 text-left">{pct}%</span>
     </div>
   )
 }
@@ -170,29 +170,29 @@ export default function FoodLog() {
   const dayLabel = date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
-    <div className="space-y-6" dir="rtl">
-      <h2 className="text-2xl font-bold text-text-main">יומן אכילה</h2>
+    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+      <h2 className="text-2xl font-bold text-dark-text">יומן אכילה</h2>
 
       {/* Date picker */}
-      <div className="flex items-center justify-center gap-4 bg-surface rounded-card p-3">
-        <button onClick={() => changeDay(-1)} className="text-text-muted hover:text-text-main text-lg px-2">→</button>
-        <span className="text-text-main font-medium">{dayLabel}</span>
-        <button onClick={() => changeDay(1)}  className="text-text-muted hover:text-text-main text-lg px-2">←</button>
+      <div className="flex items-center justify-center gap-4 bg-white border border-light-border rounded-card p-3 shadow-sm">
+        <button onClick={() => changeDay(-1)} className="text-dark-text-muted hover:text-dark-text text-lg px-2">→</button>
+        <span className="text-dark-text font-medium">{dayLabel}</span>
+        <button onClick={() => changeDay(1)}  className="text-dark-text-muted hover:text-dark-text text-lg px-2">←</button>
       </div>
 
       {/* Daily summary */}
-      <div className="bg-surface rounded-card p-4 space-y-3">
-        <h3 className="text-text-main font-semibold text-sm">סיכום יומי</h3>
+      <div className="bg-white border border-light-border rounded-card p-4 space-y-3 shadow-sm">
+        <h3 className="text-dark-text font-semibold text-sm">סיכום יומי</h3>
         <div className="space-y-2">
           {[
-            { label: 'קלוריות', value: totals.calories, target: targets.calories, unit: 'קק"ל', color: 'bg-primary', textColor: 'text-primary' },
-            { label: 'חלבון',   value: totals.protein,  target: targets.protein,  unit: 'g',    color: 'bg-blue-500',   textColor: 'text-blue-400' },
-            { label: 'פחמימות', value: totals.carbs,    target: targets.carbs,    unit: 'g',    color: 'bg-yellow-500', textColor: 'text-yellow-400' },
-            { label: 'שומן',    value: totals.fat,      target: targets.fat,      unit: 'g',    color: 'bg-orange-500', textColor: 'text-orange-400' },
+            { label: 'קלוריות', value: totals.calories, target: targets.calories, unit: 'קק"ל', color: 'bg-accent-blue', textColor: 'text-accent-blue' },
+            { label: 'חלבון',   value: totals.protein,  target: targets.protein,  unit: 'g',    color: 'bg-blue-500',   textColor: 'text-blue-600' },
+            { label: 'פחמימות', value: totals.carbs,    target: targets.carbs,    unit: 'g',    color: 'bg-yellow-500', textColor: 'text-yellow-600' },
+            { label: 'שומן',    value: totals.fat,      target: targets.fat,      unit: 'g',    color: 'bg-orange-500', textColor: 'text-orange-600' },
           ].map(row => (
             <div key={row.label}>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-text-muted">{row.label}</span>
+                <span className="text-dark-text-muted">{row.label}</span>
                 <span className={`${row.textColor} font-medium`}>{Math.round(row.value)}{row.unit} / {row.target}{row.unit}</span>
               </div>
               <ProgressBar value={row.value} max={row.target} color={row.color} />
@@ -202,9 +202,9 @@ export default function FoodLog() {
       </div>
 
       {/* Add food form */}
-      <div className="bg-surface rounded-card p-4 space-y-4">
-        <h3 className="text-text-main font-semibold">הוסף מאכל</h3>
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+      <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
+        <h3 className="text-dark-text font-semibold">הוסף מאכל</h3>
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -214,25 +214,25 @@ export default function FoodLog() {
 
             {/* Selected food info chip */}
             {selectedFood && (
-              <div className="col-span-2 flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
+              <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
                   {selectedFood.category}
                 </span>
-                <span className="text-primary text-sm font-medium">{selectedFood.name}</span>
-                <span className="text-text-muted text-xs mr-auto">לכל 100ג׳: {selectedFood.calories} קק״ל · חלבון {selectedFood.protein}g · פחמ׳ {selectedFood.carbs}g · שומן {selectedFood.fat}g</span>
+                <span className="text-accent-blue text-sm font-medium">{selectedFood.name}</span>
+                <span className="text-dark-text-muted text-xs mr-auto">לכל 100ג׳: {selectedFood.calories} קק״ל · חלבון {selectedFood.protein}g · פחמ׳ {selectedFood.carbs}g · שומן {selectedFood.fat}g</span>
               </div>
             )}
 
             {/* Quantity */}
             <div className="col-span-2">
-              <label className="text-text-muted text-xs mb-1 block">כמות (גרם)</label>
+              <label className="text-dark-text-muted text-xs mb-1 block">כמות (גרם)</label>
               <input
                 type="number"
                 min="1"
                 placeholder="100"
                 value={form.quantity_g}
                 onChange={e => handleQuantityChange(e.target.value)}
-                className="w-full bg-background border border-slate-700 rounded-lg px-3 py-2 text-text-main text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
               />
             </div>
 
@@ -244,14 +244,14 @@ export default function FoodLog() {
               { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
             ].map(field => (
               <div key={field.key}>
-                <label className="text-text-muted text-xs mb-1 block">{field.label}</label>
+                <label className="text-dark-text-muted text-xs mb-1 block">{field.label}</label>
                 <input
                   type="number"
                   placeholder={field.placeholder}
                   value={form[field.key]}
                   onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                  className={`w-full bg-background border rounded-lg px-3 py-2 text-text-main text-sm focus:outline-none focus:border-primary transition-colors ${
-                    selectedFood ? 'border-primary/40' : 'border-slate-700'
+                  className={`w-full bg-white border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue transition-colors ${
+                    selectedFood ? 'border-accent-blue/40' : 'border-light-border'
                   }`}
                 />
               </div>
@@ -260,7 +260,7 @@ export default function FoodLog() {
 
           {/* Meal type */}
           <div>
-            <label className="text-text-muted text-xs mb-2 block">ארוחה</label>
+            <label className="text-dark-text-muted text-xs mb-2 block">ארוחה</label>
             <div className="flex flex-wrap gap-2">
               {MEAL_TYPES.map(mt => (
                 <button
@@ -269,8 +269,8 @@ export default function FoodLog() {
                   onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
                     form.meal_type === mt.value
-                      ? 'bg-primary text-white'
-                      : 'bg-background border border-slate-700 text-text-muted hover:text-text-main'
+                      ? 'bg-accent-blue text-white'
+                      : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
                   }`}
                 >
                   {mt.label}
@@ -282,7 +282,7 @@ export default function FoodLog() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-primary text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition"
+            className="w-full bg-accent-blue text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
           >
             {submitting ? 'שומר...' : '+ הוסף לאכילה'}
           </button>
@@ -291,26 +291,26 @@ export default function FoodLog() {
 
       {/* Log list */}
       <div className="space-y-2">
-        <h3 className="text-text-main font-semibold text-sm">מה אכלת היום</h3>
+        <h3 className="text-dark-text font-semibold text-sm">מה אכלת היום</h3>
         {loading ? (
-          <p className="text-text-muted text-sm text-center py-4">טוען...</p>
+          <p className="text-dark-text-muted text-sm text-center py-4">טוען...</p>
         ) : logs.length === 0 ? (
-          <div className="bg-surface rounded-card p-6 text-center text-text-muted text-sm">
+          <div className="bg-white border border-light-border rounded-card p-6 text-center text-dark-text-muted text-sm shadow-sm">
             לא נרשמו ארוחות עדיין
           </div>
         ) : (
           logs.map(log => (
-            <div key={log.id} className="bg-surface rounded-card p-3 flex items-center justify-between gap-2">
+            <div key={log.id} className="bg-white border border-light-border rounded-card p-3 flex items-center justify-between gap-2 shadow-sm">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-text-main text-sm font-medium truncate">{log.food_name}</span>
-                  <span className="text-xs text-text-muted bg-background px-2 py-0.5 rounded-full shrink-0">
+                  <span className="text-dark-text text-sm font-medium truncate">{log.food_name}</span>
+                  <span className="text-xs text-dark-text-muted bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
                     {MEAL_LABELS[log.meal_type] || log.meal_type}
                   </span>
                 </div>
-                <div className="flex gap-3 text-xs text-text-muted mt-1 flex-wrap">
+                <div className="flex gap-3 text-xs text-dark-text-muted mt-1 flex-wrap">
                   <span>{log.quantity_g}g</span>
-                  <span className="text-primary font-medium">{log.calories} קק"ל</span>
+                  <span className="text-accent-blue font-medium">{log.calories} קק"ל</span>
                   <span>ח׳ {log.protein}g</span>
                   <span>פ׳ {log.carbs}g</span>
                   <span>ש׳ {log.fat}g</span>
@@ -318,7 +318,7 @@ export default function FoodLog() {
               </div>
               <button
                 onClick={() => handleDelete(log.id)}
-                className="text-text-muted hover:text-red-400 transition text-xl px-1 shrink-0"
+                className="text-dark-text-muted hover:text-red-600 transition text-xl px-1 shrink-0"
               >
                 ×
               </button>

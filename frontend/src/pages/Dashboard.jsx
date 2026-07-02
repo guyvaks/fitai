@@ -23,10 +23,10 @@ const weeklyData = [
 ];
 
 const BMI_CATEGORY_COLOR = {
-  "תת משקל": "text-blue-400",
-  "משקל תקין": "text-green-400",
-  "עודף משקל": "text-yellow-400",
-  "השמנה": "text-red-400",
+  "תת משקל": "text-blue-600",
+  "משקל תקין": "text-green-600",
+  "עודף משקל": "text-yellow-600",
+  "השמנה": "text-red-600",
 };
 
 export default function Dashboard() {
@@ -89,53 +89,53 @@ export default function Dashboard() {
       value: bmi ?? "—",
       unit: bmiCategory ?? "",
       icon: "⚖️",
-      color: bmi ? (BMI_CATEGORY_COLOR[bmiCategory] || "text-primary") : "text-text-muted",
+      color: bmi ? (BMI_CATEGORY_COLOR[bmiCategory] || "text-accent-blue") : "text-dark-text-muted",
     },
     {
       label: "חלבון",
       value: "142",
       unit: "גרם",
       icon: "🥩",
-      color: "text-blue-400",
+      color: "text-blue-600",
     },
     {
       label: "שתייה",
       value: "1.8",
       unit: "ליטר",
       icon: "💧",
-      color: "text-cyan-400",
+      color: "text-cyan-600",
     },
     {
       label: "אימון הבא",
       value: "כפות ידיים",
       unit: "מחר",
       icon: "💪",
-      color: "text-primary",
+      color: "text-accent-blue",
     },
     {
       label: "TDEE",
       value: profile?.tdee ? profile.tdee.toLocaleString() : "—",
       unit: 'קק"ל',
       icon: "🫀",
-      color: "text-red-400",
+      color: "text-red-600",
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
       {/* Welcome */}
       <div>
-        <h2 className="text-2xl font-bold text-text-main">
+        <h2 className="text-2xl font-bold text-dark-text">
           {greeting} 👋
         </h2>
-        <p className="text-text-muted mt-1">הנה סיכום היום שלך</p>
+        <p className="text-dark-text-muted mt-1">הנה סיכום היום שלך</p>
       </div>
 
       {/* AI pending suggestion banner */}
       {hasPendingSuggestion && (
         <div
           onClick={() => navigate('/ai-suggestion')}
-          className="bg-primary/10 border border-primary/30 rounded-card p-4 text-sm text-primary cursor-pointer hover:bg-primary/20 transition flex items-center justify-between"
+          className="bg-blue-50 border border-blue-200 rounded-card p-4 text-sm text-accent-blue cursor-pointer hover:bg-blue-100 transition flex items-center justify-between"
         >
           <span>🤖 AI הכין לך תכנית חדשה! לחץ לצפייה ואישור</span>
           <span>←</span>
@@ -144,7 +144,7 @@ export default function Dashboard() {
 
       {/* No profile banner */}
       {!profile && (
-        <div className="bg-primary/10 border border-primary/30 rounded-card p-4 text-sm text-primary">
+        <div className="bg-blue-50 border border-blue-200 rounded-card p-4 text-sm text-accent-blue">
           💡 עדיין לא הגדרת פרופיל אישי. עבור ל<a href="/profile" className="underline font-medium">דף הפרופיל</a> כדי לראות נתונים אישיים.
         </div>
       )}
@@ -154,10 +154,10 @@ export default function Dashboard() {
         {summaryCards.map((card) => (
           <div
             key={card.label}
-            className="bg-surface rounded-card p-4 flex flex-col gap-2"
+            className="bg-white border border-light-border rounded-card p-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between">
-              <span className="text-text-muted text-sm">{card.label}</span>
+              <span className="text-dark-text-muted text-sm">{card.label}</span>
               <span className="text-2xl">{card.icon}</span>
             </div>
             <div>
@@ -165,7 +165,7 @@ export default function Dashboard() {
                 {card.value}
               </span>
               {card.unit && (
-                <span className="text-text-muted text-xs mr-1">{card.unit}</span>
+                <span className="text-dark-text-muted text-xs mr-1">{card.unit}</span>
               )}
             </div>
           </div>
@@ -173,69 +173,69 @@ export default function Dashboard() {
       </div>
 
       {/* AI full plan card */}
-      <div className="bg-surface rounded-card p-5" dir="rtl">
+      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xl">🤖</span>
-          <h3 className="text-text-main font-semibold">בנה תכנית שבועית מלאה</h3>
+          <h3 className="text-dark-text font-semibold">בנה תכנית שבועית מלאה</h3>
         </div>
         <div className="flex gap-3 mb-4">
-          <span className="bg-primary/15 text-primary text-xs px-2 py-1 rounded-full font-medium">🥗 תזונה</span>
-          <span className="bg-blue-500/15 text-blue-400 text-xs px-2 py-1 rounded-full font-medium">💪 אימונים</span>
-          <span className="bg-purple-500/15 text-purple-400 text-xs px-2 py-1 rounded-full font-medium">✅ מפקח AI</span>
+          <span className="bg-blue-50 text-accent-blue text-xs px-2 py-1 rounded-full font-medium">🥗 תזונה</span>
+          <span className="bg-indigo-50 text-indigo-600 text-xs px-2 py-1 rounded-full font-medium">💪 אימונים</span>
+          <span className="bg-purple-50 text-purple-600 text-xs px-2 py-1 rounded-full font-medium">✅ מפקח AI</span>
         </div>
-        <p className="text-text-muted text-sm mb-4 leading-relaxed">
+        <p className="text-dark-text-muted text-sm mb-4 leading-relaxed">
           מפעיל 3 סוכני AI — תזונאי, מאמן כושר ומפקח — ליצירת תפריט תזונה שבועי מלא + תכנית אימונים. שניהם יישמרו לאחר האישור.
         </p>
         {fullPlanLoading && (
-          <div className="mb-3 bg-primary/10 border border-primary/20 rounded-lg px-3 py-2 text-primary text-xs text-center">
+          <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-accent-blue text-xs text-center">
             ⏳ הסוכנים עובדים... זה לוקח כ-60-90 שניות
           </div>
         )}
         {fullPlanError && (
-          <div className="mb-3 bg-red-900/20 border border-red-500/30 rounded-lg px-3 py-2 text-red-400 text-xs">
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-600 text-xs">
             {fullPlanError}
           </div>
         )}
         <button
           onClick={handleFullPlan}
           disabled={fullPlanLoading || !profile}
-          className="w-full bg-primary text-white py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition"
+          className="w-full bg-accent-blue text-white py-3 rounded-xl font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
         >
           {fullPlanLoading ? '⏳ יוצר תפריט + אימונים...' : '✨ בנה לי תכנית מלאה (תזונה + אימונים)'}
         </button>
         {!profile && (
-          <p className="text-text-muted text-xs mt-2 text-center">יש להשלים פרופיל לפני יצירת תכנית</p>
+          <p className="text-dark-text-muted text-xs mt-2 text-center">יש להשלים פרופיל לפני יצירת תכנית</p>
         )}
       </div>
 
       {/* Weekly calories chart */}
-      <div className="bg-surface rounded-card p-5">
-        <h3 className="text-text-main font-semibold mb-4">קלוריות שבועיות</h3>
+      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+        <h3 className="text-dark-text font-semibold mb-4">קלוריות שבועיות</h3>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={weeklyData} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
             <XAxis
               dataKey="day"
-              tick={{ fill: "#94A3B8", fontSize: 12 }}
+              tick={{ fill: "#6B7280", fontSize: 12 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
-              tick={{ fill: "#94A3B8", fontSize: 12 }}
+              tick={{ fill: "#6B7280", fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               domain={[0, 2500]}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "#0F172A",
-                border: "1px solid #334155",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #E5E7EB",
                 borderRadius: "8px",
-                color: "#F8FAFC",
+                color: "#111827",
               }}
               formatter={(value) => [`${value} קק"ל`, "קלוריות"]}
             />
-            <Bar dataKey="calories" fill="#22C55E" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="calories" fill="#2563EB" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

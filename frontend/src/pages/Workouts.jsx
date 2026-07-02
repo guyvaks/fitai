@@ -122,26 +122,26 @@ export default function Workouts() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-text-muted text-lg">טוען תכנית אימונים...</div>
+      <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
+        <div className="text-dark-text-muted text-lg">טוען תכנית אימונים...</div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6" dir="rtl">
+    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-text-main">תכנית האימונים שלך</h1>
+        <h1 className="text-2xl font-bold text-dark-text">תכנית האימונים שלך</h1>
         <div className="flex gap-2">
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition"
+            className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
           >
             {generating ? '⏳ יוצר תכנית...' : '🤖 בנה לי עם AI'}
           </button>
-          <button className="bg-surface border border-border text-text-main px-4 py-2 rounded-lg font-medium text-sm hover:bg-surface/80 transition-colors">
+          <button className="bg-white border border-light-border text-dark-text px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
             ✏️ בנה ידנית
           </button>
         </div>
@@ -149,20 +149,20 @@ export default function Workouts() {
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-surface rounded-card p-6 text-center space-y-4">
+        <div className="bg-white border border-light-border rounded-card p-6 text-center space-y-4 shadow-sm">
           <div className="text-4xl">{done ? '✅' : '🏋️'}</div>
-          <p className={`font-medium transition-colors duration-300 ${done ? 'text-green-400' : 'text-text-main'}`}>
+          <p className={`font-medium transition-colors duration-300 ${done ? 'text-green-600' : 'text-dark-text'}`}>
             {done ? 'הושלם! עובר לתכנית...' : 'ה-AI בונה את תכנית האימונים שלך...'}
           </p>
-          {!done && <p className="text-text-muted text-sm">כ-20–40 שניות</p>}
+          {!done && <p className="text-dark-text-muted text-sm">כ-20–40 שניות</p>}
           <div className="space-y-1.5">
-            <div className="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${done ? 'bg-green-500' : 'bg-primary'}`}
+                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${done ? 'bg-green-500' : 'bg-accent-blue'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className={`text-xs font-medium text-left transition-colors ${done ? 'text-green-400' : 'text-text-muted'}`}>
+            <p className={`text-xs font-medium text-left transition-colors ${done ? 'text-green-600' : 'text-dark-text-muted'}`}>
               {Math.round(progress)}%
             </p>
           </div>
@@ -176,16 +176,16 @@ export default function Workouts() {
                 const completed = progress >= step.to
                 return (
                   <div key={step.num} className={`flex items-center gap-2 text-xs transition-colors duration-300 ${
-                    completed ? 'text-green-400' : active ? 'text-text-main' : 'text-text-muted/40'
+                    completed ? 'text-green-600' : active ? 'text-dark-text' : 'text-dark-text-muted/40'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300 ${
-                      completed ? 'bg-green-500 text-white' : active ? 'bg-primary text-white' : 'bg-slate-700 text-slate-500'
+                      completed ? 'bg-green-500 text-white' : active ? 'bg-accent-blue text-white' : 'bg-gray-200 text-gray-400'
                     }`}>
                       {completed ? '✓' : step.num}
                     </span>
                     <span>{step.label}</span>
-                    {active    && <span className="text-primary animate-pulse mr-auto">בתהליך...</span>}
-                    {completed && <span className="text-green-400 mr-auto">הושלם</span>}
+                    {active    && <span className="text-accent-blue animate-pulse mr-auto">בתהליך...</span>}
+                    {completed && <span className="text-green-600 mr-auto">הושלם</span>}
                   </div>
                 )
               })}
@@ -196,7 +196,7 @@ export default function Workouts() {
 
       {/* Error */}
       {genError && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-card p-4 text-red-400 text-sm">
+        <div className="bg-red-50 border border-red-200 rounded-card p-4 text-red-600 text-sm">
           {genError}
         </div>
       )}
@@ -209,8 +209,8 @@ export default function Workouts() {
             onClick={() => setActiveDay(d.key)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
               activeDay === d.key
-                ? 'bg-primary text-white'
-                : 'bg-surface text-text-muted hover:text-text-main'
+                ? 'bg-accent-blue text-white shadow-sm'
+                : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text hover:bg-gray-50'
             }`}
           >
             {d.label}
@@ -220,44 +220,44 @@ export default function Workouts() {
 
       {/* Day content */}
       {!plan ? (
-        <div className="bg-surface rounded-card p-10 text-center space-y-4">
+        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
           <div className="text-5xl">🏋️</div>
-          <p className="text-text-muted text-lg">לא הגדרת תכנית אימונים עדיין</p>
+          <p className="text-dark-text-muted text-lg">לא הגדרת תכנית אימונים עדיין</p>
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
+            className="bg-accent-blue hover:bg-accent-blue/90 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 shadow-sm"
           >
             🤖 בנה עם AI
           </button>
         </div>
       ) : isRestDay(activeDay) ? (
-        <div className="bg-surface rounded-card p-10 text-center space-y-2">
+        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-2 shadow-sm">
           <div className="text-5xl">😴</div>
-          <p className="text-text-main text-xl font-semibold mt-3">יום מנוחה</p>
-          <p className="text-text-muted">המנוחה היא חלק חשוב מהאימון</p>
+          <p className="text-dark-text text-xl font-semibold mt-3">יום מנוחה</p>
+          <p className="text-dark-text-muted">המנוחה היא חלק חשוב מהאימון</p>
         </div>
       ) : (
         <div className="space-y-4">
           {getDayName(activeDay) && (
-            <h2 className="text-lg font-semibold text-text-main">{getDayName(activeDay)}</h2>
+            <h2 className="text-lg font-semibold text-dark-text">{getDayName(activeDay)}</h2>
           )}
           <div className="space-y-3">
             {getDayExercises(activeDay).map((ex, i) => (
-              <div key={i} className="bg-surface rounded-card p-4 space-y-1">
+              <div key={i} className="bg-white border border-light-border rounded-card p-4 space-y-1 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-text-main text-base">{ex.name}</span>
-                  <span className="text-xs text-text-muted bg-surface/80 border border-border px-2 py-1 rounded">{ex.muscle_group}</span>
+                  <span className="font-semibold text-dark-text text-base">{ex.name}</span>
+                  <span className="text-xs text-accent-blue bg-blue-50 border border-blue-100 px-2 py-1 rounded">{ex.muscle_group}</span>
                 </div>
-                <p className="text-text-muted text-sm">
+                <p className="text-dark-text-muted text-sm">
                   {ex.sets} סטים × {ex.reps} חזרות
                   {ex.weight_kg ? ` × ${ex.weight_kg} ק״ג` : ''}
                 </p>
                 {ex.rest_seconds && (
-                  <p className="text-text-muted text-xs">מנוחה: {ex.rest_seconds} שניות</p>
+                  <p className="text-dark-text-muted text-xs">מנוחה: {ex.rest_seconds} שניות</p>
                 )}
                 {ex.notes && (
-                  <p className="text-text-muted text-xs italic">הערות: {ex.notes}</p>
+                  <p className="text-dark-text-muted text-xs italic">הערות: {ex.notes}</p>
                 )}
               </div>
             ))}
@@ -265,7 +265,7 @@ export default function Workouts() {
 
           <button
             onClick={() => navigate(`/live-workout?day=${activeDay}`)}
-            className="w-full bg-primary hover:bg-primary/90 text-white py-4 rounded-card font-bold text-lg transition-colors min-h-[56px]"
+            className="w-full bg-accent-blue hover:bg-accent-blue/90 text-white py-4 rounded-card font-bold text-lg transition-colors min-h-[56px] shadow-sm"
           >
             🏃 התחל אימון
           </button>

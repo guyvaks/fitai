@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { foodsAPI } from '../services/api'
 
 const CATEGORY_COLOR = {
-  'חלבונים':      'bg-blue-500/15 text-blue-400',
-  'מוצרי חלב':   'bg-purple-500/15 text-purple-400',
-  'פחמימות':      'bg-yellow-500/15 text-yellow-400',
-  'ירקות':        'bg-green-500/15 text-green-400',
-  'פירות':        'bg-orange-500/15 text-orange-400',
-  'שומנים':       'bg-red-500/15 text-red-400',
-  'חטיפים בריאים':'bg-teal-500/15 text-teal-400',
+  'חלבונים':      'bg-blue-50 text-blue-600',
+  'מוצרי חלב':   'bg-purple-50 text-purple-600',
+  'פחמימות':      'bg-yellow-50 text-yellow-600',
+  'ירקות':        'bg-green-50 text-green-600',
+  'פירות':        'bg-orange-50 text-orange-600',
+  'שומנים':       'bg-red-50 text-red-600',
+  'חטיפים בריאים':'bg-teal-50 text-teal-600',
 }
 
 const CATEGORIES = [
@@ -74,7 +74,7 @@ export default function FoodSearch({ onSelect }) {
 
   return (
     <div className="col-span-2 space-y-3">
-      <label className="text-text-muted text-xs block">חיפוש מאכל</label>
+      <label className="text-dark-text-muted text-xs block">חיפוש מאכל</label>
 
       {/* Category tabs + search */}
       <div className="space-y-2">
@@ -87,10 +87,10 @@ export default function FoodSearch({ onSelect }) {
               onClick={() => handleCategoryChange({ target: { value: cat } })}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                 category === cat
-                  ? 'bg-primary text-white'
+                  ? 'bg-accent-blue text-white'
                   : cat === 'כל הקטגוריות'
-                    ? 'bg-background border border-slate-600 text-text-muted hover:text-text-main'
-                    : `${CATEGORY_COLOR[cat] || 'bg-slate-700 text-text-muted'} opacity-70 hover:opacity-100`
+                    ? 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
+                    : `${CATEGORY_COLOR[cat] || 'bg-gray-100 text-dark-text-muted'} opacity-70 hover:opacity-100`
               }`}
             >
               {cat}
@@ -105,11 +105,11 @@ export default function FoodSearch({ onSelect }) {
             placeholder="חיפוש חופשי..."
             value={query}
             onChange={handleQueryChange}
-            className="w-full bg-background border border-slate-700 rounded-lg px-3 py-2 text-text-main text-sm focus:outline-none focus:border-primary"
+            className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
             autoComplete="off"
           />
           {searching && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">⏳</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-text-muted text-xs">⏳</span>
           )}
         </div>
       </div>
@@ -117,15 +117,15 @@ export default function FoodSearch({ onSelect }) {
       {/* Foods grid — grouped by category */}
       <div className="space-y-4 max-h-72 overflow-y-auto pl-1">
         {groupOrder.length === 0 && !searching && (
-          <p className="text-text-muted text-sm text-center py-3">לא נמצאו מוצרים</p>
+          <p className="text-dark-text-muted text-sm text-center py-3">לא נמצאו מוצרים</p>
         )}
         {groupOrder.map(cat => (
           <div key={cat}>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat] || 'bg-slate-700 text-text-muted'}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat] || 'bg-gray-100 text-dark-text-muted'}`}>
                 {cat}
               </span>
-              <span className="text-text-muted text-xs">{grouped[cat].length} מוצרים</span>
+              <span className="text-dark-text-muted text-xs">{grouped[cat].length} מוצרים</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {grouped[cat].map(food => (
@@ -133,10 +133,10 @@ export default function FoodSearch({ onSelect }) {
                   key={food.id}
                   type="button"
                   onClick={() => onSelect(food)}
-                  className="bg-background hover:bg-primary/10 hover:border-primary/40 border border-slate-700/50 rounded-lg px-3 py-2 text-right transition-all group"
+                  className="bg-white hover:bg-blue-50 hover:border-accent-blue/40 border border-light-border rounded-lg px-3 py-2 text-right transition-all group shadow-sm"
                 >
-                  <p className="text-text-main text-xs font-medium leading-tight group-hover:text-primary transition-colors truncate">{food.name}</p>
-                  <p className="text-text-muted text-xs mt-0.5">{food.calories} קק״ל · ח׳ {food.protein}g</p>
+                  <p className="text-dark-text text-xs font-medium leading-tight group-hover:text-accent-blue transition-colors truncate">{food.name}</p>
+                  <p className="text-dark-text-muted text-xs mt-0.5">{food.calories} קק״ל · ח׳ {food.protein}g</p>
                 </button>
               ))}
             </div>

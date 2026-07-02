@@ -18,21 +18,21 @@ function RestTimer({ restTimer, restActive, initialRest, skipRest, addTime }) {
   if (!restActive && restTimer === 0) return null
 
   return (
-    <div className="bg-surface rounded-card p-6 text-center space-y-4">
-      <p className="text-text-muted text-sm font-medium">זמן מנוחה</p>
+    <div className="bg-white border border-light-border rounded-card p-6 text-center space-y-4 shadow-sm">
+      <p className="text-dark-text-muted text-sm font-medium">זמן מנוחה</p>
 
       <div className="relative w-40 h-40 mx-auto">
         <svg className="w-40 h-40 -rotate-90" viewBox="0 0 160 160">
-          <circle cx="80" cy="80" r="70" fill="none" stroke="#1E293B" strokeWidth="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#E5E7EB" strokeWidth="8"/>
           <circle
-            cx="80" cy="80" r="70" fill="none" stroke="#22C55E" strokeWidth="8"
+            cx="80" cy="80" r="70" fill="none" stroke="#2563EB" strokeWidth="8"
             strokeDasharray={circumference}
             strokeDashoffset={circumference * (1 - progress)}
             style={{ transition: 'stroke-dashoffset 1s linear' }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl font-bold text-white">
+          <span className="text-3xl font-bold text-dark-text">
             {Math.floor(restTimer / 60)}:{String(restTimer % 60).padStart(2, '0')}
           </span>
         </div>
@@ -41,19 +41,19 @@ function RestTimer({ restTimer, restActive, initialRest, skipRest, addTime }) {
       <div className="flex justify-center gap-3">
         <button
           onClick={() => addTime(-15)}
-          className="bg-surface border border-border text-text-muted px-3 py-2 rounded-lg text-sm hover:text-text-main min-h-[44px]"
+          className="bg-white border border-light-border text-dark-text-muted px-3 py-2 rounded-lg text-sm hover:text-dark-text min-h-[44px]"
         >
           -15s
         </button>
         <button
           onClick={skipRest}
-          className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-medium min-h-[44px]"
+          className="bg-accent-blue text-white px-5 py-2 rounded-lg text-sm font-medium min-h-[44px]"
         >
           דלג
         </button>
         <button
           onClick={() => addTime(15)}
-          className="bg-surface border border-border text-text-muted px-3 py-2 rounded-lg text-sm hover:text-text-main min-h-[44px]"
+          className="bg-white border border-light-border text-dark-text-muted px-3 py-2 rounded-lg text-sm hover:text-dark-text min-h-[44px]"
         >
           +15s
         </button>
@@ -178,18 +178,18 @@ export default function LiveWorkout() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-text-muted text-lg">מתחיל אימון...</div>
+      <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
+        <div className="text-dark-text-muted text-lg">מתחיל אימון...</div>
       </div>
     )
   }
 
   if (!currentExercise) {
     return (
-      <div className="text-center py-16 space-y-4" dir="rtl">
+      <div className="text-center py-16 space-y-4 bg-light-bg rounded-card" dir="rtl">
         <div className="text-5xl">🏆</div>
-        <p className="text-xl font-bold text-text-main">האימון הושלם!</p>
-        <button onClick={() => navigate('/workouts')} className="bg-primary text-white px-6 py-3 rounded-lg font-semibold">
+        <p className="text-xl font-bold text-dark-text">האימון הושלם!</p>
+        <button onClick={() => navigate('/workouts')} className="bg-accent-blue text-white px-6 py-3 rounded-lg font-semibold shadow-sm">
           חזור לתכנית
         </button>
       </div>
@@ -197,36 +197,36 @@ export default function LiveWorkout() {
   }
 
   return (
-    <div className="space-y-4 max-w-lg mx-auto pb-8" dir="rtl">
+    <div className="space-y-4 max-w-lg mx-auto pb-8 bg-light-bg p-6 rounded-card" dir="rtl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-text-main">🏋️ אימון חי</h1>
-          <p className="text-xs text-text-muted">
+          <h1 className="text-lg font-bold text-dark-text">🏋️ אימון חי</h1>
+          <p className="text-xs text-dark-text-muted">
             תרגיל {currentExerciseIdx + 1} מתוך {totalExercises}
           </p>
         </div>
         <button
           onClick={() => setShowConfirm(true)}
-          className="bg-red-600/20 text-red-400 border border-red-600/30 px-3 py-2 rounded-lg text-sm hover:bg-red-600/30 transition-colors min-h-[44px]"
+          className="bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-sm hover:bg-red-100 transition-colors min-h-[44px]"
         >
           עצור אימון
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full bg-surface rounded-full h-2">
+      <div className="w-full bg-gray-200 rounded-full h-2">
         <div
-          className="bg-primary h-2 rounded-full transition-all duration-300"
+          className="bg-accent-blue h-2 rounded-full transition-all duration-300"
           style={{ width: `${((currentExerciseIdx) / totalExercises) * 100}%` }}
         />
       </div>
 
       {/* Exercise card */}
-      <div className="bg-surface rounded-card p-6 space-y-5">
+      <div className="bg-white border border-light-border rounded-card p-6 space-y-5 shadow-sm">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-text-main">{currentExercise.name}</h2>
-          <p className="text-text-muted mt-1">{currentExercise.muscle_group}</p>
+          <h2 className="text-3xl font-bold text-dark-text">{currentExercise.name}</h2>
+          <p className="text-dark-text-muted mt-1">{currentExercise.muscle_group}</p>
         </div>
 
         {/* Sets grid */}
@@ -240,10 +240,10 @@ export default function LiveWorkout() {
                 onClick={() => { if (!done) setCurrentSetIdx(i) }}
                 className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center cursor-pointer border-2 transition-all ${
                   done
-                    ? 'bg-green-600/20 border-green-500 text-green-400'
+                    ? 'bg-green-50 border-green-500 text-green-600'
                     : isCurrent
-                    ? 'bg-primary/20 border-primary text-primary'
-                    : 'bg-surface border-border text-text-muted'
+                    ? 'bg-blue-50 border-accent-blue text-accent-blue'
+                    : 'bg-white border-light-border text-dark-text-muted'
                 }`}
               >
                 <span className="text-xs text-current opacity-70">סט</span>
@@ -256,22 +256,22 @@ export default function LiveWorkout() {
         {/* Inputs */}
         <div className="flex gap-4 items-end">
           <div className="flex-1 space-y-1">
-            <label className="text-xs text-text-muted">משקל (ק״ג)</label>
+            <label className="text-xs text-dark-text-muted">משקל (ק״ג)</label>
             <input
               type="number"
               value={weightInput}
               onChange={e => setWeightInput(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-3 text-text-main text-center text-lg font-bold min-h-[48px]"
+              className="w-full bg-white border border-light-border rounded-lg px-3 py-3 text-dark-text text-center text-lg font-bold min-h-[48px]"
               placeholder="0"
             />
           </div>
           <div className="flex-1 space-y-1">
-            <label className="text-xs text-text-muted">חזרות</label>
+            <label className="text-xs text-dark-text-muted">חזרות</label>
             <input
               type="number"
               value={repsInput}
               onChange={e => setRepsInput(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-3 text-text-main text-center text-lg font-bold min-h-[48px]"
+              className="w-full bg-white border border-light-border rounded-lg px-3 py-3 text-dark-text text-center text-lg font-bold min-h-[48px]"
               placeholder="0"
             />
           </div>
@@ -281,13 +281,13 @@ export default function LiveWorkout() {
         <button
           onClick={handleCompleteSet}
           disabled={saving}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-lg transition-colors min-h-[56px]"
+          className="w-full bg-accent-blue hover:bg-accent-blue/90 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-lg transition-colors min-h-[56px] shadow-sm"
         >
           {saving ? 'שומר...' : `סמן סט ${currentSetIdx + 1} כבוצע ✓`}
         </button>
 
         {saving && (
-          <p className="text-center text-xs text-text-muted">שומר...</p>
+          <p className="text-center text-xs text-dark-text-muted">שומר...</p>
         )}
       </div>
 
@@ -305,14 +305,14 @@ export default function LiveWorkout() {
         <button
           onClick={handlePrevExercise}
           disabled={currentExerciseIdx === 0}
-          className="flex-1 bg-surface border border-border text-text-muted py-3 rounded-xl font-medium disabled:opacity-30 hover:text-text-main transition-colors min-h-[48px]"
+          className="flex-1 bg-white border border-light-border text-dark-text-muted py-3 rounded-xl font-medium disabled:opacity-30 hover:text-dark-text transition-colors min-h-[48px]"
         >
           ← תרגיל קודם
         </button>
         <button
           onClick={handleNextExercise}
           disabled={currentExerciseIdx >= totalExercises - 1}
-          className="flex-1 bg-surface border border-border text-text-muted py-3 rounded-xl font-medium disabled:opacity-30 hover:text-text-main transition-colors min-h-[48px]"
+          className="flex-1 bg-white border border-light-border text-dark-text-muted py-3 rounded-xl font-medium disabled:opacity-30 hover:text-dark-text transition-colors min-h-[48px]"
         >
           תרגיל הבא →
         </button>
@@ -321,9 +321,9 @@ export default function LiveWorkout() {
       {/* Confirm stop dialog */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-card p-6 w-full max-w-sm space-y-4" dir="rtl">
-            <h3 className="text-lg font-bold text-text-main">לסיים את האימון?</h3>
-            <p className="text-text-muted text-sm">ההתקדמות תישמר</p>
+          <div className="bg-white rounded-card p-6 w-full max-w-sm space-y-4 shadow-lg" dir="rtl">
+            <h3 className="text-lg font-bold text-dark-text">לסיים את האימון?</h3>
+            <p className="text-dark-text-muted text-sm">ההתקדמות תישמר</p>
             <div className="flex gap-3">
               <button
                 onClick={handleStop}
@@ -333,7 +333,7 @@ export default function LiveWorkout() {
               </button>
               <button
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 bg-surface border border-border text-text-muted py-3 rounded-lg font-medium hover:text-text-main"
+                className="flex-1 bg-white border border-light-border text-dark-text-muted py-3 rounded-lg font-medium hover:text-dark-text"
               >
                 המשך אימון
               </button>

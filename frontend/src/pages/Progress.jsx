@@ -36,21 +36,21 @@ export default function Progress() {
   }, [])
 
   return (
-    <div className="space-y-6" dir="rtl">
-      <h1 className="text-2xl font-bold text-text-main">ההתקדמות שלי</h1>
+    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+      <h1 className="text-2xl font-bold text-dark-text">ההתקדמות שלי</h1>
 
       {/* Personal Records */}
-      <div className="bg-surface rounded-card p-5 space-y-3">
-        <h2 className="text-lg font-semibold text-text-main">🏆 שיאים אישיים</h2>
+      <div className="bg-white border border-light-border rounded-card p-5 space-y-3 shadow-sm">
+        <h2 className="text-lg font-semibold text-dark-text">🏆 שיאים אישיים</h2>
         {loading ? (
-          <p className="text-text-muted text-sm">טוען...</p>
+          <p className="text-dark-text-muted text-sm">טוען...</p>
         ) : records.length === 0 ? (
-          <p className="text-text-muted text-sm">אין שיאים עדיין — צא לאימון!</p>
+          <p className="text-dark-text-muted text-sm">אין שיאים עדיין — צא לאימון!</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-text-muted border-b border-border">
+                <tr className="text-dark-text-muted border-b border-light-border">
                   <th className="text-right py-2 font-medium">תרגיל</th>
                   <th className="text-center py-2 font-medium">משקל</th>
                   <th className="text-center py-2 font-medium">חזרות</th>
@@ -59,11 +59,11 @@ export default function Progress() {
               </thead>
               <tbody>
                 {records.map(r => (
-                  <tr key={r.id} className="border-b border-border/50">
-                    <td className="py-2 text-text-main">{r.exercise_name}</td>
-                    <td className="py-2 text-center text-text-main">{r.record_weight_kg} ק״ג</td>
-                    <td className="py-2 text-center text-text-muted">{r.record_reps}</td>
-                    <td className="py-2 text-center text-green-400">{r.calculated_1rm ? `${Math.round(r.calculated_1rm)} ק״ג` : '—'}</td>
+                  <tr key={r.id} className="border-b border-light-border/50">
+                    <td className="py-2 text-dark-text">{r.exercise_name}</td>
+                    <td className="py-2 text-center text-dark-text">{r.record_weight_kg} ק״ג</td>
+                    <td className="py-2 text-center text-dark-text-muted">{r.record_reps}</td>
+                    <td className="py-2 text-center text-green-600">{r.calculated_1rm ? `${Math.round(r.calculated_1rm)} ק״ג` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -73,36 +73,36 @@ export default function Progress() {
       </div>
 
       {/* Weekly calories bar chart */}
-      <div className="bg-surface rounded-card p-5 space-y-3">
-        <h2 className="text-lg font-semibold text-text-main">📊 קלוריות שבועיות</h2>
+      <div className="bg-white border border-light-border rounded-card p-5 space-y-3 shadow-sm">
+        <h2 className="text-lg font-semibold text-dark-text">📊 קלוריות שבועיות</h2>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={weeklyCalories}>
-            <XAxis dataKey="day" tick={{ fill: '#94A3B8', fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="day" tick={{ fill: '#6B7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#6B7280', fontSize: 11 }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: '#1E293B', border: 'none', borderRadius: 8 }}
-              labelStyle={{ color: '#F8FAFC' }}
-              itemStyle={{ color: '#22C55E' }}
+              contentStyle={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8 }}
+              labelStyle={{ color: '#111827' }}
+              itemStyle={{ color: '#2563EB' }}
             />
-            <Bar dataKey="calories" fill="#22C55E" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="calories" fill="#2563EB" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Weight progress line chart */}
-      <div className="bg-surface rounded-card p-5 space-y-3">
-        <h2 className="text-lg font-semibold text-text-main">⚖️ מגמת משקל</h2>
+      <div className="bg-white border border-light-border rounded-card p-5 space-y-3 shadow-sm">
+        <h2 className="text-lg font-semibold text-dark-text">⚖️ מגמת משקל</h2>
         <ResponsiveContainer width="100%" height={180}>
           <LineChart data={weightProgress}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-            <XAxis dataKey="week" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis domain={['auto', 'auto']} tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+            <XAxis dataKey="week" tick={{ fill: '#6B7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis domain={['auto', 'auto']} tick={{ fill: '#6B7280', fontSize: 11 }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ background: '#1E293B', border: 'none', borderRadius: 8 }}
-              labelStyle={{ color: '#F8FAFC' }}
-              itemStyle={{ color: '#3B82F6' }}
+              contentStyle={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8 }}
+              labelStyle={{ color: '#111827' }}
+              itemStyle={{ color: '#2563EB' }}
             />
-            <Line type="monotone" dataKey="weight" stroke="#3B82F6" strokeWidth={2} dot={{ fill: '#3B82F6', r: 4 }} />
+            <Line type="monotone" dataKey="weight" stroke="#2563EB" strokeWidth={2} dot={{ fill: '#2563EB', r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
