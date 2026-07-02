@@ -34,10 +34,10 @@ export default function Sidebar({ onClose }) {
     : "?";
 
   return (
-    <div className="flex flex-col h-full bg-surface border-l border-slate-700">
+    <div className="flex flex-col h-full bg-white border-l border-light-border">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-700">
-        <span className="text-2xl font-bold text-primary">FitAI</span>
+      <div className="p-6 border-b border-light-border">
+        <span className="text-2xl font-bold text-accent-blue">FitAI</span>
       </div>
 
       {/* Nav */}
@@ -50,8 +50,8 @@ export default function Sidebar({ onClose }) {
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-elem text-sm font-medium transition-colors ${
                 isActive
-                  ? "bg-primary text-white"
-                  : "text-text-muted hover:bg-slate-700 hover:text-text-main"
+                  ? "bg-accent-blue text-white"
+                  : "text-dark-text-muted hover:bg-blue-50 hover:text-dark-text"
               }`
             }
           >
@@ -61,7 +61,7 @@ export default function Sidebar({ onClose }) {
         ))}
         {user?.is_admin && (
           <>
-            <div className="pt-2 pb-1 px-4 text-xs text-text-muted uppercase tracking-wider">ניהול</div>
+            <div className="pt-2 pb-1 px-4 text-xs text-dark-text-muted uppercase tracking-wider">ניהול</div>
             {adminItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -70,8 +70,8 @@ export default function Sidebar({ onClose }) {
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-4 py-3 rounded-elem text-sm font-medium transition-colors ${
                     isActive
-                      ? "bg-primary text-white"
-                      : "text-text-muted hover:bg-slate-700 hover:text-text-main"
+                      ? "bg-accent-blue text-white"
+                      : "text-dark-text-muted hover:bg-blue-50 hover:text-dark-text"
                   }`
                 }
               >
@@ -84,25 +84,25 @@ export default function Sidebar({ onClose }) {
       </nav>
 
       {/* User footer */}
-      <div className="p-4 border-t border-slate-700">
+      <div className="p-4 border-t border-light-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
-              <p className="text-text-main text-sm font-medium truncate">
+              <p className="text-dark-text text-sm font-medium truncate">
                 {user?.full_name || "משתמש"}
               </p>
               {user?.is_admin && (
-                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded font-medium flex-shrink-0">אדמין 👑</span>
+                <span className="text-xs bg-yellow-50 text-yellow-600 px-1.5 py-0.5 rounded font-medium flex-shrink-0">אדמין 👑</span>
               )}
             </div>
-            <p className="text-text-muted text-xs truncate">{user?.email}</p>
+            <p className="text-dark-text-muted text-xs truncate">{user?.email}</p>
           </div>
           <button
             onClick={handleLogout}
-            className="text-red-400 hover:text-red-300 transition-colors text-xs font-medium px-2 py-1 rounded hover:bg-red-500/10"
+            className="text-red-600 hover:text-red-700 transition-colors text-xs font-medium px-2 py-1 rounded hover:bg-red-50"
             title="התנתק"
           >
             התנתק
