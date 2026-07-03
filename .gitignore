@@ -24,3 +24,6 @@ frontend/.vite/
 .vscode/
 .idea/
 .env.save
+supabase/.temp/
+backend/gitleaks_report.json
+gitleaks_report.json
