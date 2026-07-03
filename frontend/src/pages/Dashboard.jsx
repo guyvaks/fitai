@@ -209,15 +209,32 @@ export default function Dashboard() {
 
         <div className="col-span-2 md:col-span-1 bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col items-center gap-3">
           <span className="text-dark-text-muted text-sm self-start">פעילות יומית</span>
-          <div className="relative">
-            <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
-            <div className="absolute inset-0 flex items-center justify-center text-xl">🍽️</div>
-          </div>
-          <div className="flex gap-3 text-xs text-dark-text-muted">
-            <span className="text-orange-500 font-semibold">אימון {workoutPct}%</span>
-            <span className="text-green-600 font-semibold">חלבון {proteinPct}%</span>
-            <span className="text-red-500 font-semibold">קלוריות {caloriesPct}%</span>
-          </div>
+          {workoutPct === 0 && proteinPct === 0 && caloriesPct === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-2">
+              <span className="text-2xl">💪</span>
+              <p className="text-dark-text-muted text-xs leading-relaxed">
+                עדיין לא תיעדת היום — בוא נתחיל
+              </p>
+              <button
+                onClick={() => navigate('/food-log')}
+                className="text-accent-blue text-xs font-medium hover:underline"
+              >
+                לתיעוד ארוחה ←
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
+                <div className="absolute inset-0 flex items-center justify-center text-xl">🍽️</div>
+              </div>
+              <div className="flex gap-3 text-xs text-dark-text-muted">
+                <span className="text-orange-500 font-semibold">אימון {workoutPct}%</span>
+                <span className="text-green-600 font-semibold">חלבון {proteinPct}%</span>
+                <span className="text-red-500 font-semibold">קלוריות {caloriesPct}%</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -266,18 +283,24 @@ export default function Dashboard() {
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent-blue inline-block" />משקל</span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={weeklyWeightDemo}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-            <XAxis dataKey="day" tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
-            <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
-            <Tooltip
-              contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", color: "#111827" }}
-            />
-            <Line type="monotone" dataKey="weight" stroke="#2563EB" strokeWidth={2} dot={{ fill: "#2563EB", r: 3 }} />
-            <Line type="monotone" dataKey="bodyFat" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        {new Set(weeklyWeightDemo.map(d => d.weight)).size < 2 ? (
+          <div className="h-[200px] flex items-center justify-center text-dark-text-muted text-sm text-center px-6">
+            עדיין אין מספיק נתונים להצגת מגמה
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={weeklyWeightDemo}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
+              <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", color: "#111827" }}
+              />
+              <Line type="monotone" dataKey="weight" stroke="#2563EB" strokeWidth={2} dot={{ fill: "#2563EB", r: 3 }} />
+              <Line type="monotone" dataKey="bodyFat" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Today summary cards */}
