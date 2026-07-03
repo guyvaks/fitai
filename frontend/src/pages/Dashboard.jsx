@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { agentsAPI } from "../services/api";
+import { agentsAPI, nutritionAPI, workoutsAPI } from "../services/api";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,22 +12,65 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const weeklyData = [
-  { day: "ראש", calories: 1850 },
-  { day: "שני", calories: 2100 },
-  { day: "שלש", calories: 1950 },
-  { day: "רבע", calories: 2200 },
-  { day: "חמש", calories: 1800 },
-  { day: "שיש", calories: 2300 },
-  { day: "שבת", calories: 1700 },
+const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+const weeklyWeightDemo = [
+  { day: "א", weight: 79.5, bodyFat: 22.5 },
+  { day: "ב", weight: 79.2, bodyFat: 22.3 },
+  { day: "ג", weight: 79.0, bodyFat: 22.0 },
+  { day: "ד", weight: 78.9, bodyFat: 21.9 },
+  { day: "ה", weight: 78.7, bodyFat: 21.7 },
+  { day: "ו", weight: 78.6, bodyFat: 21.6 },
+  { day: "ש", weight: 78.5, bodyFat: 21.5 },
 ];
 
-const BMI_CATEGORY_COLOR = {
-  "תת משקל": "text-blue-600",
-  "משקל תקין": "text-green-600",
-  "עודף משקל": "text-yellow-600",
-  "השמנה": "text-red-600",
-};
+function toIso(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function daysAgoLabel(dateStr) {
+  if (!dateStr) return "";
+  const diffDays = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (diffDays <= 0) return "היום";
+  if (diffDays === 1) return "אתמול";
+  return `לפני ${diffDays} ימים`;
+}
+
+function ActivityRings({ workoutPct, proteinPct, caloriesPct }) {
+  const size = 176;
+  const center = size / 2;
+  const rings = [
+    { pct: caloriesPct, color: "#EF4444", track: "#FEE2E2", radius: 78 },
+    { pct: proteinPct, color: "#22C55E", track: "#DCFCE7", radius: 58 },
+    { pct: workoutPct, color: "#F97316", track: "#FFEDD5", radius: 38 },
+  ];
+
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      {rings.map((r) => {
+        const circumference = 2 * Math.PI * r.radius;
+        const clamped = Math.max(0, Math.min(100, r.pct));
+        return (
+          <g key={r.radius}>
+            <circle cx={center} cy={center} r={r.radius} fill="none" stroke={r.track} strokeWidth="12" />
+            <circle
+              cx={center}
+              cy={center}
+              r={r.radius}
+              fill="none"
+              stroke={r.color}
+              strokeWidth="12"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - clamped / 100)}
+              style={{ transition: "stroke-dashoffset 0.6s ease" }}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 export default function Dashboard() {
   const { user, profile } = useAuth();
@@ -36,14 +79,40 @@ export default function Dashboard() {
   const [hasPendingSuggestion, setHasPendingSuggestion] = useState(false);
   const [fullPlanLoading, setFullPlanLoading] = useState(false);
   const [fullPlanError, setFullPlanError] = useState(null);
+  const [todayLogs, setTodayLogs] = useState([]);
+  const [todayWorkout, setTodayWorkout] = useState(null);
+  const [records, setRecords] = useState([]);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
-  const greeting = profile?.gender === 'female' ? `ברוכה הבאה, ${firstName}!` : `ברוך הבא, ${firstName}!`;
+  const today = new Date();
+  const todayDayKey = DAY_KEYS[today.getDay()];
+  const dateLabel = today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   useEffect(() => {
     agentsAPI.getPending()
       .then(r => setHasPendingSuggestion((r.data?.length ?? 0) > 0))
       .catch(() => setHasPendingSuggestion(false));
   }, [location.pathname]);
+
+  useEffect(() => {
+    nutritionAPI.getDayLog(toIso(today))
+      .then(r => setTodayLogs(r.data))
+      .catch(() => setTodayLogs([]));
+
+    workoutsAPI.getPlan()
+      .then(({ data }) => {
+        const dayData = data?.plan_data?.[todayDayKey];
+        if (dayData) {
+          const exercises = Array.isArray(dayData) ? dayData : dayData.exercises || [];
+          setTodayWorkout({ name: dayData.name || "אימון היום", count: exercises.length });
+        }
+      })
+      .catch(() => setTodayWorkout(null));
+
+    workoutsAPI.getPersonalRecords()
+      .then(({ data }) => setRecords(data || []))
+      .catch(() => setRecords([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFullPlan = async () => {
     setFullPlanLoading(true);
@@ -74,61 +143,36 @@ export default function Dashboard() {
 
   const targetCal = profile?.target_calories;
   const bmi = profile?.bmi;
-  const bmiCategory = profile?.bmi_category;
+  const weightKg = profile?.weight_kg;
+  const tdee = profile?.tdee;
 
-  const summaryCards = [
-    {
-      label: "קלוריות היום",
-      value: targetCal ? `0 / ${targetCal.toLocaleString()}` : "—",
-      unit: 'קק"ל',
-      icon: "🔥",
-      color: "text-orange-400",
-    },
-    {
-      label: "BMI",
-      value: bmi ?? "—",
-      unit: bmiCategory ?? "",
-      icon: "⚖️",
-      color: bmi ? (BMI_CATEGORY_COLOR[bmiCategory] || "text-accent-blue") : "text-dark-text-muted",
-    },
-    {
-      label: "חלבון",
-      value: "142",
-      unit: "גרם",
-      icon: "🥩",
-      color: "text-blue-600",
-    },
-    {
-      label: "שתייה",
-      value: "1.8",
-      unit: "ליטר",
-      icon: "💧",
-      color: "text-cyan-600",
-    },
-    {
-      label: "אימון הבא",
-      value: "כפות ידיים",
-      unit: "מחר",
-      icon: "💪",
-      color: "text-accent-blue",
-    },
-    {
-      label: "TDEE",
-      value: profile?.tdee ? profile.tdee.toLocaleString() : "—",
-      unit: 'קק"ל',
-      icon: "🫀",
-      color: "text-red-600",
-    },
+  const consumedCalories = todayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
+  const consumedProtein = todayLogs.reduce((sum, l) => sum + (l.protein || 0), 0);
+  const targetProtein = targetCal ? Math.round((targetCal * 0.3) / 4) : null;
+
+  const caloriesPct = targetCal ? Math.min(100, Math.round((consumedCalories / targetCal) * 100)) : 0;
+  const proteinPct = targetProtein ? Math.min(100, Math.round((consumedProtein / targetProtein) * 100)) : 0;
+  const workoutPct = todayWorkout ? 90 : 0;
+
+  const topMetrics = [
+    { label: "TDEE", value: tdee ? tdee.toLocaleString() : "—", icon: "🫀", iconBg: "bg-red-50", iconColor: "text-red-500" },
+    { label: "יעד קלוריות", value: targetCal ? targetCal.toLocaleString() : "—", icon: "🔥", iconBg: "bg-orange-50", iconColor: "text-orange-500" },
+    { label: "BMI", value: bmi ?? "—", icon: "⚖️", iconBg: "bg-green-50", iconColor: "text-green-500" },
+    { label: "משקל נוכחי", value: weightKg ?? "—", icon: "📏", iconBg: "bg-blue-50", iconColor: "text-accent-blue" },
   ];
+
+  const latestRecords = [...records]
+    .sort((a, b) => new Date(b.achieved_at) - new Date(a.achieved_at))
+    .slice(0, 3);
 
   return (
     <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
       {/* Welcome */}
       <div>
         <h2 className="text-2xl font-bold text-dark-text">
-          {greeting} 👋
+          בוקר טוב, {firstName}
         </h2>
-        <p className="text-dark-text-muted mt-1">הנה סיכום היום שלך</p>
+        <p className="text-dark-text-muted mt-1">{dateLabel}</p>
       </div>
 
       {/* AI pending suggestion banner */}
@@ -149,27 +193,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {summaryCards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-white border border-light-border rounded-card p-4 flex flex-col gap-2 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-dark-text-muted text-sm">{card.label}</span>
-              <span className="text-2xl">{card.icon}</span>
-            </div>
+      {/* Top metric cards + activity rings */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {topMetrics.map((m) => (
+          <div key={m.label} className="bg-white border border-light-border rounded-card p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between min-h-[140px]">
+            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-base ${m.iconBg}`}>
+              {m.icon}
+            </span>
             <div>
-              <span className={`text-2xl font-bold ${card.color}`}>
-                {card.value}
-              </span>
-              {card.unit && (
-                <span className="text-dark-text-muted text-xs mr-1">{card.unit}</span>
-              )}
+              <div className="text-2xl font-bold text-dark-text">{m.value}</div>
+              <div className="text-dark-text-muted text-xs mt-0.5">{m.label}</div>
             </div>
           </div>
         ))}
+
+        <div className="col-span-2 md:col-span-1 bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col items-center gap-3">
+          <span className="text-dark-text-muted text-sm self-start">פעילות יומית</span>
+          <div className="relative">
+            <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
+            <div className="absolute inset-0 flex items-center justify-center text-xl">🍽️</div>
+          </div>
+          <div className="flex gap-3 text-xs text-dark-text-muted">
+            <span className="text-orange-500 font-semibold">אימון {workoutPct}%</span>
+            <span className="text-green-600 font-semibold">חלבון {proteinPct}%</span>
+            <span className="text-red-500 font-semibold">קלוריות {caloriesPct}%</span>
+          </div>
+        </div>
       </div>
 
       {/* AI full plan card */}
@@ -208,36 +257,98 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Weekly calories chart */}
+      {/* Weekly weight progress chart */}
       <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
-        <h3 className="text-dark-text font-semibold mb-4">קלוריות שבועיות</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-dark-text font-semibold">התקדמות משקל שבועי</h3>
+          <div className="flex items-center gap-3 text-xs text-dark-text-muted">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />אחוז שומן</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent-blue inline-block" />משקל</span>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={weeklyData} barCategoryGap="30%">
+          <LineChart data={weeklyWeightDemo}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-            <XAxis
-              dataKey="day"
-              tick={{ fill: "#6B7280", fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fill: "#6B7280", fontSize: 12 }}
-              axisLine={false}
-              tickLine={false}
-              domain={[0, 2500]}
-            />
+            <XAxis dataKey="day" tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
+            <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
             <Tooltip
-              contentStyle={{
-                backgroundColor: "#FFFFFF",
-                border: "1px solid #E5E7EB",
-                borderRadius: "8px",
-                color: "#111827",
-              }}
-              formatter={(value) => [`${value} קק"ל`, "קלוריות"]}
+              contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", color: "#111827" }}
             />
-            <Bar dataKey="calories" fill="#2563EB" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Line type="monotone" dataKey="weight" stroke="#2563EB" strokeWidth={2} dot={{ fill: "#2563EB", r: 3 }} />
+            <Line type="monotone" dataKey="bodyFat" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} />
+          </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Today summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <span className="inline-block bg-blue-50 text-accent-blue text-xs px-2 py-0.5 rounded-full font-medium mb-2">בתהליך</span>
+            <h4 className="text-dark-text font-semibold text-sm mb-1">סיכום תזונה היום</h4>
+            <p className="text-dark-text text-lg font-bold" dir="ltr">
+              {consumedCalories.toLocaleString()} / {targetCal ? targetCal.toLocaleString() : "—"}
+            </p>
+            <p className="text-dark-text-muted text-xs">קלוריות שנצרכו · נותר עד {targetCal ? Math.max(0, targetCal - consumedCalories).toLocaleString() : "—"}</p>
+          </div>
+          <img
+            src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&h=160&fit=crop&q=80"
+            alt="ארוחה בריאה"
+            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+          />
+        </div>
+
+        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <span className="inline-block bg-green-50 text-green-600 text-xs px-2 py-0.5 rounded-full font-medium mb-2">
+              {todayWorkout ? "בוצע" : "מנוחה"}
+            </span>
+            <h4 className="text-dark-text font-semibold text-sm mb-1">סיכום אימון היום</h4>
+            <p className="text-dark-text text-lg font-bold">{todayWorkout?.name || "יום מנוחה"}</p>
+            <p className="text-dark-text-muted text-xs">{todayWorkout ? `${todayWorkout.count} תרגילים` : "המנוחה חלק מהאימון"}</p>
+          </div>
+          <img
+            src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=160&h=160&fit=crop&q=80"
+            alt="ציוד אימון"
+            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+          />
+        </div>
+      </div>
+
+      {/* Recent personal records */}
+      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-dark-text font-semibold">שיאים אישיים אחרונים</h3>
+          <button onClick={() => navigate('/progress')} className="text-accent-blue text-sm font-medium hover:underline">ראה הכל</button>
+        </div>
+        {latestRecords.length === 0 ? (
+          <p className="text-dark-text-muted text-sm text-center py-4">אין שיאים עדיין — צא לאימון!</p>
+        ) : (
+          <div className="divide-y divide-light-border">
+            {latestRecords.map((r) => {
+              const delta = r.previous_record_kg != null ? r.record_weight_kg - r.previous_record_kg : null;
+              return (
+                <div key={r.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="w-9 h-9 rounded-full bg-yellow-50 flex items-center justify-center text-base">🏅</span>
+                    <div>
+                      <p className="text-dark-text text-sm font-medium">{r.exercise_name}</p>
+                      <p className="text-dark-text-muted text-xs">{daysAgoLabel(r.achieved_at)}</p>
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-dark-text font-bold text-sm">{r.record_weight_kg} ק״ג</p>
+                    {delta != null && (
+                      <p className={`text-xs ${delta >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        {delta >= 0 ? "+" : ""}{delta} ק״ג
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
