@@ -25,9 +25,9 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-surface border border-slate-700 rounded-elem p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-text-main font-bold text-lg mb-1">🔑 איפוס סיסמה</h2>
-        <p className="text-text-muted text-sm mb-4">{user.full_name} ({user.email})</p>
+      <div className="bg-white border border-light-border rounded-card p-6 w-full max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-dark-text font-bold text-lg mb-1">🔑 איפוס סיסמה</h2>
+        <p className="text-dark-text-muted text-sm mb-4">{user.full_name} ({user.email})</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="password"
@@ -35,14 +35,14 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
-            className="w-full bg-background border border-slate-600 rounded-elem px-3 py-2 text-text-main text-sm focus:outline-none focus:border-primary"
+            className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
           />
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-red-600 text-xs">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text-main transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-dark-text-muted hover:text-dark-text transition-colors">
               בטל
             </button>
-            <button type="submit" disabled={loading} className="px-4 py-2 text-sm bg-primary text-white rounded-elem hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <button type="submit" disabled={loading} className="px-4 py-2 text-sm bg-accent-blue text-white rounded-lg hover:bg-accent-blue/90 disabled:opacity-50 transition-opacity shadow-sm">
               {loading ? "מעדכן..." : "אשר"}
             </button>
           </div>
@@ -97,15 +97,15 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <div className="p-6 text-text-muted">טוען...</div>;
-  if (error) return <div className="p-6 text-red-400">{error}</div>;
+  if (loading) return <div className="p-6 text-dark-text-muted bg-light-bg rounded-card">טוען...</div>;
+  if (error) return <div className="p-6 text-red-600 bg-light-bg rounded-card">{error}</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-text-main mb-6">ניהול משתמשים 👑</h1>
-      <div className="bg-surface rounded-elem border border-slate-700 overflow-x-auto">
+    <div className="p-6 max-w-5xl mx-auto bg-light-bg rounded-card" dir="rtl">
+      <h1 className="text-2xl font-bold text-dark-text mb-6">ניהול משתמשים 👑</h1>
+      <div className="bg-white rounded-card border border-light-border overflow-x-auto shadow-sm">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-700 text-text-muted">
+          <thead className="border-b border-light-border text-dark-text-muted">
             <tr>
               <th className="px-4 py-3 text-right">שם</th>
               <th className="px-4 py-3 text-right">אימייל</th>
@@ -119,38 +119,38 @@ export default function Admin() {
               const isMe = u.id === me?.id;
               const busy = actionLoading === u.id;
               return (
-                <tr key={u.id} className="border-b border-slate-700/50 hover:bg-slate-700/20">
-                  <td className="px-4 py-3 text-text-main font-medium">
+                <tr key={u.id} className="border-b border-light-border/50 hover:bg-gray-50">
+                  <td className="px-4 py-3 text-dark-text font-medium">
                     {u.full_name}
-                    {isMe && <span className="mr-2 text-xs text-primary">(אני)</span>}
+                    {isMe && <span className="mr-2 text-xs text-accent-blue">(אני)</span>}
                   </td>
-                  <td className="px-4 py-3 text-text-muted">{u.email}</td>
-                  <td className="px-4 py-3 text-text-muted">
+                  <td className="px-4 py-3 text-dark-text-muted">{u.email}</td>
+                  <td className="px-4 py-3 text-dark-text-muted">
                     {new Date(u.created_at).toLocaleDateString("he-IL")}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {u.is_admin ? <span className="text-yellow-400">👑</span> : <span className="text-slate-600">—</span>}
+                    {u.is_admin ? <span className="text-yellow-500">👑</span> : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-stretch gap-1">
                       <button
                         onClick={() => setResetTarget(u)}
                         disabled={busy}
-                        className="text-xs px-2 py-1 rounded border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded border border-blue-200 text-accent-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >
                         🔑 סיסמה
                       </button>
                       <button
                         onClick={() => handleToggleAdmin(u)}
                         disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded border border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded border border-yellow-300 text-yellow-600 hover:bg-yellow-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >
                         {u.is_admin ? "הסר 👑" : "אדמין 👑"}
                       </button>
                       <button
                         onClick={() => handleDelete(u)}
                         disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       >
                         {busy ? "..." : "מחק 🗑️"}
                       </button>
@@ -162,7 +162,7 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
-      <p className="mt-4 text-text-muted text-xs">{users.length} משתמשים סה"כ</p>
+      <p className="mt-4 text-dark-text-muted text-xs">{users.length} משתמשים סה"כ</p>
 
       {resetTarget && (
         <ResetPasswordModal

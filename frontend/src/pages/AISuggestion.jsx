@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
 
 const STATUS_BADGE = {
-  pending: { label: 'ממתין לאישורך', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  approved: { label: 'אושר', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  rejected: { label: 'נדחה', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  pending: { label: 'ממתין לאישורך', color: 'bg-blue-50 text-accent-blue border-blue-200' },
+  approved: { label: 'אושר', color: 'bg-green-50 text-green-600 border-green-200' },
+  rejected: { label: 'נדחה', color: 'bg-red-50 text-red-600 border-red-200' },
 }
 
 const DAYS_ORDER = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -57,8 +57,8 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
             onClick={() => setActiveDay(day)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeDay === day
-                ? 'bg-primary text-white shadow-md'
-                : 'bg-background text-text-muted hover:bg-background/80 hover:text-text-main'
+                ? 'bg-accent-blue text-white shadow-sm'
+                : 'bg-gray-100 text-dark-text-muted hover:bg-gray-200 hover:text-dark-text'
             }`}
           >
             יום {DAYS_HE[day]}
@@ -68,15 +68,15 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
 
       {/* Day header */}
       <div className="flex items-start justify-between gap-2 min-w-0">
-        <h4 className="text-text-main font-semibold text-base shrink-0">
+        <h4 className="text-dark-text font-semibold text-base shrink-0">
           יום {DAYS_HE_FULL[activeDay]}
         </h4>
         {totals && (
           <div className="flex gap-1.5 flex-wrap justify-end">
-            <MacroPill label="קק״ל" value={totals.calories} unit="" color="bg-orange-500/15 text-orange-400" />
-            <MacroPill label="חלבון" value={totals.protein} color="bg-blue-500/15 text-blue-400" />
-            <MacroPill label="פחמימות" value={totals.carbs} color="bg-yellow-500/15 text-yellow-400" />
-            <MacroPill label="שומן" value={totals.fat} color="bg-purple-500/15 text-purple-400" />
+            <MacroPill label="קק״ל" value={totals.calories} unit="" color="bg-orange-50 text-orange-600" />
+            <MacroPill label="חלבון" value={totals.protein} color="bg-blue-50 text-blue-600" />
+            <MacroPill label="פחמימות" value={totals.carbs} color="bg-yellow-50 text-yellow-600" />
+            <MacroPill label="שומן" value={totals.fat} color="bg-purple-50 text-purple-600" />
           </div>
         )}
       </div>
@@ -84,34 +84,34 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
       {/* Meals */}
       <div className="space-y-3">
         {meals.map((meal, i) => (
-          <div key={i} className="bg-background rounded-xl p-4 space-y-3 min-w-0">
+          <div key={i} className="bg-white border border-light-border rounded-xl p-4 space-y-3 min-w-0 shadow-sm">
             {/* Meal header */}
             <div className="flex items-start gap-2 min-w-0">
               <div className="flex-1 min-w-0">
-                <p className="text-text-main font-semibold text-sm">{meal.name || MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
-                <p className="text-text-muted text-xs mt-0.5">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
+                <p className="text-dark-text font-semibold text-sm">{meal.name || MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
+                <p className="text-dark-text-muted text-xs mt-0.5">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
               </div>
             </div>
             {/* Meal macros */}
             <div className="flex gap-1.5 flex-wrap">
-              <MacroPill label="קק״ל" value={meal.total_calories} unit="" color="bg-orange-500/15 text-orange-400" />
-              <MacroPill label="חלבון" value={meal.total_protein} color="bg-blue-500/15 text-blue-400" />
-              <MacroPill label="פחמימות" value={meal.total_carbs} color="bg-yellow-500/15 text-yellow-400" />
-              <MacroPill label="שומן" value={meal.total_fat} color="bg-purple-500/15 text-purple-400" />
+              <MacroPill label="קק״ל" value={meal.total_calories} unit="" color="bg-orange-50 text-orange-600" />
+              <MacroPill label="חלבון" value={meal.total_protein} color="bg-blue-50 text-blue-600" />
+              <MacroPill label="פחמימות" value={meal.total_carbs} color="bg-yellow-50 text-yellow-600" />
+              <MacroPill label="שומן" value={meal.total_fat} color="bg-purple-50 text-purple-600" />
             </div>
 
             {/* Ingredients */}
             {meal.items && meal.items.length > 0 && (
-              <div className="border-t border-white/5 pt-3">
-                <p className="text-text-muted text-xs font-medium mb-2">מרכיבים:</p>
+              <div className="border-t border-light-border pt-3">
+                <p className="text-dark-text-muted text-xs font-medium mb-2">מרכיבים:</p>
                 <div className="space-y-1.5">
                   {meal.items.map((item, j) => (
                     <div key={j} className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="text-text-main text-xs truncate">{item.name}</span>
+                      <span className="text-dark-text text-xs truncate">{item.name}</span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-text-muted text-xs">{item.qty_g}ג׳</span>
-                        <span className="text-orange-400 text-xs font-medium">{item.calories} קק״ל</span>
-                        <span className="text-blue-400 text-xs">ח׳ {item.protein}ג׳</span>
+                        <span className="text-dark-text-muted text-xs">{item.qty_g}ג׳</span>
+                        <span className="text-orange-600 text-xs font-medium">{item.calories} קק״ל</span>
+                        <span className="text-blue-600 text-xs">ח׳ {item.protein}ג׳</span>
                       </div>
                     </div>
                   ))}
@@ -146,8 +146,8 @@ function WorkoutPlanFull({ workoutPlan }) {
               onClick={() => setActiveDay(day)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 activeDay === day
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-background text-text-muted hover:bg-background/80 hover:text-text-main'
+                  ? 'bg-accent-blue text-white shadow-sm'
+                  : 'bg-gray-100 text-dark-text-muted hover:bg-gray-200 hover:text-dark-text'
               }`}
             >
               יום {DAYS_HE[day]}{rest ? ' 😴' : ''}
@@ -159,9 +159,9 @@ function WorkoutPlanFull({ workoutPlan }) {
       {/* Workout header */}
       {workout && (
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h4 className="text-text-main font-semibold text-base">{workout.name || 'אימון'}</h4>
+          <h4 className="text-dark-text font-semibold text-base">{workout.name || 'אימון'}</h4>
           {workout.type && (
-            <span className="bg-primary/15 text-primary text-xs px-2 py-0.5 rounded-full font-medium">
+            <span className="bg-blue-50 text-accent-blue text-xs px-2 py-0.5 rounded-full font-medium">
               {WORKOUT_TYPE_HE[workout.type] || workout.type}
             </span>
           )}
@@ -170,9 +170,9 @@ function WorkoutPlanFull({ workoutPlan }) {
 
       {/* Rest day */}
       {isRest && (
-        <div className="bg-background rounded-xl p-6 text-center">
+        <div className="bg-white border border-light-border rounded-xl p-6 text-center shadow-sm">
           <p className="text-4xl mb-2">😴</p>
-          <p className="text-text-muted text-sm">יום מנוחה — תנוח והתאושש</p>
+          <p className="text-dark-text-muted text-sm">יום מנוחה — תנוח והתאושש</p>
         </div>
       )}
 
@@ -180,29 +180,29 @@ function WorkoutPlanFull({ workoutPlan }) {
       {!isRest && workout.exercises && (
         <div className="space-y-2">
           {workout.exercises.map((ex, i) => (
-            <div key={i} className="bg-background rounded-xl p-4 min-w-0">
+            <div key={i} className="bg-white border border-light-border rounded-xl p-4 min-w-0 shadow-sm">
               <div className="flex items-start gap-2 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <p className="text-text-main font-medium text-sm">{ex.name}</p>
+                  <p className="text-dark-text font-medium text-sm">{ex.name}</p>
                   {ex.muscle_group && (
-                    <span className="inline-block bg-surface text-text-muted text-xs px-2 py-0.5 rounded-full mt-1">{ex.muscle_group}</span>
+                    <span className="inline-block bg-gray-100 text-dark-text-muted text-xs px-2 py-0.5 rounded-full mt-1">{ex.muscle_group}</span>
                   )}
                   {ex.notes && (
-                    <p className="text-text-muted text-xs mt-1">{ex.notes}</p>
+                    <p className="text-dark-text-muted text-xs mt-1">{ex.notes}</p>
                   )}
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap mt-2">
-                <span className="bg-primary/15 text-primary text-xs px-2 py-1 rounded-lg font-medium">
+                <span className="bg-blue-50 text-accent-blue text-xs px-2 py-1 rounded-lg font-medium">
                   {ex.sets} × {ex.reps}
                 </span>
                 {ex.weight_kg > 0 && (
-                  <span className="bg-yellow-500/15 text-yellow-400 text-xs px-2 py-1 rounded-lg font-medium">
+                  <span className="bg-yellow-50 text-yellow-600 text-xs px-2 py-1 rounded-lg font-medium">
                     {ex.weight_kg} ק״ג
                   </span>
                 )}
                 {ex.rest_seconds > 0 && (
-                  <span className="bg-surface text-text-muted text-xs px-2 py-1 rounded-lg">
+                  <span className="bg-gray-100 text-dark-text-muted text-xs px-2 py-1 rounded-lg">
                     מנוחה {ex.rest_seconds}שנ׳
                   </span>
                 )}
@@ -220,7 +220,7 @@ function GroceryList({ items }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item, i) => (
-        <span key={i} className="bg-background text-text-muted text-xs px-3 py-1.5 rounded-full border border-white/5 hover:border-primary/30 transition-colors">
+        <span key={i} className="bg-white text-dark-text-muted text-xs px-3 py-1.5 rounded-full border border-light-border hover:border-accent-blue/30 transition-colors">
           {item}
         </span>
       ))}
@@ -282,22 +282,22 @@ export default function AISuggestion() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-text-muted">טוען...</p>
+      <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
+        <p className="text-dark-text-muted">טוען...</p>
       </div>
     )
   }
 
   if (!suggestion) {
     return (
-      <div className="space-y-6" dir="rtl">
-        <h2 className="text-2xl font-bold text-text-main">הצעות AI</h2>
-        <div className="bg-surface rounded-card p-10 text-center space-y-4">
+      <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+        <h2 className="text-2xl font-bold text-dark-text">הצעות AI</h2>
+        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
           <div className="text-5xl">🤖</div>
-          <p className="text-text-main font-medium">אין הצעות ממתינות לאישור</p>
+          <p className="text-dark-text font-medium">אין הצעות ממתינות לאישור</p>
           <button
             onClick={() => navigate('/nutrition')}
-            className="bg-primary text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-primary/90 transition"
+            className="bg-accent-blue text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-accent-blue/90 transition shadow-sm"
           >
             צור תכנית חדשה עם AI
           </button>
@@ -353,58 +353,58 @@ export default function AISuggestion() {
   const hasNoContent = !hasMeal && !hasWorkout
 
   return (
-    <div className="space-y-6 pb-8 overflow-x-hidden" dir="rtl">
+    <div className="space-y-6 pb-8 overflow-x-hidden bg-light-bg p-6 rounded-card" dir="rtl">
 
       {/* Header */}
       <div className="flex items-center justify-between gap-2 min-w-0">
-        <h2 className="text-2xl font-bold text-text-main truncate">הצעות AI</h2>
+        <h2 className="text-2xl font-bold text-dark-text truncate">הצעות AI</h2>
         <span className={`text-xs px-3 py-1 rounded-full border font-medium shrink-0 ${badge.color}`}>
           {badge.label}
         </span>
       </div>
 
       {/* Summary card */}
-      <div className="bg-surface rounded-card p-4">
+      <div className="bg-white border border-light-border rounded-card p-4 shadow-sm">
         <div className="flex items-center gap-3 mb-2 min-w-0">
           <span className="text-2xl shrink-0">🤖</span>
           <div className="min-w-0">
-            <p className="text-text-main font-semibold">
+            <p className="text-dark-text font-semibold">
               {hasMeal && hasWorkout ? 'ה-AI הכין לך תפריט תזונה ותכנית אימונים שבועית'
                 : hasMeal ? 'ה-AI הכין לך תפריט תזונה שבועי'
                 : 'ה-AI הכין לך תכנית אימונים שבועית'}
             </p>
             <div className="flex gap-2 mt-1 flex-wrap">
-              {hasMeal && <span className="text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full">🥗 תזונה ל-7 ימים</span>}
-              {hasWorkout && <span className="text-xs bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full">💪 אימונים ל-7 ימים</span>}
-              {content.grocery_list?.length > 0 && <span className="text-xs bg-slate-700 text-text-muted px-2 py-0.5 rounded-full">🛒 {content.grocery_list.length} פריטי קניות</span>}
+              {hasMeal && <span className="text-xs bg-blue-50 text-accent-blue px-2 py-0.5 rounded-full">🥗 תזונה ל-7 ימים</span>}
+              {hasWorkout && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">💪 אימונים ל-7 ימים</span>}
+              {content.grocery_list?.length > 0 && <span className="text-xs bg-gray-100 text-dark-text-muted px-2 py-0.5 rounded-full">🛒 {content.grocery_list.length} פריטי קניות</span>}
             </div>
           </div>
         </div>
         {content.summary && (
-          <p className="text-text-muted text-sm leading-relaxed mt-2">{content.summary}</p>
+          <p className="text-dark-text-muted text-sm leading-relaxed mt-2">{content.summary}</p>
         )}
       </div>
 
       {/* No content warning */}
       {hasNoContent && (
-        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-card p-4 space-y-2">
-          <p className="text-yellow-400 text-sm font-semibold">⚠️ לא נמצא תוכן מובנה</p>
-          <p className="text-yellow-300/70 text-xs">מפתחות: {Object.keys(suggestion.content || {}).join(', ') || 'ריק'}</p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-card p-4 space-y-2">
+          <p className="text-yellow-700 text-sm font-semibold">⚠️ לא נמצא תוכן מובנה</p>
+          <p className="text-yellow-600/80 text-xs">מפתחות: {Object.keys(suggestion.content || {}).join(', ') || 'ריק'}</p>
           {suggestion.content?.error && (
-            <p className="text-red-400 text-xs">שגיאה: {suggestion.content.error}</p>
+            <p className="text-red-600 text-xs">שגיאה: {suggestion.content.error}</p>
           )}
         </div>
       )}
 
       {/* Tab switcher — shown only when there's parseable content */}
-      {!hasNoContent && <div className="flex bg-surface rounded-xl p-1 gap-1">
+      {!hasNoContent && <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
         {hasMeal && (
           <button
             onClick={() => setActiveTab('nutrition')}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'nutrition'
-                ? 'bg-primary text-white shadow'
-                : 'text-text-muted hover:text-text-main'
+                ? 'bg-white text-dark-text shadow-sm'
+                : 'text-dark-text-muted hover:text-dark-text'
             }`}
           >
             🥗 תפריט תזונה
@@ -415,8 +415,8 @@ export default function AISuggestion() {
             onClick={() => setActiveTab('workout')}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'workout'
-                ? 'bg-primary text-white shadow'
-                : 'text-text-muted hover:text-text-main'
+                ? 'bg-white text-dark-text shadow-sm'
+                : 'text-dark-text-muted hover:text-dark-text'
             }`}
           >
             💪 תכנית אימונים
@@ -427,8 +427,8 @@ export default function AISuggestion() {
             onClick={() => setActiveTab('grocery')}
             className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'grocery'
-                ? 'bg-primary text-white shadow'
-                : 'text-text-muted hover:text-text-main'
+                ? 'bg-white text-dark-text shadow-sm'
+                : 'text-dark-text-muted hover:text-dark-text'
             }`}
           >
             🛒 קניות
@@ -438,8 +438,8 @@ export default function AISuggestion() {
 
       {/* Meal Plan */}
       {activeTab === 'nutrition' && hasMeal && (
-        <div className="bg-surface rounded-card p-4 space-y-4">
-          <h3 className="text-text-main font-semibold flex items-center gap-2">
+        <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
+          <h3 className="text-dark-text font-semibold flex items-center gap-2">
             <span>🥗</span> תפריט שבועי מלא
           </h3>
           <MealPlanFull
@@ -451,8 +451,8 @@ export default function AISuggestion() {
 
       {/* Workout Plan */}
       {activeTab === 'workout' && hasWorkout && (
-        <div className="bg-surface rounded-card p-4 space-y-4">
-          <h3 className="text-text-main font-semibold flex items-center gap-2">
+        <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
+          <h3 className="text-dark-text font-semibold flex items-center gap-2">
             <span>💪</span> תכנית אימונים שבועית מלאה
           </h3>
           <WorkoutPlanFull workoutPlan={content.workout_plan} />
@@ -461,8 +461,8 @@ export default function AISuggestion() {
 
       {/* Grocery */}
       {activeTab === 'grocery' && content.grocery_list?.length > 0 && (
-        <div className="bg-surface rounded-card p-4 space-y-3">
-          <h3 className="text-text-main font-semibold flex items-center gap-2">
+        <div className="bg-white border border-light-border rounded-card p-4 space-y-3 shadow-sm">
+          <h3 className="text-dark-text font-semibold flex items-center gap-2">
             <span>🛒</span> רשימת קניות ({content.grocery_list.length} פריטים)
           </h3>
           <GroceryList items={content.grocery_list} />
@@ -475,14 +475,14 @@ export default function AISuggestion() {
           <button
             onClick={handleApprove}
             disabled={actionLoading}
-            className="flex-1 bg-primary text-white py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 transition"
+            className="flex-1 bg-accent-blue text-white py-3 rounded-xl font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
           >
             {actionLoading ? 'מעבד...' : '✅ אשר ואמץ את התכנית'}
           </button>
           <button
             onClick={handleReject}
             disabled={actionLoading}
-            className="flex-1 bg-red-600/20 text-red-400 border border-red-600/30 py-3 rounded-xl font-semibold text-sm hover:bg-red-600/30 disabled:opacity-50 transition"
+            className="flex-1 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 disabled:opacity-50 transition"
           >
             ❌ דחה וצור חדש
           </button>
