@@ -50,6 +50,7 @@ export const workoutsAPI = {
   completeSession: (sessionId) => api.post(`/api/v1/workouts/sessions/${sessionId}/complete`),
   abandonSession: (sessionId) => api.delete(`/api/v1/workouts/sessions/${sessionId}`),
   getPersonalRecords: () => api.get('/api/v1/workouts/personal-records'),
+  getExerciseMemory: (name) => api.get(`/api/v1/workouts/exercise-memory/${encodeURIComponent(name)}`),
 }
 
 export const foodsAPI = {

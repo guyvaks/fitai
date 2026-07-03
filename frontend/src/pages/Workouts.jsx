@@ -15,6 +15,18 @@ const DAYS = [
 const DAY_KEYS = DAYS.map(d => d.key)
 const ACTIVE_DAY_STORAGE_KEY = 'fitai_workouts_active_day'
 
+// Current week's Sun–Sat dates, purely for the date strip display
+function getWeekDates() {
+  const today = new Date()
+  const sunday = new Date(today)
+  sunday.setDate(today.getDate() - today.getDay())
+  return DAY_KEYS.map((key, i) => {
+    const d = new Date(sunday)
+    d.setDate(sunday.getDate() + i)
+    return { key, dayOfMonth: d.getDate(), isToday: d.toDateString() === today.toDateString() }
+  })
+}
+
 export default function Workouts() {
   const navigate = useNavigate()
   const [plan, setPlan] = useState(null)
@@ -32,7 +44,9 @@ export default function Workouts() {
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
   const [genError, setGenError] = useState(null)
+  const [lastWeights, setLastWeights] = useState({})
   const progressRef = useRef(null)
+  const weekDates = useRef(getWeekDates()).current
 
   useEffect(() => {
     workoutsAPI.getPlan()
@@ -120,6 +134,24 @@ export default function Workouts() {
     return false
   }
 
+  // Fetch last-used weight per exercise for the active day (exercise memory, already tracked server-side)
+  useEffect(() => {
+    const exercises = getDayExercises(activeDay)
+    if (exercises.length === 0) return
+    let cancelled = false
+    Promise.all(
+      exercises.map(ex =>
+        workoutsAPI.getExerciseMemory(ex.name)
+          .then(({ data }) => [ex.name, data?.last_weight_kg ?? null])
+          .catch(() => [ex.name, null])
+      )
+    ).then(entries => {
+      if (!cancelled) setLastWeights(Object.fromEntries(entries))
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDay, plan])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
@@ -201,16 +233,35 @@ export default function Workouts() {
         </div>
       )}
 
-      {/* Day tabs */}
+      {/* Date strip */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {weekDates.map(d => (
+          <button
+            key={d.key}
+            onClick={() => setActiveDay(d.key)}
+            className={`flex flex-col items-center justify-center w-12 h-14 rounded-xl shrink-0 transition-colors ${
+              activeDay === d.key ? 'bg-accent-blue text-white' : 'bg-white border border-light-border text-dark-text'
+            }`}
+          >
+            <span className="text-xs opacity-80">{DAYS.find(x => x.key === d.key)?.label.slice(0, 1)}</span>
+            <span className="text-base font-bold">{d.dayOfMonth}</span>
+            {!isRestDay(d.key) && (
+              <span className={`w-1 h-1 rounded-full mt-0.5 ${activeDay === d.key ? 'bg-white' : 'bg-accent-blue'}`} />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Day name tabs */}
       <div className="flex gap-1 overflow-x-auto pb-1">
         {DAYS.map(d => (
           <button
             key={d.key}
             onClick={() => setActiveDay(d.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
               activeDay === d.key
                 ? 'bg-accent-blue text-white shadow-sm'
-                : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text hover:bg-gray-50'
+                : 'bg-gray-100 text-dark-text-muted hover:text-dark-text'
             }`}
           >
             {d.label}
@@ -239,36 +290,52 @@ export default function Workouts() {
         </div>
       ) : (
         <div className="space-y-4">
-          {getDayName(activeDay) && (
-            <h2 className="text-lg font-semibold text-dark-text">{getDayName(activeDay)}</h2>
-          )}
-          <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            {getDayName(activeDay) && (
+              <h2 className="text-lg font-semibold text-dark-text">{getDayName(activeDay)}</h2>
+            )}
+            <button
+              onClick={() => navigate(`/live-workout?day=${activeDay}`)}
+              className="bg-accent-blue hover:bg-accent-blue/90 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center gap-2"
+            >
+              ▶ התחל אימון
+            </button>
+          </div>
+          <div className="space-y-2">
             {getDayExercises(activeDay).map((ex, i) => (
-              <div key={i} className="bg-white border border-light-border rounded-card p-4 space-y-1 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-dark-text text-base">{ex.name}</span>
-                  <span className="text-xs text-accent-blue bg-blue-50 border border-blue-100 px-2 py-1 rounded">{ex.muscle_group}</span>
+              <div key={i} className="bg-white border border-light-border rounded-card p-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
+                <span className="w-10 h-10 rounded-full bg-blue-50 text-accent-blue flex items-center justify-center text-lg shrink-0">💪</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-dark-text text-sm">{ex.name}</p>
+                  <p className="text-dark-text-muted text-xs">{ex.muscle_group}{ex.notes ? ` · ${ex.notes}` : ''}</p>
                 </div>
-                <p className="text-dark-text-muted text-sm">
-                  {ex.sets} סטים × {ex.reps} חזרות
-                  {ex.weight_kg ? ` × ${ex.weight_kg} ק״ג` : ''}
-                </p>
-                {ex.rest_seconds && (
-                  <p className="text-dark-text-muted text-xs">מנוחה: {ex.rest_seconds} שניות</p>
-                )}
-                {ex.notes && (
-                  <p className="text-dark-text-muted text-xs italic">הערות: {ex.notes}</p>
-                )}
+                <div className="text-center shrink-0">
+                  <p className="text-dark-text-muted text-xs">סטים X חזרות</p>
+                  <p className="text-dark-text text-sm font-bold" dir="ltr">{ex.sets} x {ex.reps}</p>
+                </div>
+                <div className="text-center shrink-0">
+                  <p className="text-dark-text-muted text-xs">משקל אחרון</p>
+                  <p className="text-green-600 text-sm font-bold" dir="ltr">
+                    {(lastWeights[ex.name] ?? ex.weight_kg) ? `${lastWeights[ex.name] ?? ex.weight_kg}kg` : '—'}
+                  </p>
+                </div>
+                <span className="text-dark-text-muted shrink-0">‹</span>
               </div>
             ))}
           </div>
 
-          <button
-            onClick={() => navigate(`/live-workout?day=${activeDay}`)}
-            className="w-full bg-accent-blue hover:bg-accent-blue/90 text-white py-4 rounded-card font-bold text-lg transition-colors min-h-[56px] shadow-sm"
-          >
-            🏃 התחל אימון
-          </button>
+          {/* Promo banner */}
+          <div className="relative rounded-card overflow-hidden h-40 shadow-sm">
+            <img
+              src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=400&fit=crop&q=80"
+              alt="חדר כושר"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4">
+              <p className="text-white text-base font-bold">ההתמדה היא המפתח לתוצאות</p>
+              <p className="text-white/80 text-xs">מוטיבציה יומית</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
