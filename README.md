@@ -7,6 +7,22 @@ AI-powered health, nutrition, and fitness web app with a Hebrew-language (RTL) i
 
 ---
 
+## Screenshots
+
+| Dashboard | Nutrition |
+|---|---|
+| ![Dashboard](./screenshots/dashboard.png) | ![Nutrition](./screenshots/nutrition.png) |
+
+| Live Workout | Progress |
+|---|---|
+| ![Live Workout](./screenshots/live-workout.png) | ![Progress](./screenshots/progress.png) |
+
+| Profile & Metrics |
+|---|
+| ![Profile](./screenshots/profile.png) |
+
+---
+
 ## Overview
 
 FitAI generates personalized weekly nutrition and workout plans using a multi-agent AI system, then lets users track daily meals, log workouts, and monitor progress over time — all through a clean, RTL-native Hebrew interface.
