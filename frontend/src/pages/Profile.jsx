@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
-import MetricCard from "../components/ui/MetricCard";
 import BMIMeter from "../components/ui/BMIMeter";
 
 const ACTIVITY_OPTIONS = [
   { value: "sedentary", label: "מושבי", desc: "ללא פעילות גופנית", icon: "🪑" },
-  { value: "lightly_active", label: "קל", desc: "1-3 ימים בשבוע", icon: "🚶" },
-  { value: "moderately_active", label: "בינוני", desc: "3-5 ימים בשבוע", icon: "🏃" },
+  { value: "lightly_active", label: "פעיל קלות", desc: "1-3 אימונים בשבוע", icon: "🚶" },
+  { value: "moderately_active", label: "פעיל בינוני", desc: "3-5 ימים בשבוע", icon: "🏃" },
   { value: "very_active", label: "פעיל מאוד", desc: "6-7 ימים בשבוע", icon: "⚡" },
   { value: "extra_active", label: "ספורטאי", desc: "פעילות אינטנסיבית פעמיים ביום", icon: "🏆" },
 ];
@@ -34,6 +33,13 @@ const GOAL_LABELS = {
   fitness_improvement: "שיפור כושר",
 };
 
+// Same macro split already used for daily targets in FoodLog.jsx (30% protein / 45% carbs / 25% fat)
+const MACRO_SPLIT = [
+  { key: "fat", label: "שומן", pct: 25, color: "#F97316" },
+  { key: "carbs", label: "פחמימות", pct: 45, color: "#22C55E" },
+  { key: "protein", label: "חלבון", pct: 30, color: "#2563EB" },
+];
+
 const defaultForm = {
   age: "",
   gender: "male",
@@ -49,8 +55,28 @@ const defaultForm = {
   meals_per_day: 5,
 };
 
+function MacroRing({ pct, color, size = 64 }) {
+  const r = (size - 8) / 2;
+  const circumference = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="6" />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - pct / 100)}
+      />
+    </svg>
+  );
+}
+
 export default function Profile() {
-  console.log('[Profile] component rendering')
   const [form, setForm] = useState(defaultForm);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -60,11 +86,9 @@ export default function Profile() {
 
   // Load existing profile on mount
   useEffect(() => {
-    console.log('[Profile] fetching profile...')
     api
       .get("/api/v1/users/profile")
       .then(({ data }) => {
-        console.log('[Profile] API response:', data)
         setForm({
           age: data.age ?? "",
           gender: data.gender ?? "male",
@@ -91,9 +115,7 @@ export default function Profile() {
           setSaved(true);
         }
       })
-      .catch((err) => {
-        console.log('[Profile] fetch error:', err?.response?.status, err?.response?.data || err?.message)
-      })
+      .catch(() => {})
       .finally(() => setFetchingProfile(false));
   }, []);
 
@@ -145,266 +167,261 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-8 max-w-2xl mx-auto bg-light-bg p-6 rounded-card" dir="rtl">
-      <h2 className="text-2xl font-bold text-dark-text">פרופיל ומדדים</h2>
+    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+      <div>
+        <h2 className="text-2xl font-bold text-dark-text">פרופיל ומדדים</h2>
+        <p className="text-dark-text-muted mt-1">עדכן את הנתונים האישיים שלך לקבלת תוכנית מותאמת אישית</p>
+      </div>
 
-      {/* Metrics Section */}
-      {saved && metrics && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-dark-text border-b border-light-border pb-2">
-            המדדים שלך
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <MetricCard
-              title="BMI — מדד מסת גוף"
-              value={metrics.bmi}
-              subtitle={metrics.bmi_category}
-              color={
-                metrics.bmi < 18.5
-                  ? "text-blue-600"
-                  : metrics.bmi < 25
-                  ? "text-green-600"
-                  : metrics.bmi < 30
-                  ? "text-yellow-600"
-                  : "text-red-600"
-              }
-            />
-            <MetricCard
-              title="BMR — קלוריות בסיסיות"
-              value={metrics.bmr?.toLocaleString()}
-              unit='קק"ל'
-              subtitle="קלוריות בסיסיות ביום"
-              color="text-blue-600"
-            />
-            <MetricCard
-              title="TDEE — סה״כ קלוריות"
-              value={metrics.tdee?.toLocaleString()}
-              unit='קק"ל'
-              subtitle="כולל פעילות גופנית"
-              color="text-cyan-600"
-            />
-            <MetricCard
-              title="יעד קלוריות"
-              value={metrics.target_calories?.toLocaleString()}
-              unit='קק"ל'
-              subtitle={GOAL_LABELS[metrics.goal] || metrics.goal}
-              color="text-accent-blue"
-            />
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+        {/* Metrics analysis (left side in RTL) */}
+        <div className="space-y-6 lg:order-2">
+          {saved && metrics ? (
+            <>
+              <div className="bg-white border border-light-border rounded-card p-5 shadow-sm space-y-4">
+                <h3 className="text-dark-text font-semibold">ניתוח מדדים</h3>
+                <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-dark-text-muted text-xs">TDEE</div>
+                    <div className="text-dark-text text-xl font-bold">{metrics.tdee?.toLocaleString() ?? "—"}</div>
+                    <div className="text-dark-text-muted text-xs">קלוריות</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-dark-text-muted text-xs">BMR</div>
+                    <div className="text-dark-text text-xl font-bold">{metrics.bmr?.toLocaleString() ?? "—"}</div>
+                    <div className="text-dark-text-muted text-xs">קלוריות</div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-dark-text-muted text-xs">יעד קלוריות יומי</div>
+                    <div className="text-accent-blue text-xl font-bold">{metrics.target_calories?.toLocaleString() ?? "—"}</div>
+                    <div className="text-dark-text-muted text-xs">קלוריות ליום</div>
+                  </div>
+                  <span className="text-2xl">🎯</span>
+                </div>
+                <p className="text-dark-text-muted text-xs leading-relaxed bg-blue-50 rounded-lg p-3">
+                  <span className="font-semibold text-accent-blue">טיפ: </span>
+                  בהתבסס על ה-TDEE שלך, יעד של {metrics.target_calories?.toLocaleString()} קלוריות יאפשר לך {GOAL_LABELS[metrics.goal] || "התקדמות"} בקצב בריא.
+                </p>
+              </div>
 
-          {/* BMI Meter */}
-          <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
-            <h4 className="text-dark-text font-medium mb-4">מד BMI</h4>
-            <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} />
-          </div>
+              <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+                <h3 className="text-dark-text font-semibold mb-4">הרכב יעד תזונתי</h3>
+                <div className="flex justify-around">
+                  {MACRO_SPLIT.map((m) => (
+                    <div key={m.key} className="flex flex-col items-center gap-1">
+                      <div className="relative">
+                        <MacroRing pct={m.pct} color={m.color} />
+                        <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-dark-text">
+                          {m.pct}%
+                        </div>
+                      </div>
+                      <span className="text-dark-text-muted text-xs">{m.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="bg-white border border-light-border rounded-card p-5 shadow-sm text-center text-dark-text-muted text-sm">
+              מלא את הפרטים ושמור כדי לראות ניתוח מדדים
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Profile Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <h3 className="text-lg font-semibold text-dark-text border-b border-light-border pb-2">
-          נתוני משתמש
-        </h3>
-
-        {/* Age + Gender */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-dark-text-muted text-sm">גיל</label>
-            <input
-              type="number"
-              min="10"
-              max="120"
-              required
-              value={form.age}
-              onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
-              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
-            />
+        {/* Form (right side in RTL) */}
+        <form onSubmit={handleSubmit} className="bg-white border border-light-border rounded-card p-6 shadow-sm space-y-6 lg:order-1">
+          {/* Age + Gender */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-dark-text-muted text-sm">גיל</label>
+              <input
+                type="number"
+                min="10"
+                max="120"
+                required
+                value={form.age}
+                onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+                className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-dark-text-muted text-sm">מין</label>
+              <select
+                value={form.gender}
+                onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+                className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+              >
+                <option value="male">זכר</option>
+                <option value="female">נקבה</option>
+              </select>
+            </div>
           </div>
+
+          {/* Height + Weight + Target */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-dark-text-muted text-sm">גובה (ס״מ)</label>
+              <input
+                type="number"
+                min="100"
+                max="250"
+                required
+                value={form.height_cm}
+                onChange={(e) => setForm((p) => ({ ...p, height_cm: e.target.value }))}
+                className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-dark-text-muted text-sm">משקל (ק״ג)</label>
+              <input
+                type="number"
+                min="20"
+                max="300"
+                step="0.1"
+                required
+                value={form.weight_kg}
+                onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
+                className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-dark-text-muted text-sm">משקל יעד (ק״ג)</label>
+              <input
+                type="number"
+                min="20"
+                max="300"
+                step="0.1"
+                value={form.target_weight_kg}
+                onChange={(e) => setForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
+                className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+              />
+            </div>
+          </div>
+
+          {/* Goal */}
           <div className="flex flex-col gap-1">
-            <label className="text-dark-text-muted text-sm">מין</label>
-            <div className="flex gap-2 mt-1">
-              {[{ value: "male", label: "זכר" }, { value: "female", label: "נקבה" }].map((g) => (
+            <label className="text-dark-text-muted text-sm">מטרה</label>
+            <select
+              value={form.goal}
+              onChange={(e) => setForm((p) => ({ ...p, goal: e.target.value }))}
+              required
+              className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+            >
+              <option value="" disabled>בחר מטרה</option>
+              {GOAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Activity Level */}
+          <div className="flex flex-col gap-1">
+            <label className="text-dark-text-muted text-sm">רמת פעילות</label>
+            <select
+              value={form.activity_level}
+              onChange={(e) => setForm((p) => ({ ...p, activity_level: e.target.value }))}
+              required
+              className="bg-gray-50 border border-light-border rounded-lg px-3 py-2.5 text-dark-text focus:outline-none focus:border-accent-blue"
+            >
+              <option value="" disabled>בחר רמת פעילות</option>
+              {ACTIVITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.icon} {opt.label} ({opt.desc})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Equipment */}
+          <div className="flex flex-col gap-2">
+            <label className="text-dark-text-muted text-sm">ציוד זמין</label>
+            <div className="flex flex-wrap gap-2">
+              {EQUIPMENT_OPTIONS.map((item) => (
                 <button
-                  key={g.value}
+                  key={item}
                   type="button"
-                  onClick={() => setForm((p) => ({ ...p, gender: g.value }))}
-                  className={`flex-1 py-2 rounded-elem border text-sm font-medium transition-colors ${
-                    form.gender === g.value
+                  onClick={() => handleEquipmentToggle(item)}
+                  className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                    form.equipment.includes(item)
                       ? "bg-accent-blue border-accent-blue text-white"
                       : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
                   }`}
                 >
-                  {g.label}
+                  {item}
                 </button>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Height + Weight + Target */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-dark-text-muted text-sm">גובה ס״מ</label>
-            <input
-              type="number"
-              min="100"
-              max="250"
-              required
-              value={form.height_cm}
-              onChange={(e) => setForm((p) => ({ ...p, height_cm: e.target.value }))}
-              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-dark-text-muted text-sm">משקל נוכחי ק״ג</label>
-            <input
-              type="number"
-              min="20"
-              max="300"
-              step="0.1"
-              required
-              value={form.weight_kg}
-              onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
-              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-dark-text-muted text-sm">משקל יעד ק״ג</label>
-            <input
-              type="number"
-              min="20"
-              max="300"
-              step="0.1"
-              value={form.target_weight_kg}
-              onChange={(e) => setForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
-              className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue"
-            />
-          </div>
-        </div>
-
-        {/* Activity Level */}
-        <div className="flex flex-col gap-2">
-          <label className="text-dark-text-muted text-sm">רמת פעילות</label>
-          <div className="grid grid-cols-1 gap-2">
-            {ACTIVITY_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setForm((p) => ({ ...p, activity_level: opt.value }))}
-                className={`flex items-center gap-3 px-4 py-3 rounded-elem border text-right transition-colors ${
-                  form.activity_level === opt.value
-                    ? "bg-blue-50 border-accent-blue"
-                    : "bg-white border-light-border hover:border-gray-300"
-                }`}
-              >
-                <span className="text-xl">{opt.icon}</span>
-                <div>
-                  <div className="text-dark-text text-sm font-medium">{opt.label}</div>
-                  <div className="text-dark-text-muted text-xs">{opt.desc}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Goal */}
-        <div className="flex flex-col gap-2">
-          <label className="text-dark-text-muted text-sm">מטרה</label>
-          <div className="grid grid-cols-2 gap-2">
-            {GOAL_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setForm((p) => ({ ...p, goal: opt.value }))}
-                className={`flex items-center gap-2 px-4 py-3 rounded-elem border text-right transition-colors ${
-                  form.goal === opt.value
-                    ? "bg-blue-50 border-accent-blue"
-                    : "bg-white border-light-border hover:border-gray-300"
-                }`}
-              >
-                <span className="text-xl">{opt.icon}</span>
-                <span className="text-dark-text text-sm font-medium">{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Medical + Injuries + Allergies */}
-        <div className="grid grid-cols-1 gap-4">
-          {[
-            { key: "medical_conditions", label: "מצבים רפואיים" },
-            { key: "injuries", label: "פציעות" },
-            { key: "allergies", label: "אלרגיות" },
-          ].map(({ key, label }) => (
-            <div key={key} className="flex flex-col gap-1">
-              <label className="text-dark-text-muted text-sm">{label}</label>
-              <textarea
-                rows={2}
-                value={form[key]}
-                onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                className="bg-white border border-light-border rounded-elem px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue resize-none text-sm"
-                placeholder={`הכנס ${label.toLowerCase()}...`}
-              />
+          {/* Meals per day */}
+          <div className="flex flex-col gap-2">
+            <label className="text-dark-text-muted text-sm">מספר ארוחות ביום</label>
+            <div className="flex gap-2">
+              {[3, 4, 5, 6].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setForm((p) => ({ ...p, meals_per_day: n }))}
+                  className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    form.meals_per_day === n
+                      ? "bg-accent-blue border-accent-blue text-white"
+                      : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
 
-        {/* Equipment */}
-        <div className="flex flex-col gap-2">
-          <label className="text-dark-text-muted text-sm">ציוד זמין</label>
-          <div className="flex flex-wrap gap-2">
-            {EQUIPMENT_OPTIONS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => handleEquipmentToggle(item)}
-                className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                  form.equipment.includes(item)
-                    ? "bg-accent-blue border-accent-blue text-white"
-                    : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
-                }`}
-              >
-                {item}
-              </button>
+          {/* Medical + Injuries + Allergies */}
+          <div className="grid grid-cols-1 gap-4">
+            {[
+              { key: "medical_conditions", label: "מצבים רפואיים" },
+              { key: "injuries", label: "פציעות" },
+              { key: "allergies", label: "אלרגיות" },
+            ].map(({ key, label }) => (
+              <div key={key} className="flex flex-col gap-1">
+                <label className="text-dark-text-muted text-sm">{label}</label>
+                <textarea
+                  rows={2}
+                  value={form[key]}
+                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                  className="bg-gray-50 border border-light-border rounded-lg px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue resize-none text-sm"
+                  placeholder={`הכנס ${label}...`}
+                />
+              </div>
             ))}
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-2 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !form.activity_level || !form.goal}
+            className="w-full bg-accent-blue hover:bg-accent-blue/90 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            {loading ? "שומר..." : "שמור שינויים"}
+          </button>
+        </form>
+      </div>
+
+      {/* Promo banner */}
+      <div className="relative rounded-card overflow-hidden h-40 shadow-sm">
+        <img
+          src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=400&fit=crop&q=80"
+          alt="חדר כושר"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-l from-black/70 to-transparent flex items-center px-6">
+          <p className="text-white text-lg font-bold">המסע שלך מתחיל כאן</p>
         </div>
-
-        {/* Meals per day */}
-        <div className="flex flex-col gap-2">
-          <label className="text-dark-text-muted text-sm">מספר ארוחות ביום</label>
-          <div className="flex gap-2">
-            {[3, 4, 5, 6].map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setForm((p) => ({ ...p, meals_per_day: n }))}
-                className={`flex-1 py-2 rounded-elem border text-sm font-medium transition-colors ${
-                  form.meals_per_day === n
-                    ? "bg-accent-blue border-accent-blue text-white"
-                    : "bg-white border-light-border text-dark-text-muted hover:border-accent-blue"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 rounded-elem px-4 py-2 text-sm">
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading || !form.activity_level || !form.goal}
-          className="w-full bg-accent-blue hover:bg-accent-blue/90 text-white font-semibold py-3 rounded-elem transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-        >
-          {loading ? "שומר..." : saved ? "עדכן פרופיל וחשב מחדש" : "שמור פרופיל וחשב מדדים"}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }
