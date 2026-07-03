@@ -19,6 +19,7 @@ const MEAL_LABELS = {
   dinner:    'ארוחת ערב',
   snack:     'ביניים',
 }
+const MEAL_ORDER = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner', 'snack']
 
 function toIso(date) {
   return date.toISOString().split('T')[0]
@@ -40,12 +41,43 @@ function ProgressBar({ value, max, color = 'bg-accent-blue' }) {
   )
 }
 
+function MiniRing({ value, max, color, size = 44 }) {
+  const r = (size - 8) / 2
+  const circumference = 2 * Math.PI * r
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
+  return (
+    <svg width={size} height={size} className="-rotate-90 shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="5" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
+        strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
+      />
+    </svg>
+  )
+}
+
+function RemainingRing({ consumed, target, size = 96 }) {
+  const r = (size - 14) / 2
+  const circumference = 2 * Math.PI * r
+  const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0
+  return (
+    <svg width={size} height={size} className="-rotate-90 shrink-0">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="8" />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2563EB" strokeWidth="8"
+        strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
+      />
+    </svg>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function FoodLog() {
   const { profile } = useAuth()
   const [date, setDate] = useState(new Date())
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
 
   // Selected food from DB (per 100g)
   const [selectedFood, setSelectedFood] = useState(null)
@@ -138,6 +170,7 @@ export default function FoodLog() {
       })
       setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: form.meal_type })
       setSelectedFood(null)
+      setShowAddModal(false)
       fetchLogs()
     } catch (e) {
       setError(e.response?.data?.detail || 'שגיאה בשמירה')
@@ -166,166 +199,209 @@ export default function FoodLog() {
     carbs:    Math.round((profile?.target_calories || 2000) * 0.45 / 4),
     fat:      Math.round((profile?.target_calories || 2000) * 0.25 / 9),
   }
+  const remainingCalories = Math.max(0, Math.round(targets.calories - totals.calories))
 
   const dayLabel = date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
 
+  const groupedLogs = MEAL_ORDER
+    .map(mealType => ({
+      mealType,
+      items: logs.filter(l => (l.meal_type || 'snack') === mealType),
+    }))
+    .filter(g => g.items.length > 0)
+
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+    <div className="space-y-6 bg-light-bg p-6 rounded-card relative" dir="rtl">
       <h2 className="text-2xl font-bold text-dark-text">יומן אכילה</h2>
 
       {/* Date picker */}
-      <div className="flex items-center justify-center gap-4 bg-white border border-light-border rounded-card p-3 shadow-sm">
+      <div className="flex items-center justify-center gap-4 bg-white border border-light-border rounded-full p-3 shadow-sm max-w-xs mx-auto">
         <button onClick={() => changeDay(-1)} className="text-dark-text-muted hover:text-dark-text text-lg px-2">→</button>
         <span className="text-dark-text font-medium">{dayLabel}</span>
         <button onClick={() => changeDay(1)}  className="text-dark-text-muted hover:text-dark-text text-lg px-2">←</button>
       </div>
 
-      {/* Daily summary */}
-      <div className="bg-white border border-light-border rounded-card p-4 space-y-3 shadow-sm">
-        <h3 className="text-dark-text font-semibold text-sm">סיכום יומי</h3>
-        <div className="space-y-2">
-          {[
-            { label: 'קלוריות', value: totals.calories, target: targets.calories, unit: 'קק"ל', color: 'bg-accent-blue', textColor: 'text-accent-blue' },
-            { label: 'חלבון',   value: totals.protein,  target: targets.protein,  unit: 'g',    color: 'bg-blue-500',   textColor: 'text-blue-600' },
-            { label: 'פחמימות', value: totals.carbs,    target: targets.carbs,    unit: 'g',    color: 'bg-yellow-500', textColor: 'text-yellow-600' },
-            { label: 'שומן',    value: totals.fat,      target: targets.fat,      unit: 'g',    color: 'bg-orange-500', textColor: 'text-orange-600' },
-          ].map(row => (
-            <div key={row.label}>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-dark-text-muted">{row.label}</span>
-                <span className={`${row.textColor} font-medium`}>{Math.round(row.value)}{row.unit} / {row.target}{row.unit}</span>
-              </div>
-              <ProgressBar value={row.value} max={row.target} color={row.color} />
+      {/* Daily summary rings */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-left">
+              <div className="text-dark-text-muted text-xs">פחמימות</div>
+              <div className="text-dark-text text-sm font-semibold" dir="ltr">{Math.round(totals.carbs)}g / {targets.carbs}g</div>
             </div>
-          ))}
+            <MiniRing value={totals.carbs} max={targets.carbs} color="#F97316" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-left">
+              <div className="text-dark-text-muted text-xs">שומן</div>
+              <div className="text-dark-text text-sm font-semibold" dir="ltr">{Math.round(totals.fat)}g / {targets.fat}g</div>
+            </div>
+            <MiniRing value={totals.fat} max={targets.fat} color="#EF4444" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col justify-center gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-dark-text-muted text-sm">חלבון</span>
+            <span className="text-dark-text font-bold" dir="ltr">{Math.round(totals.protein)}g / <span className="text-lg">{targets.protein}</span></span>
+          </div>
+          <ProgressBar value={totals.protein} max={targets.protein} color="bg-green-500" />
+        </div>
+
+        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+          <div className="relative shrink-0">
+            <RemainingRing consumed={totals.calories} target={targets.calories} />
+            <div className="absolute inset-0 flex items-center justify-center text-xl">🔥</div>
+          </div>
+          <div>
+            <div className="text-dark-text-muted text-xs">קלוריות שנותרו</div>
+            <div className="text-dark-text text-2xl font-bold">{remainingCalories.toLocaleString()}</div>
+            <div className="text-dark-text-muted text-xs">מתוך יעד של {targets.calories.toLocaleString()}</div>
+          </div>
         </div>
       </div>
 
-      {/* Add food form */}
-      <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
-        <h3 className="text-dark-text font-semibold">הוסף מאכל</h3>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-
-            {/* Food search — spans full width */}
-            <FoodSearch onSelect={handleFoodSelect} />
-
-            {/* Selected food info chip */}
-            {selectedFood && (
-              <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
-                  {selectedFood.category}
-                </span>
-                <span className="text-accent-blue text-sm font-medium">{selectedFood.name}</span>
-                <span className="text-dark-text-muted text-xs mr-auto">לכל 100ג׳: {selectedFood.calories} קק״ל · חלבון {selectedFood.protein}g · פחמ׳ {selectedFood.carbs}g · שומן {selectedFood.fat}g</span>
-              </div>
-            )}
-
-            {/* Quantity */}
-            <div className="col-span-2">
-              <label className="text-dark-text-muted text-xs mb-1 block">כמות (גרם)</label>
-              <input
-                type="number"
-                min="1"
-                placeholder="100"
-                value={form.quantity_g}
-                onChange={e => handleQuantityChange(e.target.value)}
-                className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
-              />
-            </div>
-
-            {/* Macro fields — auto-filled, still editable */}
-            {[
-              { key: 'calories', label: 'קלוריות',    placeholder: '0' },
-              { key: 'protein',  label: 'חלבון (g)',  placeholder: '0' },
-              { key: 'carbs',    label: 'פחמימות (g)', placeholder: '0' },
-              { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
-            ].map(field => (
-              <div key={field.key}>
-                <label className="text-dark-text-muted text-xs mb-1 block">{field.label}</label>
-                <input
-                  type="number"
-                  placeholder={field.placeholder}
-                  value={form[field.key]}
-                  onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                  className={`w-full bg-white border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue transition-colors ${
-                    selectedFood ? 'border-accent-blue/40' : 'border-light-border'
-                  }`}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Meal type */}
-          <div>
-            <label className="text-dark-text-muted text-xs mb-2 block">ארוחה</label>
-            <div className="flex flex-wrap gap-2">
-              {MEAL_TYPES.map(mt => (
-                <button
-                  key={mt.value}
-                  type="button"
-                  onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
-                    form.meal_type === mt.value
-                      ? 'bg-accent-blue text-white'
-                      : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
-                  }`}
-                >
-                  {mt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-accent-blue text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
-          >
-            {submitting ? 'שומר...' : '+ הוסף לאכילה'}
-          </button>
-        </form>
-      </div>
-
-      {/* Log list */}
-      <div className="space-y-2">
-        <h3 className="text-dark-text font-semibold text-sm">מה אכלת היום</h3>
+      {/* Log list grouped by meal */}
+      <div className="space-y-4 pb-16">
         {loading ? (
           <p className="text-dark-text-muted text-sm text-center py-4">טוען...</p>
-        ) : logs.length === 0 ? (
+        ) : groupedLogs.length === 0 ? (
           <div className="bg-white border border-light-border rounded-card p-6 text-center text-dark-text-muted text-sm shadow-sm">
             לא נרשמו ארוחות עדיין
           </div>
         ) : (
-          logs.map(log => (
-            <div key={log.id} className="bg-white border border-light-border rounded-card p-3 flex items-center justify-between gap-2 shadow-sm">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-dark-text text-sm font-medium truncate">{log.food_name}</span>
-                  <span className="text-xs text-dark-text-muted bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
-                    {MEAL_LABELS[log.meal_type] || log.meal_type}
-                  </span>
+          groupedLogs.map(({ mealType, items }) => {
+            const mealTotal = items.reduce((s, l) => s + (l.calories || 0), 0)
+            return (
+              <div key={mealType} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-dark-text font-semibold text-sm">{MEAL_LABELS[mealType] || mealType}</h3>
+                  <span className="text-dark-text-muted text-sm">{Math.round(mealTotal)} קלוריות</span>
                 </div>
-                <div className="flex gap-3 text-xs text-dark-text-muted mt-1 flex-wrap">
-                  <span>{log.quantity_g}g</span>
-                  <span className="text-accent-blue font-medium">{log.calories} קק"ל</span>
-                  <span>ח׳ {log.protein}g</span>
-                  <span>פ׳ {log.carbs}g</span>
-                  <span>ש׳ {log.fat}g</span>
+                <div className="bg-white border border-light-border rounded-card shadow-sm divide-y divide-light-border overflow-hidden">
+                  {items.map(log => (
+                    <div key={log.id} className="p-3 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleDelete(log.id)}
+                        className="text-dark-text-muted hover:text-red-600 transition text-lg px-1 shrink-0"
+                        aria-label="מחק"
+                      >
+                        🗑
+                      </button>
+                      <div className="flex-1 min-w-0 text-right">
+                        <p className="text-dark-text text-sm font-medium truncate">{log.food_name}</p>
+                        <p className="text-dark-text-muted text-xs">{log.quantity_g} גרם</p>
+                      </div>
+                      <span className="text-accent-blue font-semibold text-sm shrink-0">{log.calories} קל'</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <button
-                onClick={() => handleDelete(log.id)}
-                className="text-dark-text-muted hover:text-red-600 transition text-xl px-1 shrink-0"
-              >
-                ×
-              </button>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
+
+      {/* Floating add button */}
+      <button
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-8 left-8 w-14 h-14 rounded-full bg-accent-blue text-white text-2xl shadow-lg hover:bg-accent-blue/90 transition flex items-center justify-center z-40"
+        aria-label="הוסף מאכל"
+      >
+        +
+      </button>
+
+      {/* Add food modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+          <div
+            className="bg-white rounded-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-dark-text font-semibold">הוסף מאכל</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-dark-text-muted hover:text-dark-text text-xl px-1">×</button>
+            </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <FoodSearch onSelect={handleFoodSelect} />
+
+                {selectedFood && (
+                  <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex-wrap">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
+                      {selectedFood.category}
+                    </span>
+                    <span className="text-accent-blue text-sm font-medium">{selectedFood.name}</span>
+                    <span className="text-dark-text-muted text-xs mr-auto">לכל 100ג׳: {selectedFood.calories} קק״ל · חלבון {selectedFood.protein}g · פחמ׳ {selectedFood.carbs}g · שומן {selectedFood.fat}g</span>
+                  </div>
+                )}
+
+                <div className="col-span-2">
+                  <label className="text-dark-text-muted text-xs mb-1 block">כמות (גרם)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="100"
+                    value={form.quantity_g}
+                    onChange={e => handleQuantityChange(e.target.value)}
+                    className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
+                  />
+                </div>
+
+                {[
+                  { key: 'calories', label: 'קלוריות',    placeholder: '0' },
+                  { key: 'protein',  label: 'חלבון (g)',  placeholder: '0' },
+                  { key: 'carbs',    label: 'פחמימות (g)', placeholder: '0' },
+                  { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
+                ].map(field => (
+                  <div key={field.key}>
+                    <label className="text-dark-text-muted text-xs mb-1 block">{field.label}</label>
+                    <input
+                      type="number"
+                      placeholder={field.placeholder}
+                      value={form[field.key]}
+                      onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
+                      className={`w-full bg-white border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue transition-colors ${
+                        selectedFood ? 'border-accent-blue/40' : 'border-light-border'
+                      }`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="text-dark-text-muted text-xs mb-2 block">ארוחה</label>
+                <div className="flex flex-wrap gap-2">
+                  {MEAL_TYPES.map(mt => (
+                    <button
+                      key={mt.value}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                        form.meal_type === mt.value
+                          ? 'bg-accent-blue text-white'
+                          : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
+                      }`}
+                    >
+                      {mt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-accent-blue text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+              >
+                {submitting ? 'שומר...' : '+ הוסף לאכילה'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
