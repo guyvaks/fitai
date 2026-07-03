@@ -226,55 +226,66 @@ export default function LiveWorkout() {
       <div className="bg-white border border-light-border rounded-card p-6 space-y-5 shadow-sm">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-dark-text">{currentExercise.name}</h2>
-          <p className="text-dark-text-muted mt-1">{currentExercise.muscle_group}</p>
+          <p className="text-dark-text-muted mt-1">סט {currentSetIdx + 1} מתוך {currentExercise.sets}</p>
         </div>
 
-        {/* Sets grid */}
-        <div className="flex gap-2 justify-center flex-wrap">
+        {/* Sets table */}
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 text-center text-xs text-dark-text-muted px-2">
+            <span>סט</span>
+            <span>משקל</span>
+            <span>חזרות</span>
+            <span>בוצע</span>
+          </div>
           {Array.from({ length: currentExercise.sets }).map((_, i) => {
             const done = isSetCompleted(currentExerciseIdx, i)
             const isCurrent = i === currentSetIdx && !done
+            const completedData = completedKeys[`${currentExerciseIdx}_${i}`]
             return (
               <div
                 key={i}
                 onClick={() => { if (!done) setCurrentSetIdx(i) }}
-                className={`w-14 h-14 rounded-xl flex flex-col items-center justify-center cursor-pointer border-2 transition-all ${
+                className={`grid grid-cols-4 items-center rounded-xl border-2 py-2 px-2 cursor-pointer transition-all ${
                   done
-                    ? 'bg-green-50 border-green-500 text-green-600'
+                    ? 'bg-green-50 border-green-200'
                     : isCurrent
-                    ? 'bg-blue-50 border-accent-blue text-accent-blue'
-                    : 'bg-white border-light-border text-dark-text-muted'
+                    ? 'bg-white border-accent-blue'
+                    : 'bg-gray-50 border-transparent'
                 }`}
               >
-                <span className="text-xs text-current opacity-70">סט</span>
-                <span className="font-bold">{done ? '✅' : i + 1}</span>
+                <span className={`text-center font-medium ${isCurrent ? 'text-accent-blue' : 'text-dark-text-muted'}`}>{i + 1}</span>
+                {isCurrent ? (
+                  <input
+                    type="number"
+                    value={weightInput}
+                    onChange={e => setWeightInput(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    className="w-16 mx-auto bg-white border border-light-border rounded-lg px-2 py-1 text-dark-text text-center font-bold"
+                  />
+                ) : (
+                  <span className="text-center font-bold text-dark-text">{done ? `${completedData.weight_kg}kg` : '-'}</span>
+                )}
+                {isCurrent ? (
+                  <input
+                    type="number"
+                    value={repsInput}
+                    onChange={e => setRepsInput(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    className="w-16 mx-auto bg-white border border-light-border rounded-lg px-2 py-1 text-dark-text text-center font-bold"
+                  />
+                ) : (
+                  <span className="text-center font-bold text-dark-text">{done ? completedData.reps : '-'}</span>
+                )}
+                <span className="flex justify-center">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    done ? 'bg-green-500 text-white' : 'border-2 border-gray-300'
+                  }`}>
+                    {done && '✓'}
+                  </span>
+                </span>
               </div>
             )
           })}
-        </div>
-
-        {/* Inputs */}
-        <div className="flex gap-4 items-end">
-          <div className="flex-1 space-y-1">
-            <label className="text-xs text-dark-text-muted">משקל (ק״ג)</label>
-            <input
-              type="number"
-              value={weightInput}
-              onChange={e => setWeightInput(e.target.value)}
-              className="w-full bg-white border border-light-border rounded-lg px-3 py-3 text-dark-text text-center text-lg font-bold min-h-[48px]"
-              placeholder="0"
-            />
-          </div>
-          <div className="flex-1 space-y-1">
-            <label className="text-xs text-dark-text-muted">חזרות</label>
-            <input
-              type="number"
-              value={repsInput}
-              onChange={e => setRepsInput(e.target.value)}
-              className="w-full bg-white border border-light-border rounded-lg px-3 py-3 text-dark-text text-center text-lg font-bold min-h-[48px]"
-              placeholder="0"
-            />
-          </div>
         </div>
 
         {/* Complete set button */}
@@ -283,7 +294,7 @@ export default function LiveWorkout() {
           disabled={saving}
           className="w-full bg-accent-blue hover:bg-accent-blue/90 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-lg transition-colors min-h-[56px] shadow-sm"
         >
-          {saving ? 'שומר...' : `סמן סט ${currentSetIdx + 1} כבוצע ✓`}
+          {saving ? 'שומר...' : 'השלם תרגיל'}
         </button>
 
         {saving && (
