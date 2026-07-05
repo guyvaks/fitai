@@ -85,9 +85,11 @@ export default function Profile() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [profileError, setProfileError] = useState(false);
 
-  // Load existing profile on mount
-  useEffect(() => {
+  const loadProfile = () => {
+    setFetchingProfile(true);
+    setProfileError(false);
     api
       .get("/api/v1/users/profile")
       .then(({ data }) => {
@@ -117,8 +119,18 @@ export default function Profile() {
           setSaved(true);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        // 404 just means the user hasn't saved a profile yet — not an error state
+        if (err.response?.status !== 404) {
+          setProfileError(true);
+        }
+      })
       .finally(() => setFetchingProfile(false));
+  };
+
+  // Load existing profile on mount
+  useEffect(() => {
+    loadProfile();
   }, []);
 
   const handleEquipmentToggle = (item) => {
@@ -164,6 +176,23 @@ export default function Profile() {
     return (
       <div className="flex justify-center items-center h-40 text-dark-text-muted bg-light-bg rounded-card">
         טוען פרופיל...
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center gap-3 h-40 bg-red-50 border border-red-200 rounded-card text-center p-6"
+        dir="rtl"
+      >
+        <p className="text-red-600 text-sm font-medium">לא הצלחנו לטעון את הפרופיל</p>
+        <button
+          onClick={loadProfile}
+          className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+        >
+          נסה שוב
+        </button>
       </div>
     );
   }
