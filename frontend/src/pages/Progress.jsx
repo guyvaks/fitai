@@ -156,10 +156,10 @@ export default function Progress() {
             ))}
             <button
               onClick={() => navigate('/workouts')}
-              className="border-2 border-dashed border-light-border rounded-card p-4 flex flex-col items-center justify-center gap-2 text-dark-text-muted hover:border-accent-blue hover:text-accent-blue transition min-h-[140px]"
+              className="border-2 border-dashed border-accent-blue/40 bg-blue-50/50 rounded-card p-4 flex flex-col items-center justify-center gap-2 text-accent-blue hover:bg-blue-50 hover:border-accent-blue transition min-h-[140px] font-medium"
             >
-              <span className="text-2xl">⊕</span>
-              <span className="text-sm font-medium">הוספת שיא חדש</span>
+              <span className="text-2xl">+</span>
+              <span className="text-sm">+ הוסף שיא אישי</span>
             </button>
           </div>
         )}

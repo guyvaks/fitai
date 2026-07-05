@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import BMIMeter from "../components/ui/BMIMeter";
 
@@ -77,15 +78,18 @@ function MacroRing({ pct, color, size = 64 }) {
 }
 
 export default function Profile() {
+  const navigate = useNavigate();
   const [form, setForm] = useState(defaultForm);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [fetchingProfile, setFetchingProfile] = useState(true);
+  const [profileError, setProfileError] = useState(false);
 
-  // Load existing profile on mount
-  useEffect(() => {
+  const loadProfile = () => {
+    setFetchingProfile(true);
+    setProfileError(false);
     api
       .get("/api/v1/users/profile")
       .then(({ data }) => {
@@ -115,8 +119,18 @@ export default function Profile() {
           setSaved(true);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        // 404 just means the user hasn't saved a profile yet — not an error state
+        if (err.response?.status !== 404) {
+          setProfileError(true);
+        }
+      })
       .finally(() => setFetchingProfile(false));
+  };
+
+  // Load existing profile on mount
+  useEffect(() => {
+    loadProfile();
   }, []);
 
   const handleEquipmentToggle = (item) => {
@@ -162,6 +176,23 @@ export default function Profile() {
     return (
       <div className="flex justify-center items-center h-40 text-dark-text-muted bg-light-bg rounded-card">
         טוען פרופיל...
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center gap-3 h-40 bg-red-50 border border-red-200 rounded-card text-center p-6"
+        dir="rtl"
+      >
+        <p className="text-red-600 text-sm font-medium">לא הצלחנו לטעון את הפרופיל</p>
+        <button
+          onClick={loadProfile}
+          className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+        >
+          נסה שוב
+        </button>
       </div>
     );
   }
@@ -388,7 +419,7 @@ export default function Profile() {
                   rows={2}
                   value={form[key]}
                   onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
-                  className="bg-gray-50 border border-light-border rounded-lg px-3 py-2 text-dark-text focus:outline-none focus:border-accent-blue resize-none text-sm"
+                  className="bg-gray-50 border border-light-border rounded-lg px-3 py-2 text-dark-text placeholder-dark-text-muted placeholder:italic focus:outline-none focus:border-accent-blue resize-none text-sm"
                   placeholder={`הכנס ${label}...`}
                 />
               </div>
@@ -411,17 +442,23 @@ export default function Profile() {
         </form>
       </div>
 
-      {/* Promo banner */}
-      <div className="relative rounded-card overflow-hidden h-40 shadow-sm">
+      {/* CTA banner → workouts */}
+      <button
+        onClick={() => navigate('/workouts')}
+        className="relative rounded-card overflow-hidden h-40 shadow-sm w-full text-right group"
+      >
         <img
           src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=400&fit=crop&q=80"
           alt="חדר כושר"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-l from-black/70 to-transparent flex items-center px-6">
-          <p className="text-white text-lg font-bold">המסע שלך מתחיל כאן</p>
+        <div className="absolute inset-0 bg-gradient-to-l from-black/70 to-transparent flex items-center justify-between px-6">
+          <div>
+            <p className="text-white text-lg font-bold">המסע שלך מתחיל כאן</p>
+            <p className="text-white/80 text-xs mt-1">מעבר לתכנית האימונים שלך ←</p>
+          </div>
         </div>
-      </div>
+      </button>
     </div>
   );
 }

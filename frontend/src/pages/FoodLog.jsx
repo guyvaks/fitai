@@ -46,13 +46,18 @@ function MiniRing({ value, max, color, size = 44 }) {
   const circumference = 2 * Math.PI * r
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
   return (
-    <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="5" />
-      <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
-        strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
-      />
-    </svg>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="5" />
+        <circle
+          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
+          strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-dark-text">
+        {Math.round(pct)}%
+      </div>
+    </div>
   )
 }
 
@@ -243,7 +248,7 @@ export default function FoodLog() {
         <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col justify-center gap-2">
           <div className="flex items-center justify-between">
             <span className="text-dark-text-muted text-sm">חלבון</span>
-            <span className="text-dark-text font-bold" dir="ltr">{Math.round(totals.protein)}g / <span className="text-lg">{targets.protein}</span></span>
+            <span className="text-dark-text font-bold" dir="ltr">{Math.round(totals.protein)}g / <span className="text-lg">{targets.protein}g</span></span>
           </div>
           <ProgressBar value={totals.protein} max={targets.protein} color="bg-green-500" />
         </div>
@@ -266,11 +271,26 @@ export default function FoodLog() {
         {loading ? (
           <p className="text-dark-text-muted text-sm text-center py-4">טוען...</p>
         ) : groupedLogs.length === 0 ? (
-          <div className="bg-white border border-light-border rounded-card p-6 text-center text-dark-text-muted text-sm shadow-sm">
-            לא נרשמו ארוחות עדיין
+          <div className="bg-white border border-light-border rounded-card p-6 text-center text-dark-text-muted text-sm shadow-sm space-y-3">
+            <p>לא נרשמו ארוחות עדיין</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+            >
+              + הוסף ארוחה
+            </button>
           </div>
         ) : (
-          groupedLogs.map(({ mealType, items }) => {
+          <>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+              >
+                + הוסף ארוחה
+              </button>
+            </div>
+            {groupedLogs.map(({ mealType, items }) => {
             const mealTotal = items.reduce((s, l) => s + (l.calories || 0), 0)
             return (
               <div key={mealType} className="space-y-2">
@@ -298,7 +318,8 @@ export default function FoodLog() {
                 </div>
               </div>
             )
-          })
+          })}
+          </>
         )}
       </div>
 

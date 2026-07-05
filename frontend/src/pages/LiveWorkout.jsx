@@ -11,6 +11,34 @@ const demoExercises = [
   { name: "סקוואט", muscle_group: "רגליים", sets: 4, reps: 10, weight_kg: 80, rest_seconds: 120 },
 ]
 
+function ExerciseStepper({ exercises, currentExerciseIdx, completedKeys, onJump }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {exercises.map((ex, i) => {
+        const allSetsDone = Array.from({ length: ex.sets }).every((_, si) => completedKeys[`${i}_${si}`])
+        const isCurrent = i === currentExerciseIdx
+        const state = allSetsDone ? 'done' : isCurrent ? 'current' : 'future'
+        return (
+          <button
+            key={i}
+            onClick={() => onJump(i)}
+            className={`shrink-0 flex flex-col items-center justify-center gap-0.5 w-16 h-14 rounded-xl border-2 transition-colors text-center ${
+              state === 'done'
+                ? 'bg-green-50 border-green-300 text-green-700'
+                : state === 'current'
+                ? 'bg-accent-blue border-accent-blue text-white'
+                : 'bg-gray-50 border-transparent text-dark-text-muted'
+            }`}
+          >
+            <span className="text-xs font-bold">{state === 'done' ? '✓' : i + 1}</span>
+            <span className="text-[10px] leading-tight truncate max-w-[56px]">{ex.name}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function RestTimer({ restTimer, restActive, initialRest, skipRest, addTime }) {
   const circumference = 2 * Math.PI * 70
   const progress = initialRest > 0 ? restTimer / initialRest : 0
@@ -155,6 +183,17 @@ export default function LiveWorkout() {
     }
   }
 
+  const handleJumpToExercise = (idx) => {
+    const ex = exercises[idx]
+    if (!ex) return
+    let nextSet = ex.sets - 1
+    for (let si = 0; si < ex.sets; si++) {
+      if (!completedKeys[`${idx}_${si}`]) { nextSet = si; break }
+    }
+    setCurrentExerciseIdx(idx)
+    setCurrentSetIdx(nextSet)
+  }
+
   const handlePrevExercise = () => {
     if (currentExerciseIdx > 0) {
       setCurrentExerciseIdx(currentExerciseIdx - 1)
@@ -202,9 +241,9 @@ export default function LiveWorkout() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-dark-text">🏋️ אימון חי</h1>
-          <p className="text-xs text-dark-text-muted">
-            תרגיל {currentExerciseIdx + 1} מתוך {totalExercises}
-          </p>
+          <span className="inline-flex items-center gap-1 bg-blue-50 text-accent-blue text-xs font-semibold px-2 py-0.5 rounded-full mt-1">
+            <span className="opacity-70">תרגיל</span> {currentExerciseIdx + 1}/{totalExercises}
+          </span>
         </div>
         <button
           onClick={() => setShowConfirm(true)}
@@ -222,11 +261,21 @@ export default function LiveWorkout() {
         />
       </div>
 
+      {/* Exercise stepper — preview of all exercises in this workout */}
+      <ExerciseStepper
+        exercises={exercises}
+        currentExerciseIdx={currentExerciseIdx}
+        completedKeys={completedKeys}
+        onJump={handleJumpToExercise}
+      />
+
       {/* Exercise card */}
       <div className="bg-white border border-light-border rounded-card p-6 space-y-5 shadow-sm">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-dark-text">{currentExercise.name}</h2>
-          <p className="text-dark-text-muted mt-1">סט {currentSetIdx + 1} מתוך {currentExercise.sets}</p>
+          <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-xs font-semibold px-2 py-0.5 rounded-full mt-2">
+            <span className="opacity-70">סט</span> {currentSetIdx + 1}/{currentExercise.sets}
+          </span>
         </div>
 
         {/* Sets table */}

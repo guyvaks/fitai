@@ -127,11 +127,14 @@ export default function Workouts() {
     return null
   }
 
-  const isRestDay = (day) => {
+  // 'rest': explicitly marked as a rest day in the plan
+  // 'no_plan': no exercises and not marked as rest — nothing was planned for this day
+  // 'has_plan': has exercises
+  const getDayStatus = (day) => {
+    if (plan?.plan_data?.[day]?.rest) return 'rest'
     const exercises = getDayExercises(day)
-    if (exercises.length === 0) return true
-    if (plan?.plan_data?.[day]?.rest) return true
-    return false
+    if (exercises.length === 0) return 'no_plan'
+    return 'has_plan'
   }
 
   // Fetch last-used weight per exercise for the active day (exercise memory, already tracked server-side)
@@ -233,40 +236,26 @@ export default function Workouts() {
         </div>
       )}
 
-      {/* Date strip */}
+      {/* Day + date selector (single, synced selector — day name and date always move together) */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {weekDates.map(d => (
-          <button
-            key={d.key}
-            onClick={() => setActiveDay(d.key)}
-            className={`flex flex-col items-center justify-center w-12 h-14 rounded-xl shrink-0 transition-colors ${
-              activeDay === d.key ? 'bg-accent-blue text-white' : 'bg-white border border-light-border text-dark-text'
-            }`}
-          >
-            <span className="text-xs opacity-80">{DAYS.find(x => x.key === d.key)?.label.slice(0, 1)}</span>
-            <span className="text-base font-bold">{d.dayOfMonth}</span>
-            {!isRestDay(d.key) && (
-              <span className={`w-1 h-1 rounded-full mt-0.5 ${activeDay === d.key ? 'bg-white' : 'bg-accent-blue'}`} />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Day name tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
-        {DAYS.map(d => (
-          <button
-            key={d.key}
-            onClick={() => setActiveDay(d.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
-              activeDay === d.key
-                ? 'bg-accent-blue text-white shadow-sm'
-                : 'bg-gray-100 text-dark-text-muted hover:text-dark-text'
-            }`}
-          >
-            {d.label}
-          </button>
-        ))}
+        {weekDates.map(d => {
+          const status = getDayStatus(d.key)
+          return (
+            <button
+              key={d.key}
+              onClick={() => setActiveDay(d.key)}
+              className={`flex flex-col items-center justify-center gap-0.5 min-w-[60px] h-16 px-2 rounded-xl shrink-0 transition-colors ${
+                activeDay === d.key ? 'bg-accent-blue text-white shadow-sm' : 'bg-white border border-light-border text-dark-text hover:bg-gray-50'
+              }`}
+            >
+              <span className="text-xs font-medium opacity-90">{DAYS.find(x => x.key === d.key)?.label}</span>
+              <span className="text-base font-bold">{d.dayOfMonth}</span>
+              {status === 'has_plan' && (
+                <span className={`w-1 h-1 rounded-full ${activeDay === d.key ? 'bg-white' : 'bg-accent-blue'}`} />
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {/* Day content */}
@@ -282,11 +271,23 @@ export default function Workouts() {
             🤖 בנה עם AI
           </button>
         </div>
-      ) : isRestDay(activeDay) ? (
+      ) : getDayStatus(activeDay) === 'rest' ? (
         <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-2 shadow-sm">
           <div className="text-5xl">😴</div>
           <p className="text-dark-text text-xl font-semibold mt-3">יום מנוחה</p>
           <p className="text-dark-text-muted">המנוחה היא חלק חשוב מהאימון</p>
+        </div>
+      ) : getDayStatus(activeDay) === 'no_plan' ? (
+        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
+          <div className="text-5xl">📭</div>
+          <p className="text-dark-text-muted text-lg">אין תרגילים מתוכננים ליום זה</p>
+          <button
+            onClick={handleGenerateAI}
+            disabled={generating}
+            className="bg-accent-blue hover:bg-accent-blue/90 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 shadow-sm"
+          >
+            🤖 בנה תכנית ליום זה עם AI
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
