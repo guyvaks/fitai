@@ -59,6 +59,7 @@ body {
     radial-gradient(800px 500px at 0% 110%, rgba(34, 211, 238, 0.06), transparent 60%);
   background-attachment: fixed;
   color: #F1F5F9;
+  color-scheme: dark;
   font-family: "Rubik Variable", "Rubik", "Heebo", sans-serif;
   direction: rtl;
 }
