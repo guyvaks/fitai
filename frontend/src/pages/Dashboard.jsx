@@ -3,6 +3,22 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { agentsAPI, nutritionAPI, workoutsAPI } from "../services/api";
 import {
+  HeartPulse,
+  Flame,
+  Scale,
+  Weight,
+  Bot,
+  Sparkles,
+  Salad,
+  Dumbbell,
+  ShieldCheck,
+  Trophy,
+  UtensilsCrossed,
+  ArrowLeft,
+  Loader2,
+  Lightbulb,
+} from "lucide-react";
+import {
   LineChart,
   Line,
   XAxis,
@@ -40,9 +56,9 @@ function ActivityRings({ workoutPct, proteinPct, caloriesPct }) {
   const size = 176;
   const center = size / 2;
   const rings = [
-    { pct: caloriesPct, color: "#EF4444", track: "#FEE2E2", radius: 78 },
-    { pct: proteinPct, color: "#22C55E", track: "#DCFCE7", radius: 58 },
-    { pct: workoutPct, color: "#F97316", track: "#FFEDD5", radius: 38 },
+    { pct: caloriesPct, color: "#FB7185", track: "rgba(251,113,133,0.12)", radius: 78 },
+    { pct: proteinPct, color: "#22D3EE", track: "rgba(34,211,238,0.12)", radius: 58 },
+    { pct: workoutPct, color: "#A3E635", track: "rgba(163,230,53,0.12)", radius: 38 },
   ];
 
   return (
@@ -155,10 +171,10 @@ export default function Dashboard() {
   const workoutPct = todayWorkout ? 90 : 0;
 
   const topMetrics = [
-    { label: "TDEE", value: tdee ? tdee.toLocaleString() : "—", icon: "🫀", iconBg: "bg-red-50", iconColor: "text-red-500" },
-    { label: "יעד קלוריות", value: targetCal ? targetCal.toLocaleString() : "—", icon: "🔥", iconBg: "bg-orange-50", iconColor: "text-orange-500" },
-    { label: "BMI", value: bmi ?? "—", icon: "⚖️", iconBg: "bg-green-50", iconColor: "text-green-500" },
-    { label: "משקל נוכחי", value: weightKg ?? "—", icon: "📏", iconBg: "bg-blue-50", iconColor: "text-accent-blue" },
+    { label: "TDEE", value: tdee ? tdee.toLocaleString() : "—", Icon: HeartPulse, chip: "bg-coral-soft text-coral" },
+    { label: "יעד קלוריות", value: targetCal ? targetCal.toLocaleString() : "—", Icon: Flame, chip: "bg-amber-soft text-amber" },
+    { label: "BMI", value: bmi ?? "—", Icon: Scale, chip: "bg-volt-soft text-volt" },
+    { label: "משקל נוכחי", value: weightKg ?? "—", Icon: Weight, chip: "bg-cyan-soft text-cyan" },
   ];
 
   const latestRecords = [...records]
@@ -166,72 +182,84 @@ export default function Dashboard() {
     .slice(0, 3);
 
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+    <div className="space-y-6" dir="rtl">
       {/* Welcome */}
-      <div>
-        <h2 className="text-2xl font-bold text-dark-text">
-          בוקר טוב, {firstName}
+      <div className="anim-rise">
+        <h2 className="text-3xl font-extrabold text-text-hi tracking-tight">
+          בוקר טוב, <span className="text-gradient-volt">{firstName}</span>
         </h2>
-        <p className="text-dark-text-muted mt-1">{dateLabel}</p>
+        <p className="text-text-mid mt-1">{dateLabel}</p>
       </div>
 
       {/* AI pending suggestion banner */}
       {hasPendingSuggestion && (
         <div
           onClick={() => navigate('/ai-suggestion')}
-          className="bg-blue-50 border border-blue-200 rounded-card p-4 text-sm text-accent-blue cursor-pointer hover:bg-blue-100 transition flex items-center justify-between"
+          className="anim-rise anim-d1 card-glass card-hover p-4 text-sm text-volt cursor-pointer flex items-center justify-between"
+          style={{ borderColor: "rgba(163,230,53,0.35)" }}
         >
-          <span>🤖 AI הכין לך תכנית חדשה! לחץ לצפייה ואישור</span>
-          <span>←</span>
+          <span className="flex items-center gap-2 font-medium">
+            <Bot className="w-4 h-4" />
+            AI הכין לך תכנית חדשה! לחץ לצפייה ואישור
+          </span>
+          <ArrowLeft className="w-4 h-4" />
         </div>
       )}
 
       {/* No profile banner */}
       {!profile && (
-        <div className="bg-blue-50 border border-blue-200 rounded-card p-4 text-sm text-accent-blue">
-          💡 עדיין לא הגדרת פרופיל אישי. עבור ל<a href="/profile" className="underline font-medium">דף הפרופיל</a> כדי לראות נתונים אישיים.
+        <div className="anim-rise anim-d1 card-glass p-4 text-sm text-cyan flex items-center gap-2">
+          <Lightbulb className="w-4 h-4 flex-shrink-0" />
+          <span>
+            עדיין לא הגדרת פרופיל אישי. עבור ל<a href="/profile" className="underline font-medium text-volt">דף הפרופיל</a> כדי לראות נתונים אישיים.
+          </span>
         </div>
       )}
 
       {/* Top metric cards + activity rings */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {topMetrics.map((m) => (
-          <div key={m.label} className="bg-white border border-light-border rounded-card p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between min-h-[140px]">
-            <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-base ${m.iconBg}`}>
-              {m.icon}
+        {topMetrics.map((m, i) => (
+          <div key={m.label} className={`anim-rise anim-d${i + 1} card-glass card-hover p-4 flex flex-col justify-between min-h-[140px]`}>
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${m.chip}`}>
+              <m.Icon className="w-4.5 h-4.5" strokeWidth={2.2} />
             </span>
             <div>
-              <div className="text-2xl font-bold text-dark-text">{m.value}</div>
-              <div className="text-dark-text-muted text-xs mt-0.5">{m.label}</div>
+              <div className="text-2xl font-extrabold text-text-hi tabular-nums text-right" dir="ltr">{m.value}</div>
+              <div className="text-text-mid text-xs mt-0.5">{m.label}</div>
             </div>
           </div>
         ))}
 
-        <div className="col-span-2 md:col-span-1 bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col items-center gap-3">
-          <span className="text-dark-text-muted text-sm self-start">פעילות יומית</span>
+        <div className="anim-rise anim-d5 col-span-2 md:col-span-1 card-glass p-4 flex flex-col items-center gap-3">
+          <span className="text-text-mid text-sm self-start">פעילות יומית</span>
           {workoutPct === 0 && proteinPct === 0 && caloriesPct === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-2">
-              <span className="text-2xl">💪</span>
-              <p className="text-dark-text-muted text-xs leading-relaxed">
+              <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+                <Dumbbell className="w-5 h-5" />
+              </span>
+              <p className="text-text-mid text-xs leading-relaxed">
                 עדיין לא תיעדת היום — בוא נתחיל
               </p>
               <button
                 onClick={() => navigate('/food-log')}
-                className="text-accent-blue text-xs font-medium hover:underline"
+                className="text-volt text-xs font-medium hover:underline inline-flex items-center gap-1"
               >
-                לתיעוד ארוחה ←
+                לתיעוד ארוחה
+                <ArrowLeft className="w-3 h-3" />
               </button>
             </div>
           ) : (
             <>
               <div className="relative">
                 <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
-                <div className="absolute inset-0 flex items-center justify-center text-xl">🍽️</div>
+                <div className="absolute inset-0 flex items-center justify-center text-volt">
+                  <UtensilsCrossed className="w-6 h-6" />
+                </div>
               </div>
-              <div className="flex gap-3 text-xs text-dark-text-muted">
-                <span className="text-orange-500 font-semibold">אימון {workoutPct}%</span>
-                <span className="text-green-600 font-semibold">חלבון {proteinPct}%</span>
-                <span className="text-red-500 font-semibold">קלוריות {caloriesPct}%</span>
+              <div className="flex gap-3 text-xs">
+                <span className="text-volt font-semibold">אימון <span dir="ltr">{workoutPct}%</span></span>
+                <span className="text-cyan font-semibold">חלבון <span dir="ltr">{proteinPct}%</span></span>
+                <span className="text-coral font-semibold">קלוריות <span dir="ltr">{caloriesPct}%</span></span>
               </div>
             </>
           )}
@@ -239,65 +267,88 @@ export default function Dashboard() {
       </div>
 
       {/* AI full plan card */}
-      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+      <div className="anim-rise anim-d2 card-glass p-5 relative overflow-hidden">
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(163,230,53,0.6), rgba(34,211,238,0.6), transparent)" }}
+        />
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">🤖</span>
-          <h3 className="text-dark-text font-semibold">בנה תכנית שבועית מלאה</h3>
+          <span className="w-8 h-8 rounded-xl bg-volt-soft text-volt flex items-center justify-center">
+            <Bot className="w-4.5 h-4.5" />
+          </span>
+          <h3 className="text-text-hi font-bold">בנה תכנית שבועית מלאה</h3>
         </div>
-        <div className="flex gap-3 mb-4">
-          <span className="bg-blue-50 text-accent-blue text-xs px-2 py-1 rounded-full font-medium">🥗 תזונה</span>
-          <span className="bg-indigo-50 text-indigo-600 text-xs px-2 py-1 rounded-full font-medium">💪 אימונים</span>
-          <span className="bg-purple-50 text-purple-600 text-xs px-2 py-1 rounded-full font-medium">✅ מפקח AI</span>
+        <div className="flex gap-2 mb-4 flex-wrap">
+          <span className="bg-volt-soft text-volt text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1">
+            <Salad className="w-3 h-3" /> תזונה
+          </span>
+          <span className="bg-cyan-soft text-cyan text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1">
+            <Dumbbell className="w-3 h-3" /> אימונים
+          </span>
+          <span className="bg-violet-soft text-violet text-xs px-2.5 py-1 rounded-full font-medium inline-flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3" /> מפקח AI
+          </span>
         </div>
-        <p className="text-dark-text-muted text-sm mb-4 leading-relaxed">
+        <p className="text-text-mid text-sm mb-4 leading-relaxed">
           מפעיל 3 סוכני AI — תזונאי, מאמן כושר ומפקח — ליצירת תפריט תזונה שבועי מלא + תכנית אימונים. שניהם יישמרו לאחר האישור.
         </p>
         {fullPlanLoading && (
-          <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-accent-blue text-xs text-center">
-            ⏳ הסוכנים עובדים... זה לוקח כ-60-90 שניות
+          <div className="mb-3 bg-cyan-soft border border-line rounded-elem px-3 py-2 text-cyan text-xs text-center flex items-center justify-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            הסוכנים עובדים... זה לוקח כ-60-90 שניות
           </div>
         )}
         {fullPlanError && (
-          <div className="mb-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-red-600 text-xs">
+          <div className="mb-3 bg-coral-soft border border-line rounded-elem px-3 py-2 text-coral text-xs">
             {fullPlanError}
           </div>
         )}
         <button
           onClick={handleFullPlan}
           disabled={fullPlanLoading || !profile}
-          className="w-full bg-accent-blue text-white py-3 rounded-xl font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+          className="btn-volt w-full py-3 text-sm flex items-center justify-center gap-2"
         >
-          {fullPlanLoading ? '⏳ יוצר תפריט + אימונים...' : '✨ בנה לי תכנית מלאה (תזונה + אימונים)'}
+          {fullPlanLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              יוצר תפריט + אימונים...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4" />
+              בנה לי תכנית מלאה (תזונה + אימונים)
+            </>
+          )}
         </button>
         {!profile && (
-          <p className="text-dark-text-muted text-xs mt-2 text-center">יש להשלים פרופיל לפני יצירת תכנית</p>
+          <p className="text-text-mid text-xs mt-2 text-center">יש להשלים פרופיל לפני יצירת תכנית</p>
         )}
       </div>
 
       {/* Weekly weight progress chart */}
-      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+      <div className="anim-rise anim-d3 card-glass p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-dark-text font-semibold">התקדמות משקל שבועי</h3>
-          <div className="flex items-center gap-3 text-xs text-dark-text-muted">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />אחוז שומן</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent-blue inline-block" />משקל</span>
+          <h3 className="text-text-hi font-bold">התקדמות משקל שבועי</h3>
+          <div className="flex items-center gap-3 text-xs text-text-mid">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan inline-block" />אחוז שומן</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-volt inline-block" />משקל</span>
           </div>
         </div>
         {new Set(weeklyWeightDemo.map(d => d.weight)).size < 2 ? (
-          <div className="h-[200px] flex items-center justify-center text-dark-text-muted text-sm text-center px-6">
+          <div className="h-[200px] flex items-center justify-center text-text-mid text-sm text-center px-6">
             עדיין אין מספיק נתונים להצגת מגמה
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={weeklyWeightDemo}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis dataKey="day" tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
-              <YAxis tick={{ fill: "#6B7280", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+              <XAxis dataKey="day" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
+              <YAxis tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
               <Tooltip
-                contentStyle={{ backgroundColor: "#FFFFFF", border: "1px solid #E5E7EB", borderRadius: "8px", color: "#111827" }}
+                contentStyle={{ backgroundColor: "#1A2234", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "12px", color: "#F1F5F9" }}
               />
-              <Line type="monotone" dataKey="weight" stroke="#2563EB" strokeWidth={2} dot={{ fill: "#2563EB", r: 3 }} />
-              <Line type="monotone" dataKey="bodyFat" stroke="#22C55E" strokeWidth={2} dot={{ fill: "#22C55E", r: 3 }} />
+              <Line type="monotone" dataKey="weight" stroke="#A3E635" strokeWidth={2.5} dot={{ fill: "#A3E635", r: 3 }} />
+              <Line type="monotone" dataKey="bodyFat" stroke="#22D3EE" strokeWidth={2.5} dot={{ fill: "#22D3EE", r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -305,65 +356,70 @@ export default function Dashboard() {
 
       {/* Today summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+        <div className="anim-rise anim-d3 card-glass card-hover p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <span className="inline-block bg-blue-50 text-accent-blue text-xs px-2 py-0.5 rounded-full font-medium mb-2">בתהליך</span>
-            <h4 className="text-dark-text font-semibold text-sm mb-1">סיכום תזונה היום</h4>
-            <p className="text-dark-text text-lg font-bold" dir="ltr">
+            <span className="inline-block bg-cyan-soft text-cyan text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">בתהליך</span>
+            <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום תזונה היום</h4>
+            <p className="text-text-hi text-xl font-extrabold tabular-nums" dir="ltr">
               {consumedCalories.toLocaleString()} / {targetCal ? targetCal.toLocaleString() : "—"}
             </p>
-            <p className="text-dark-text-muted text-xs">קלוריות שנצרכו · נותר עד {targetCal ? Math.max(0, targetCal - consumedCalories).toLocaleString() : "—"}</p>
+            <p className="text-text-mid text-xs">קלוריות שנצרכו · נותר עד <span dir="ltr">{targetCal ? Math.max(0, targetCal - consumedCalories).toLocaleString() : "—"}</span></p>
           </div>
           <img
             src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&h=160&fit=crop&q=80"
             alt="ארוחה בריאה"
-            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+            className="w-20 h-20 rounded-xl object-cover flex-shrink-0 ring-1 ring-line"
           />
         </div>
 
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+        <div className="anim-rise anim-d4 card-glass card-hover p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <span className="inline-block bg-green-50 text-green-600 text-xs px-2 py-0.5 rounded-full font-medium mb-2">
+            <span className="inline-block bg-volt-soft text-volt text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">
               {todayWorkout ? "בוצע" : "מנוחה"}
             </span>
-            <h4 className="text-dark-text font-semibold text-sm mb-1">סיכום אימון היום</h4>
-            <p className="text-dark-text text-lg font-bold">{todayWorkout?.name || "יום מנוחה"}</p>
-            <p className="text-dark-text-muted text-xs">{todayWorkout ? `${todayWorkout.count} תרגילים` : "המנוחה חלק מהאימון"}</p>
+            <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום אימון היום</h4>
+            <p className="text-text-hi text-xl font-extrabold">{todayWorkout?.name || "יום מנוחה"}</p>
+            <p className="text-text-mid text-xs">{todayWorkout ? `${todayWorkout.count} תרגילים` : "המנוחה חלק מהאימון"}</p>
           </div>
           <img
             src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=160&h=160&fit=crop&q=80"
             alt="ציוד אימון"
-            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+            className="w-20 h-20 rounded-xl object-cover flex-shrink-0 ring-1 ring-line"
           />
         </div>
       </div>
 
       {/* Recent personal records */}
-      <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+      <div className="anim-rise anim-d4 card-glass p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-dark-text font-semibold">שיאים אישיים אחרונים</h3>
-          <button onClick={() => navigate('/progress')} className="text-accent-blue text-sm font-medium hover:underline">ראה הכל</button>
+          <h3 className="text-text-hi font-bold">שיאים אישיים אחרונים</h3>
+          <button onClick={() => navigate('/progress')} className="text-volt text-sm font-medium hover:underline inline-flex items-center gap-1">
+            ראה הכל
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
         </div>
         {latestRecords.length === 0 ? (
-          <p className="text-dark-text-muted text-sm text-center py-4">אין שיאים עדיין — צא לאימון!</p>
+          <p className="text-text-mid text-sm text-center py-4">אין שיאים עדיין — צא לאימון!</p>
         ) : (
-          <div className="divide-y divide-light-border">
+          <div className="divide-y divide-line">
             {latestRecords.map((r) => {
               const delta = r.previous_record_kg != null ? r.record_weight_kg - r.previous_record_kg : null;
               return (
                 <div key={r.id} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
-                    <span className="w-9 h-9 rounded-full bg-yellow-50 flex items-center justify-center text-base">🏅</span>
+                    <span className="w-9 h-9 rounded-full bg-amber-soft text-amber flex items-center justify-center">
+                      <Trophy className="w-4 h-4" />
+                    </span>
                     <div>
-                      <p className="text-dark-text text-sm font-medium">{r.exercise_name}</p>
-                      <p className="text-dark-text-muted text-xs">{daysAgoLabel(r.achieved_at)}</p>
+                      <p className="text-text-hi text-sm font-medium">{r.exercise_name}</p>
+                      <p className="text-text-mid text-xs">{daysAgoLabel(r.achieved_at)}</p>
                     </div>
                   </div>
                   <div className="text-left">
-                    <p className="text-dark-text font-bold text-sm">{r.record_weight_kg} ק״ג</p>
+                    <p className="text-text-hi font-bold text-sm tabular-nums"><span dir="ltr">{r.record_weight_kg}</span> ק״ג</p>
                     {delta != null && (
-                      <p className={`text-xs ${delta >= 0 ? "text-green-600" : "text-red-500"}`}>
-                        {delta >= 0 ? "+" : ""}{delta} ק״ג
+                      <p className={`text-xs tabular-nums ${delta >= 0 ? "text-volt" : "text-coral"}`}>
+                        <span dir="ltr">{delta >= 0 ? "+" : ""}{delta}</span> ק״ג
                       </p>
                     )}
                   </div>

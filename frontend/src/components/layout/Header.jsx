@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { Menu, Home, Zap } from "lucide-react";
 
 const pageTitles = {
   "/dashboard": "דשבורד",
@@ -28,40 +29,43 @@ export default function Header({ onToggleSidebar }) {
     : "?";
 
   return (
-    <header className="h-16 bg-white border-b border-light-border flex items-center justify-between px-4 md:px-6">
+    <header className="h-16 bg-surface/80 backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
       {/* Mobile hamburger + logo */}
       <div className="flex items-center gap-3">
         <button
-          className="md:hidden text-dark-text-muted hover:text-dark-text p-2 -mr-2"
+          className="md:hidden text-text-mid hover:text-text-hi p-2 -mr-2 transition-colors"
           onClick={onToggleSidebar}
           aria-label="תפריט"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <Menu className="w-6 h-6" />
         </button>
-        <span className="md:hidden text-xl font-bold text-accent-blue">FitAI</span>
-        <h1 className="hidden md:block text-lg font-semibold text-dark-text">{title}</h1>
+        <span className="md:hidden text-xl font-extrabold text-text-hi tracking-tight flex items-center gap-1.5">
+          <span className="w-6 h-6 rounded-lg bg-volt flex items-center justify-center">
+            <Zap className="w-3.5 h-3.5 text-ink" fill="currentColor" strokeWidth={0} />
+          </span>
+          <span dir="ltr">Fit<span className="text-volt">AI</span></span>
+        </span>
+        <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
       {/* Desktop: user info */}
       <div className="hidden md:flex items-center gap-3">
-        <span className="text-dark-text-muted text-sm">{user?.full_name}</span>
-        <div className="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold">
+        <span className="text-text-mid text-sm">{user?.full_name}</span>
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-xs font-bold">
           {initials}
         </div>
       </div>
 
       {/* Mobile: page title */}
-      <h1 className="md:hidden text-base font-semibold text-dark-text">{title}</h1>
+      <h1 className="md:hidden text-base font-bold text-text-hi">{title}</h1>
 
       {/* Mobile: home button */}
       <button
-        className="md:hidden text-dark-text-muted hover:text-accent-blue p-2 transition-colors"
+        className="md:hidden text-text-mid hover:text-volt p-2 transition-colors"
         onClick={() => navigate('/dashboard')}
         aria-label="בית"
       >
-        🏠
+        <Home className="w-5 h-5" />
       </button>
     </header>
   );
