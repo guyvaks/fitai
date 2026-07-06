@@ -114,6 +114,29 @@ body {
   color: transparent;
 }
 
+.input-volt {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  color: #F1F5F9;
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input-volt::placeholder {
+  color: #64748B;
+}
+
+.input-volt:focus {
+  outline: none;
+  border-color: rgba(163, 230, 53, 0.5);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* ---- Motion ---- */
 
 @keyframes rise {

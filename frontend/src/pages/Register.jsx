@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { Zap, Loader2 } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -31,55 +32,62 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-light-bg flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-accent-blue mb-2">FitAI</h1>
-          <p className="text-dark-text-muted">הצטרף למסע שלך לכושר ובריאות</p>
+        <div className="text-center mb-8 anim-rise">
+          <div className="inline-flex items-center gap-2.5 mb-3">
+            <span className="w-11 h-11 rounded-2xl bg-volt flex items-center justify-center shadow-[0_0_28px_rgba(163,230,53,0.4)]">
+              <Zap className="w-6 h-6 text-ink" fill="currentColor" strokeWidth={0} />
+            </span>
+            <h1 className="text-4xl font-extrabold text-text-hi tracking-tight" dir="ltr">
+              Fit<span className="text-volt">AI</span>
+            </h1>
+          </div>
+          <p className="text-text-mid">הצטרף למסע שלך לכושר ובריאות</p>
         </div>
 
-        <div className="bg-white border border-light-border rounded-card p-8 shadow-lg">
-          <h2 className="text-xl font-semibold text-dark-text mb-6">הצטרף עכשיו</h2>
+        <div className="card-glass p-8 anim-rise anim-d1">
+          <h2 className="text-xl font-bold text-text-hi mb-6">הצטרף עכשיו</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+            <div className="mb-4 p-3 bg-coral-soft border border-coral/30 rounded-elem text-coral text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-dark-text-muted text-sm mb-1">שם מלא</label>
+              <label className="block text-text-mid text-sm mb-1.5">שם מלא</label>
               <input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full bg-white border border-light-border rounded-lg px-4 py-3 text-dark-text placeholder-dark-text-muted focus:outline-none focus:border-accent-blue transition-colors"
+                className="input-volt"
                 placeholder="ישראל ישראלי"
               />
             </div>
             <div>
-              <label className="block text-dark-text-muted text-sm mb-1">אימייל</label>
+              <label className="block text-text-mid text-sm mb-1.5">אימייל</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-white border border-light-border rounded-lg px-4 py-3 text-dark-text placeholder-dark-text-muted focus:outline-none focus:border-accent-blue transition-colors"
+                className="input-volt"
                 placeholder="your@email.com"
                 dir="ltr"
               />
             </div>
             <div>
-              <label className="block text-dark-text-muted text-sm mb-1">סיסמה</label>
+              <label className="block text-text-mid text-sm mb-1.5">סיסמה</label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full bg-white border border-light-border rounded-lg px-4 py-3 text-dark-text placeholder-dark-text-muted focus:outline-none focus:border-accent-blue transition-colors"
+                className="input-volt"
                 placeholder="לפחות 6 תווים"
                 dir="ltr"
               />
@@ -88,15 +96,16 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-accent-blue hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg transition-colors mt-2 shadow-sm"
+              className="btn-volt w-full py-3 mt-2 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed"
             >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? "נרשם..." : "הצטרף עכשיו"}
             </button>
           </form>
 
-          <p className="text-center text-dark-text-muted text-sm mt-6">
+          <p className="text-center text-text-mid text-sm mt-6">
             כבר יש לי חשבון?{" "}
-            <Link to="/login" className="text-accent-blue hover:underline">
+            <Link to="/login" className="text-volt hover:underline font-medium">
               התחבר
             </Link>
           </p>
