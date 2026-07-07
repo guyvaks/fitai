@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import { KeyRound, Crown, Trash2, Loader2 } from "lucide-react";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {
   const [password, setPassword] = useState("");
@@ -24,10 +25,10 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white border border-light-border rounded-card p-6 w-full max-w-sm mx-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-dark-text font-bold text-lg mb-1">🔑 איפוס סיסמה</h2>
-        <p className="text-dark-text-muted text-sm mb-4">{user.full_name} ({user.email})</p>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-surface-2 border border-line-strong rounded-card p-6 w-full max-w-sm mx-4 shadow-2xl anim-rise" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-text-hi font-bold text-lg mb-1 flex items-center gap-2"><KeyRound className="w-5 h-5 text-amber" /> איפוס סיסמה</h2>
+        <p className="text-text-mid text-sm mb-4">{user.full_name} (<span dir="ltr">{user.email}</span>)</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="password"
@@ -35,14 +36,15 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoFocus
-            className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
+            className="input-volt"
           />
-          {error && <p className="text-red-600 text-xs">{error}</p>}
+          {error && <p className="text-coral text-xs">{error}</p>}
           <div className="flex gap-2 justify-end">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-dark-text-muted hover:text-dark-text transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-text-mid hover:text-text-hi transition-colors">
               בטל
             </button>
-            <button type="submit" disabled={loading} className="px-4 py-2 text-sm bg-accent-blue text-white rounded-lg hover:bg-accent-blue/90 disabled:opacity-50 transition-opacity shadow-sm">
+            <button type="submit" disabled={loading} className="btn-volt px-4 py-2 text-sm flex items-center gap-1.5">
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {loading ? "מעדכן..." : "אשר"}
             </button>
           </div>
@@ -97,15 +99,21 @@ export default function Admin() {
     }
   };
 
-  if (loading) return <div className="p-6 text-dark-text-muted bg-light-bg rounded-card">טוען...</div>;
-  if (error) return <div className="p-6 text-red-600 bg-light-bg rounded-card">{error}</div>;
+  if (loading) return (
+    <div className="p-6 text-text-mid card-glass flex items-center gap-2">
+      <Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...
+    </div>
+  );
+  if (error) return <div className="p-6 text-coral card-glass" style={{ borderColor: "rgba(251,113,133,0.4)" }}>{error}</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto bg-light-bg rounded-card" dir="rtl">
-      <h1 className="text-2xl font-bold text-dark-text mb-6">ניהול משתמשים 👑</h1>
-      <div className="bg-white rounded-card border border-light-border overflow-x-auto shadow-sm">
+    <div className="max-w-5xl mx-auto" dir="rtl">
+      <h1 className="text-3xl font-extrabold text-text-hi tracking-tight mb-6 flex items-center gap-2 anim-rise">
+        ניהול משתמשים <Crown className="w-6 h-6 text-amber" />
+      </h1>
+      <div className="card-glass overflow-x-auto anim-rise anim-d1">
         <table className="w-full text-sm">
-          <thead className="border-b border-light-border text-dark-text-muted">
+          <thead className="border-b border-line text-text-mid">
             <tr>
               <th className="px-4 py-3 text-right">שם</th>
               <th className="px-4 py-3 text-right">אימייל</th>
@@ -119,40 +127,40 @@ export default function Admin() {
               const isMe = u.id === me?.id;
               const busy = actionLoading === u.id;
               return (
-                <tr key={u.id} className="border-b border-light-border/50 hover:bg-gray-50">
-                  <td className="px-4 py-3 text-dark-text font-medium">
+                <tr key={u.id} className="border-b border-line/50 hover:bg-white/3 transition-colors">
+                  <td className="px-4 py-3 text-text-hi font-medium">
                     {u.full_name}
-                    {isMe && <span className="mr-2 text-xs text-accent-blue">(אני)</span>}
+                    {isMe && <span className="mr-2 text-xs text-volt">(אני)</span>}
                   </td>
-                  <td className="px-4 py-3 text-dark-text-muted">{u.email}</td>
-                  <td className="px-4 py-3 text-dark-text-muted">
+                  <td className="px-4 py-3 text-text-mid" dir="ltr">{u.email}</td>
+                  <td className="px-4 py-3 text-text-mid" dir="ltr">
                     {new Date(u.created_at).toLocaleDateString("he-IL")}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {u.is_admin ? <span className="text-yellow-500">👑</span> : <span className="text-gray-300">—</span>}
+                    {u.is_admin ? <Crown className="w-4 h-4 text-amber inline" /> : <span className="text-text-low">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col items-stretch gap-1">
                       <button
                         onClick={() => setResetTarget(u)}
                         disabled={busy}
-                        className="text-xs px-2 py-1 rounded border border-blue-200 text-accent-blue hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
                       >
-                        🔑 סיסמה
+                        <KeyRound className="w-3 h-3" /> סיסמה
                       </button>
                       <button
                         onClick={() => handleToggleAdmin(u)}
                         disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded border border-yellow-300 text-yellow-600 hover:bg-yellow-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border border-amber/30 text-amber hover:bg-amber-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
                       >
-                        {u.is_admin ? "הסר 👑" : "אדמין 👑"}
+                        {u.is_admin ? "הסר" : "אדמין"} <Crown className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => handleDelete(u)}
                         disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-xs px-2 py-1 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
                       >
-                        {busy ? "..." : "מחק 🗑️"}
+                        {busy ? "..." : <>מחק <Trash2 className="w-3 h-3" /></>}
                       </button>
                     </div>
                   </td>
@@ -162,7 +170,7 @@ export default function Admin() {
           </tbody>
         </table>
       </div>
-      <p className="mt-4 text-dark-text-muted text-xs">{users.length} משתמשים סה"כ</p>
+      <p className="mt-4 text-text-mid text-xs"><span dir="ltr">{users.length}</span> משתמשים סה"כ</p>
 
       {resetTarget && (
         <ResetPasswordModal

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
+import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2 } from 'lucide-react'
 
 const STATUS_BADGE = {
-  pending: { label: 'ממתין לאישורך', color: 'bg-blue-50 text-accent-blue border-blue-200' },
-  approved: { label: 'אושר', color: 'bg-green-50 text-green-600 border-green-200' },
-  rejected: { label: 'נדחה', color: 'bg-red-50 text-red-600 border-red-200' },
+  pending: { label: 'ממתין לאישורך', color: 'bg-cyan-soft text-cyan border-cyan/30' },
+  approved: { label: 'אושר', color: 'bg-volt-soft text-volt border-volt/30' },
+  rejected: { label: 'נדחה', color: 'bg-coral-soft text-coral border-coral/30' },
 }
 
 const DAYS_ORDER = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -55,10 +56,10 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
           <button
             key={day}
             onClick={() => setActiveDay(day)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-elem text-sm font-medium transition-all ${
               activeDay === day
-                ? 'bg-accent-blue text-white shadow-sm'
-                : 'bg-gray-100 text-dark-text-muted hover:bg-gray-200 hover:text-dark-text'
+                ? 'bg-volt text-ink'
+                : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
             }`}
           >
             יום {DAYS_HE[day]}
@@ -68,15 +69,15 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
 
       {/* Day header */}
       <div className="flex items-start justify-between gap-2 min-w-0">
-        <h4 className="text-dark-text font-semibold text-base shrink-0">
+        <h4 className="text-text-hi font-bold text-base shrink-0">
           יום {DAYS_HE_FULL[activeDay]}
         </h4>
         {totals && (
           <div className="flex gap-1.5 flex-wrap justify-end">
-            <MacroPill label="קק״ל" value={totals.calories} unit="" color="bg-orange-50 text-orange-600" />
-            <MacroPill label="חלבון" value={totals.protein} color="bg-blue-50 text-blue-600" />
-            <MacroPill label="פחמימות" value={totals.carbs} color="bg-yellow-50 text-yellow-600" />
-            <MacroPill label="שומן" value={totals.fat} color="bg-purple-50 text-purple-600" />
+            <MacroPill label="קק״ל" value={totals.calories} unit="" color="bg-coral-soft text-coral" />
+            <MacroPill label="חלבון" value={totals.protein} color="bg-volt-soft text-volt" />
+            <MacroPill label="פחמימות" value={totals.carbs} color="bg-cyan-soft text-cyan" />
+            <MacroPill label="שומן" value={totals.fat} color="bg-amber-soft text-amber" />
           </div>
         )}
       </div>
@@ -84,34 +85,34 @@ function MealPlanFull({ mealPlan, dailyTotals }) {
       {/* Meals */}
       <div className="space-y-3">
         {meals.map((meal, i) => (
-          <div key={i} className="bg-white border border-light-border rounded-xl p-4 space-y-3 min-w-0 shadow-sm">
+          <div key={i} className="bg-white/4 border border-line rounded-xl p-4 space-y-3 min-w-0">
             {/* Meal header */}
             <div className="flex items-start gap-2 min-w-0">
               <div className="flex-1 min-w-0">
-                <p className="text-dark-text font-semibold text-sm">{meal.name || MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
-                <p className="text-dark-text-muted text-xs mt-0.5">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
+                <p className="text-text-hi font-bold text-sm">{meal.name || MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
+                <p className="text-text-mid text-xs mt-0.5">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
               </div>
             </div>
             {/* Meal macros */}
             <div className="flex gap-1.5 flex-wrap">
-              <MacroPill label="קק״ל" value={meal.total_calories} unit="" color="bg-orange-50 text-orange-600" />
-              <MacroPill label="חלבון" value={meal.total_protein} color="bg-blue-50 text-blue-600" />
-              <MacroPill label="פחמימות" value={meal.total_carbs} color="bg-yellow-50 text-yellow-600" />
-              <MacroPill label="שומן" value={meal.total_fat} color="bg-purple-50 text-purple-600" />
+              <MacroPill label="קק״ל" value={meal.total_calories} unit="" color="bg-coral-soft text-coral" />
+              <MacroPill label="חלבון" value={meal.total_protein} color="bg-volt-soft text-volt" />
+              <MacroPill label="פחמימות" value={meal.total_carbs} color="bg-cyan-soft text-cyan" />
+              <MacroPill label="שומן" value={meal.total_fat} color="bg-amber-soft text-amber" />
             </div>
 
             {/* Ingredients */}
             {meal.items && meal.items.length > 0 && (
-              <div className="border-t border-light-border pt-3">
-                <p className="text-dark-text-muted text-xs font-medium mb-2">מרכיבים:</p>
+              <div className="border-t border-line pt-3">
+                <p className="text-text-mid text-xs font-medium mb-2">מרכיבים:</p>
                 <div className="space-y-1.5">
                   {meal.items.map((item, j) => (
                     <div key={j} className="flex items-center justify-between gap-2 min-w-0">
-                      <span className="text-dark-text text-xs truncate">{item.name}</span>
+                      <span className="text-text-hi text-xs truncate">{item.name}</span>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-dark-text-muted text-xs">{item.qty_g}ג׳</span>
-                        <span className="text-orange-600 text-xs font-medium">{item.calories} קק״ל</span>
-                        <span className="text-blue-600 text-xs">ח׳ {item.protein}ג׳</span>
+                        <span className="text-text-mid text-xs"><span dir="ltr">{item.qty_g}</span>ג׳</span>
+                        <span className="text-coral text-xs font-medium"><span dir="ltr">{item.calories}</span> קק״ל</span>
+                        <span className="text-volt text-xs">ח׳ <span dir="ltr">{item.protein}</span>ג׳</span>
                       </div>
                     </div>
                   ))}
@@ -144,13 +145,13 @@ function WorkoutPlanFull({ workoutPlan }) {
             <button
               key={day}
               onClick={() => setActiveDay(day)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-elem text-sm font-medium transition-all inline-flex items-center gap-1 ${
                 activeDay === day
-                  ? 'bg-accent-blue text-white shadow-sm'
-                  : 'bg-gray-100 text-dark-text-muted hover:bg-gray-200 hover:text-dark-text'
+                  ? 'bg-volt text-ink'
+                  : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
               }`}
             >
-              יום {DAYS_HE[day]}{rest ? ' 😴' : ''}
+              יום {DAYS_HE[day]}{rest && <Moon className="w-3 h-3 opacity-70" />}
             </button>
           )
         })}
@@ -159,9 +160,9 @@ function WorkoutPlanFull({ workoutPlan }) {
       {/* Workout header */}
       {workout && (
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h4 className="text-dark-text font-semibold text-base">{workout.name || 'אימון'}</h4>
+          <h4 className="text-text-hi font-bold text-base">{workout.name || 'אימון'}</h4>
           {workout.type && (
-            <span className="bg-blue-50 text-accent-blue text-xs px-2 py-0.5 rounded-full font-medium">
+            <span className="bg-cyan-soft text-cyan text-xs px-2 py-0.5 rounded-full font-medium">
               {WORKOUT_TYPE_HE[workout.type] || workout.type}
             </span>
           )}
@@ -170,9 +171,13 @@ function WorkoutPlanFull({ workoutPlan }) {
 
       {/* Rest day */}
       {isRest && (
-        <div className="bg-white border border-light-border rounded-xl p-6 text-center shadow-sm">
-          <p className="text-4xl mb-2">😴</p>
-          <p className="text-dark-text-muted text-sm">יום מנוחה — תנוח והתאושש</p>
+        <div className="bg-white/4 border border-line rounded-xl p-6 text-center">
+          <div className="flex justify-center mb-2">
+            <span className="w-10 h-10 rounded-full bg-cyan-soft text-cyan flex items-center justify-center">
+              <Moon className="w-5 h-5" />
+            </span>
+          </div>
+          <p className="text-text-mid text-sm">יום מנוחה — תנוח והתאושש</p>
         </div>
       )}
 
@@ -180,30 +185,30 @@ function WorkoutPlanFull({ workoutPlan }) {
       {!isRest && workout.exercises && (
         <div className="space-y-2">
           {workout.exercises.map((ex, i) => (
-            <div key={i} className="bg-white border border-light-border rounded-xl p-4 min-w-0 shadow-sm">
+            <div key={i} className="bg-white/4 border border-line rounded-xl p-4 min-w-0">
               <div className="flex items-start gap-2 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <p className="text-dark-text font-medium text-sm">{ex.name}</p>
+                  <p className="text-text-hi font-medium text-sm">{ex.name}</p>
                   {ex.muscle_group && (
-                    <span className="inline-block bg-gray-100 text-dark-text-muted text-xs px-2 py-0.5 rounded-full mt-1">{ex.muscle_group}</span>
+                    <span className="inline-block bg-white/6 text-text-mid text-xs px-2 py-0.5 rounded-full mt-1">{ex.muscle_group}</span>
                   )}
                   {ex.notes && (
-                    <p className="text-dark-text-muted text-xs mt-1">{ex.notes}</p>
+                    <p className="text-text-mid text-xs mt-1">{ex.notes}</p>
                   )}
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap mt-2">
-                <span className="bg-blue-50 text-accent-blue text-xs px-2 py-1 rounded-lg font-medium">
+                <span className="bg-volt-soft text-volt text-xs px-2 py-1 rounded-lg font-medium tabular-nums" dir="ltr">
                   {ex.sets} × {ex.reps}
                 </span>
                 {ex.weight_kg > 0 && (
-                  <span className="bg-yellow-50 text-yellow-600 text-xs px-2 py-1 rounded-lg font-medium">
-                    {ex.weight_kg} ק״ג
+                  <span className="bg-amber-soft text-amber text-xs px-2 py-1 rounded-lg font-medium">
+                    <span dir="ltr">{ex.weight_kg}</span> ק״ג
                   </span>
                 )}
                 {ex.rest_seconds > 0 && (
-                  <span className="bg-gray-100 text-dark-text-muted text-xs px-2 py-1 rounded-lg">
-                    מנוחה {ex.rest_seconds}שנ׳
+                  <span className="bg-white/6 text-text-mid text-xs px-2 py-1 rounded-lg">
+                    מנוחה <span dir="ltr">{ex.rest_seconds}</span>שנ׳
                   </span>
                 )}
               </div>
@@ -220,7 +225,7 @@ function GroceryList({ items }) {
   return (
     <div className="flex flex-wrap gap-2">
       {items.map((item, i) => (
-        <span key={i} className="bg-white text-dark-text-muted text-xs px-3 py-1.5 rounded-full border border-light-border hover:border-accent-blue/30 transition-colors">
+        <span key={i} className="bg-white/4 text-text-mid text-xs px-3 py-1.5 rounded-full border border-line hover:border-volt/30 hover:text-text-hi transition-colors">
           {item}
         </span>
       ))}
@@ -282,22 +287,27 @@ export default function AISuggestion() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
-        <p className="text-dark-text-muted">טוען...</p>
+      <div className="flex items-center justify-center gap-2 h-64 card-glass">
+        <Loader2 className="w-5 h-5 animate-spin text-volt" />
+        <p className="text-text-mid">טוען...</p>
       </div>
     )
   }
 
   if (!suggestion) {
     return (
-      <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
-        <h2 className="text-2xl font-bold text-dark-text">הצעות AI</h2>
-        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
-          <div className="text-5xl">🤖</div>
-          <p className="text-dark-text font-medium">אין הצעות ממתינות לאישור</p>
+      <div className="space-y-6" dir="rtl">
+        <h2 className="text-3xl font-extrabold text-text-hi tracking-tight anim-rise">הצעות AI</h2>
+        <div className="card-glass p-10 text-center space-y-4 anim-rise anim-d1">
+          <div className="flex justify-center">
+            <span className="w-14 h-14 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+              <Bot className="w-7 h-7" />
+            </span>
+          </div>
+          <p className="text-text-hi font-bold">אין הצעות ממתינות לאישור</p>
           <button
             onClick={() => navigate('/nutrition')}
-            className="bg-accent-blue text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-accent-blue/90 transition shadow-sm"
+            className="btn-volt px-6 py-2 text-sm"
           >
             צור תכנית חדשה עם AI
           </button>
@@ -353,94 +363,96 @@ export default function AISuggestion() {
   const hasNoContent = !hasMeal && !hasWorkout
 
   return (
-    <div className="space-y-6 pb-8 overflow-x-hidden bg-light-bg p-6 rounded-card" dir="rtl">
+    <div className="space-y-6 pb-8 overflow-x-hidden" dir="rtl">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <h2 className="text-2xl font-bold text-dark-text truncate">הצעות AI</h2>
+      <div className="flex items-center justify-between gap-2 min-w-0 anim-rise">
+        <h2 className="text-3xl font-extrabold text-text-hi tracking-tight truncate">הצעות AI</h2>
         <span className={`text-xs px-3 py-1 rounded-full border font-medium shrink-0 ${badge.color}`}>
           {badge.label}
         </span>
       </div>
 
       {/* Summary card */}
-      <div className="bg-white border border-light-border rounded-card p-4 shadow-sm">
+      <div className="card-glass p-4 anim-rise anim-d1">
         <div className="flex items-center gap-3 mb-2 min-w-0">
-          <span className="text-2xl shrink-0">🤖</span>
+          <span className="w-9 h-9 rounded-xl bg-volt-soft text-volt flex items-center justify-center shrink-0">
+            <Bot className="w-5 h-5" />
+          </span>
           <div className="min-w-0">
-            <p className="text-dark-text font-semibold">
+            <p className="text-text-hi font-bold">
               {hasMeal && hasWorkout ? 'ה-AI הכין לך תפריט תזונה ותכנית אימונים שבועית'
                 : hasMeal ? 'ה-AI הכין לך תפריט תזונה שבועי'
                 : 'ה-AI הכין לך תכנית אימונים שבועית'}
             </p>
             <div className="flex gap-2 mt-1 flex-wrap">
-              {hasMeal && <span className="text-xs bg-blue-50 text-accent-blue px-2 py-0.5 rounded-full">🥗 תזונה ל-7 ימים</span>}
-              {hasWorkout && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">💪 אימונים ל-7 ימים</span>}
-              {content.grocery_list?.length > 0 && <span className="text-xs bg-gray-100 text-dark-text-muted px-2 py-0.5 rounded-full">🛒 {content.grocery_list.length} פריטי קניות</span>}
+              {hasMeal && <span className="text-xs bg-volt-soft text-volt px-2 py-0.5 rounded-full inline-flex items-center gap-1"><Salad className="w-3 h-3" /> תזונה ל-7 ימים</span>}
+              {hasWorkout && <span className="text-xs bg-cyan-soft text-cyan px-2 py-0.5 rounded-full inline-flex items-center gap-1"><Dumbbell className="w-3 h-3" /> אימונים ל-7 ימים</span>}
+              {content.grocery_list?.length > 0 && <span className="text-xs bg-white/6 text-text-mid px-2 py-0.5 rounded-full inline-flex items-center gap-1"><ShoppingCart className="w-3 h-3" /> <span dir="ltr">{content.grocery_list.length}</span> פריטי קניות</span>}
             </div>
           </div>
         </div>
         {content.summary && (
-          <p className="text-dark-text-muted text-sm leading-relaxed mt-2">{content.summary}</p>
+          <p className="text-text-mid text-sm leading-relaxed mt-2">{content.summary}</p>
         )}
       </div>
 
       {/* No content warning */}
       {hasNoContent && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-card p-4 space-y-2">
-          <p className="text-yellow-700 text-sm font-semibold">⚠️ לא נמצא תוכן מובנה</p>
-          <p className="text-yellow-600/80 text-xs">מפתחות: {Object.keys(suggestion.content || {}).join(', ') || 'ריק'}</p>
+        <div className="bg-amber-soft border border-amber/30 rounded-card p-4 space-y-2">
+          <p className="text-amber text-sm font-semibold inline-flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> לא נמצא תוכן מובנה</p>
+          <p className="text-amber/80 text-xs">מפתחות: {Object.keys(suggestion.content || {}).join(', ') || 'ריק'}</p>
           {suggestion.content?.error && (
-            <p className="text-red-600 text-xs">שגיאה: {suggestion.content.error}</p>
+            <p className="text-coral text-xs">שגיאה: {suggestion.content.error}</p>
           )}
         </div>
       )}
 
       {/* Tab switcher — shown only when there's parseable content */}
-      {!hasNoContent && <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+      {!hasNoContent && <div className="flex bg-white/4 border border-line rounded-xl p-1 gap-1">
         {hasMeal && (
           <button
             onClick={() => setActiveTab('nutrition')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2 rounded-elem text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'nutrition'
-                ? 'bg-white text-dark-text shadow-sm'
-                : 'text-dark-text-muted hover:text-dark-text'
+                ? 'bg-volt text-ink'
+                : 'text-text-mid hover:text-text-hi'
             }`}
           >
-            🥗 תפריט תזונה
+            <Salad className="w-4 h-4" /> תפריט תזונה
           </button>
         )}
         {hasWorkout && (
           <button
             onClick={() => setActiveTab('workout')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2 rounded-elem text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'workout'
-                ? 'bg-white text-dark-text shadow-sm'
-                : 'text-dark-text-muted hover:text-dark-text'
+                ? 'bg-volt text-ink'
+                : 'text-text-mid hover:text-text-hi'
             }`}
           >
-            💪 תכנית אימונים
+            <Dumbbell className="w-4 h-4" /> תכנית אימונים
           </button>
         )}
         {content.grocery_list?.length > 0 && (
           <button
             onClick={() => setActiveTab('grocery')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2 rounded-elem text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'grocery'
-                ? 'bg-white text-dark-text shadow-sm'
-                : 'text-dark-text-muted hover:text-dark-text'
+                ? 'bg-volt text-ink'
+                : 'text-text-mid hover:text-text-hi'
             }`}
           >
-            🛒 קניות
+            <ShoppingCart className="w-4 h-4" /> קניות
           </button>
         )}
       </div>}
 
       {/* Meal Plan */}
       {activeTab === 'nutrition' && hasMeal && (
-        <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
-          <h3 className="text-dark-text font-semibold flex items-center gap-2">
-            <span>🥗</span> תפריט שבועי מלא
+        <div className="card-glass p-4 space-y-4">
+          <h3 className="text-text-hi font-bold flex items-center gap-2">
+            <Salad className="w-4.5 h-4.5 text-volt" /> תפריט שבועי מלא
           </h3>
           <MealPlanFull
             mealPlan={content.meal_plan}
@@ -451,9 +463,9 @@ export default function AISuggestion() {
 
       {/* Workout Plan */}
       {activeTab === 'workout' && hasWorkout && (
-        <div className="bg-white border border-light-border rounded-card p-4 space-y-4 shadow-sm">
-          <h3 className="text-dark-text font-semibold flex items-center gap-2">
-            <span>💪</span> תכנית אימונים שבועית מלאה
+        <div className="card-glass p-4 space-y-4">
+          <h3 className="text-text-hi font-bold flex items-center gap-2">
+            <Dumbbell className="w-4.5 h-4.5 text-cyan" /> תכנית אימונים שבועית מלאה
           </h3>
           <WorkoutPlanFull workoutPlan={content.workout_plan} />
         </div>
@@ -461,9 +473,9 @@ export default function AISuggestion() {
 
       {/* Grocery */}
       {activeTab === 'grocery' && content.grocery_list?.length > 0 && (
-        <div className="bg-white border border-light-border rounded-card p-4 space-y-3 shadow-sm">
-          <h3 className="text-dark-text font-semibold flex items-center gap-2">
-            <span>🛒</span> רשימת קניות ({content.grocery_list.length} פריטים)
+        <div className="card-glass p-4 space-y-3">
+          <h3 className="text-text-hi font-bold flex items-center gap-2">
+            <ShoppingCart className="w-4.5 h-4.5 text-amber" /> רשימת קניות (<span dir="ltr">{content.grocery_list.length}</span> פריטים)
           </h3>
           <GroceryList items={content.grocery_list} />
         </div>
@@ -475,16 +487,17 @@ export default function AISuggestion() {
           <button
             onClick={handleApprove}
             disabled={actionLoading}
-            className="flex-1 bg-accent-blue text-white py-3 rounded-xl font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+            className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
           >
-            {actionLoading ? 'מעבד...' : '✅ אשר ואמץ את התכנית'}
+            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            {actionLoading ? 'מעבד...' : 'אשר ואמץ את התכנית'}
           </button>
           <button
             onClick={handleReject}
             disabled={actionLoading}
-            className="flex-1 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-semibold text-sm hover:bg-red-100 disabled:opacity-50 transition"
+            className="flex-1 bg-coral-soft text-coral border border-coral/30 py-3 rounded-xl font-semibold text-sm hover:bg-coral/20 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
           >
-            ❌ דחה וצור חדש
+            <X className="w-4 h-4" /> דחה וצור חדש
           </button>
         </div>
       )}
