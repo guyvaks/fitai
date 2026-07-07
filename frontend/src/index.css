@@ -138,6 +138,24 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+/*
+ * Browser autofill overrides — Chromium/WebKit paint autofilled fields with a
+ * light-yellow UA background and dark text, unreadable on the dark theme. The
+ * inset box-shadow trick repaints the field; solid surface-2 stands in for the
+ * translucent input background (inset shadows can't be transparent).
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1A2234 inset !important;
+  -webkit-text-fill-color: #F1F5F9 !important;
+  caret-color: #F1F5F9;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 /* ---- Motion ---- */
 
 @keyframes rise {
