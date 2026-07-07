@@ -4,6 +4,7 @@ import { workoutsAPI } from '../services/api'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
+import { Trophy, Plus, Loader2 } from 'lucide-react'
 
 const PERIODS = ['שבוע', 'חודש', 'שנה']
 
@@ -39,15 +40,15 @@ function TrendChart({ title, unit, data, color, gradientId, changeLabel, changeP
   const latest = series[series.length - 1].value
 
   return (
-    <div className="bg-white border border-light-border rounded-card p-5 shadow-sm">
+    <div className="card-glass p-5">
       <div className="flex items-center justify-between mb-1">
-        <div className="flex gap-1 bg-gray-100 rounded-full p-1">
+        <div className="flex gap-1 bg-white/4 border border-line rounded-full p-1">
           {PERIODS.map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                period === p ? 'bg-white text-dark-text shadow-sm' : 'text-dark-text-muted'
+                period === p ? 'bg-volt text-ink' : 'text-text-mid hover:text-text-hi'
               }`}
             >
               {p}
@@ -55,10 +56,10 @@ function TrendChart({ title, unit, data, color, gradientId, changeLabel, changeP
           ))}
         </div>
         <div className="text-left">
-          <h3 className="text-dark-text-muted text-sm">{title}</h3>
+          <h3 className="text-text-mid text-sm">{title}</h3>
           <div className="flex items-center gap-2 justify-end">
-            <span className={`text-xs font-medium ${changePositive ? 'text-green-600' : 'text-red-500'}`}>{changeLabel}</span>
-            <span className="text-2xl font-bold text-dark-text" dir="ltr">{latest.toLocaleString()}</span>
+            <span className={`text-xs font-medium ${changePositive ? 'text-volt' : 'text-coral'}`} dir="ltr">{changeLabel}</span>
+            <span className="text-2xl font-extrabold text-text-hi tabular-nums" dir="ltr">{latest.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -66,19 +67,19 @@ function TrendChart({ title, unit, data, color, gradientId, changeLabel, changeP
         <AreaChart data={series}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="5%" stopColor={color} stopOpacity={0.35} />
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fill: '#9CA3AF', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis hide domain={['auto', 'auto']} />
           <Tooltip
-            contentStyle={{ background: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: 8 }}
-            labelStyle={{ color: '#111827' }}
+            contentStyle={{ background: '#1A2234', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12 }}
+            labelStyle={{ color: '#F1F5F9' }}
             formatter={(v) => [`${v}${unit}`, title]}
           />
-          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gradientId})`} />
+          <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -104,16 +105,16 @@ export default function Progress() {
   }, [])
 
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
-      <h1 className="text-2xl font-bold text-dark-text">התקדמות ומדדים</h1>
+    <div className="space-y-6" dir="rtl">
+      <h1 className="text-3xl font-extrabold text-text-hi tracking-tight anim-rise">התקדמות ומדדים</h1>
 
       {/* Trend charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 anim-rise anim-d1">
         <TrendChart
           title="נפח אימון (ק״ג)"
           unit=""
           data={VOLUME_DATA}
-          color="#22C55E"
+          color="#A3E635"
           gradientId="volumeGradient"
           changeLabel="12%+"
           changePositive
@@ -122,7 +123,7 @@ export default function Progress() {
           title="משקל גוף (ק״ג)"
           unit=""
           data={WEIGHT_DATA}
-          color="#2563EB"
+          color="#22D3EE"
           gradientId="weightGradient"
           changeLabel="0.5- השבוע"
           changePositive={false}
@@ -130,41 +131,45 @@ export default function Progress() {
       </div>
 
       {/* Personal Records */}
-      <div>
-        <h2 className="text-lg font-semibold text-dark-text mb-3">🏆 שיאים אישיים</h2>
+      <div className="anim-rise anim-d2">
+        <h2 className="text-lg font-bold text-text-hi mb-3 flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-amber" /> שיאים אישיים
+        </h2>
         {loading ? (
-          <p className="text-dark-text-muted text-sm">טוען...</p>
+          <p className="text-text-mid text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {records.map(r => (
-              <div key={r.id} className="bg-white border border-light-border rounded-card p-4 shadow-sm space-y-2">
+              <div key={r.id} className="card-glass card-hover p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="w-9 h-9 rounded-full bg-yellow-50 flex items-center justify-center text-lg">🏆</span>
+                  <span className="w-9 h-9 rounded-full bg-amber-soft text-amber flex items-center justify-center">
+                    <Trophy className="w-4 h-4" />
+                  </span>
                   {isRecent(r.achieved_at) && (
-                    <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full">NEW RECORD</span>
+                    <span className="bg-amber text-ink text-[10px] font-bold px-2 py-0.5 rounded-full" dir="ltr">NEW RECORD</span>
                   )}
                 </div>
-                <p className="text-dark-text font-semibold text-sm">{r.exercise_name}</p>
-                <p className="text-dark-text" dir="ltr">
-                  <span className="text-lg font-bold">{r.record_weight_kg} ק״ג</span>
-                  <span className="text-dark-text-muted text-sm"> x {r.record_reps} חזרות</span>
+                <p className="text-text-hi font-bold text-sm">{r.exercise_name}</p>
+                <p className="text-text-hi" dir="ltr">
+                  <span className="text-lg font-extrabold tabular-nums">{r.record_weight_kg} ק״ג</span>
+                  <span className="text-text-mid text-sm tabular-nums"> x {r.record_reps} חזרות</span>
                 </p>
-                <p className="text-dark-text-muted text-xs">
+                <p className="text-text-mid text-xs">
                   {r.achieved_at ? new Date(r.achieved_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
                 </p>
               </div>
             ))}
             <button
               onClick={() => navigate('/workouts')}
-              className="border-2 border-dashed border-accent-blue/40 bg-blue-50/50 rounded-card p-4 flex flex-col items-center justify-center gap-2 text-accent-blue hover:bg-blue-50 hover:border-accent-blue transition min-h-[140px] font-medium"
+              className="border-2 border-dashed border-volt/40 bg-volt-soft/40 rounded-card p-4 flex flex-col items-center justify-center gap-2 text-volt hover:bg-volt-soft hover:border-volt/70 transition min-h-[140px] font-medium"
             >
-              <span className="text-2xl">+</span>
-              <span className="text-sm">+ הוסף שיא אישי</span>
+              <Plus className="w-6 h-6" />
+              <span className="text-sm">הוסף שיא אישי</span>
             </button>
           </div>
         )}
         {!loading && records.length === 0 && (
-          <p className="text-dark-text-muted text-sm mt-2">אין שיאים עדיין — צא לאימון!</p>
+          <p className="text-text-mid text-sm mt-2">אין שיאים עדיין — צא לאימון!</p>
         )}
       </div>
     </div>
