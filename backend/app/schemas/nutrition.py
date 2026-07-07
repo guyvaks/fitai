@@ -51,3 +51,9 @@ class NutritionPlanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CalorieCalcRequest(BaseModel):
+    type: str  # "text" | "image"
+    query: Optional[str] = None
+    image_base64: Optional[str] = None
+    image_media_type: str = "image/jpeg"
