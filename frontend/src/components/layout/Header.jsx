@@ -11,6 +11,7 @@ const pageTitles = {
   "/live-workout": "אימון חי",
   "/progress": "התקדמות",
   "/ai-suggestion": "הצעות AI",
+  "/admin": "ניהול משתמשים",
 };
 
 export default function Header({ onToggleSidebar }) {
