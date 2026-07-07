@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { foodsAPI } from '../services/api'
+import { Loader2 } from 'lucide-react'
 
 const CATEGORY_COLOR = {
-  'חלבונים':      'bg-blue-50 text-blue-600',
-  'מוצרי חלב':   'bg-purple-50 text-purple-600',
-  'פחמימות':      'bg-yellow-50 text-yellow-600',
-  'ירקות':        'bg-green-50 text-green-600',
-  'פירות':        'bg-orange-50 text-orange-600',
-  'שומנים':       'bg-red-50 text-red-600',
-  'חטיפים בריאים':'bg-teal-50 text-teal-600',
+  'חלבונים':      'bg-cyan-soft text-cyan',
+  'מוצרי חלב':   'bg-violet-soft text-violet',
+  'פחמימות':      'bg-amber-soft text-amber',
+  'ירקות':        'bg-volt-soft text-volt',
+  'פירות':        'bg-orange-400/15 text-orange-300',
+  'שומנים':       'bg-coral-soft text-coral',
+  'חטיפים בריאים':'bg-teal-400/15 text-teal-300',
 }
 
 const CATEGORIES = [
@@ -74,7 +75,7 @@ export default function FoodSearch({ onSelect }) {
 
   return (
     <div className="col-span-2 space-y-3">
-      <label className="text-dark-text-muted text-xs block">חיפוש מאכל</label>
+      <label className="text-text-mid text-xs block">חיפוש מאכל</label>
 
       {/* Category tabs + search */}
       <div className="space-y-2">
@@ -87,10 +88,10 @@ export default function FoodSearch({ onSelect }) {
               onClick={() => handleCategoryChange({ target: { value: cat } })}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                 category === cat
-                  ? 'bg-accent-blue text-white'
+                  ? 'bg-volt text-ink'
                   : cat === 'כל הקטגוריות'
-                    ? 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
-                    : `${CATEGORY_COLOR[cat] || 'bg-gray-100 text-dark-text-muted'} opacity-70 hover:opacity-100`
+                    ? 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
+                    : `${CATEGORY_COLOR[cat] || 'bg-white/6 text-text-mid'} opacity-70 hover:opacity-100`
               }`}
             >
               {cat}
@@ -105,11 +106,11 @@ export default function FoodSearch({ onSelect }) {
             placeholder="חיפוש חופשי..."
             value={query}
             onChange={handleQueryChange}
-            className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
+            className="input-volt"
             autoComplete="off"
           />
           {searching && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-text-muted text-xs">⏳</span>
+            <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 text-text-mid w-3.5 h-3.5 animate-spin" />
           )}
         </div>
       </div>
@@ -117,15 +118,15 @@ export default function FoodSearch({ onSelect }) {
       {/* Foods grid — grouped by category */}
       <div className="space-y-4 max-h-72 overflow-y-auto pl-1">
         {groupOrder.length === 0 && !searching && (
-          <p className="text-dark-text-muted text-sm text-center py-3">לא נמצאו מוצרים</p>
+          <p className="text-text-mid text-sm text-center py-3">לא נמצאו מוצרים</p>
         )}
         {groupOrder.map(cat => (
           <div key={cat}>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat] || 'bg-gray-100 text-dark-text-muted'}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[cat] || 'bg-white/6 text-text-mid'}`}>
                 {cat}
               </span>
-              <span className="text-dark-text-muted text-xs">{grouped[cat].length} מוצרים</span>
+              <span className="text-text-mid text-xs">{grouped[cat].length} מוצרים</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {grouped[cat].map(food => (
@@ -133,10 +134,10 @@ export default function FoodSearch({ onSelect }) {
                   key={food.id}
                   type="button"
                   onClick={() => onSelect(food)}
-                  className="bg-white hover:bg-blue-50 hover:border-accent-blue/40 border border-light-border rounded-lg px-3 py-2 text-right transition-all group shadow-sm"
+                  className="bg-white/4 hover:bg-volt-soft hover:border-volt/40 border border-line rounded-elem px-3 py-2 text-right transition-all group"
                 >
-                  <p className="text-dark-text text-xs font-medium leading-tight group-hover:text-accent-blue transition-colors truncate">{food.name}</p>
-                  <p className="text-dark-text-muted text-xs mt-0.5">{food.calories} קק״ל · ח׳ {food.protein}g</p>
+                  <p className="text-text-hi text-xs font-medium leading-tight group-hover:text-volt transition-colors truncate">{food.name}</p>
+                  <p className="text-text-mid text-xs mt-0.5"><span dir="ltr">{food.calories}</span> קק״ל · ח׳ <span dir="ltr">{food.protein}g</span></p>
                 </button>
               ))}
             </div>

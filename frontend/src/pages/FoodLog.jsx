@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { nutritionAPI } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import FoodSearch, { CATEGORY_COLOR } from '../components/FoodSearch'
+import { ChevronRight, ChevronLeft, Flame, Trash2, Plus, X, Loader2 } from 'lucide-react'
 
 const MEAL_TYPES = [
   { value: 'breakfast', label: 'בוקר' },
@@ -29,14 +30,14 @@ function round1(n) {
   return Math.round(n * 10) / 10
 }
 
-function ProgressBar({ value, max, color = 'bg-accent-blue' }) {
+function ProgressBar({ value, max, color = 'bg-volt' }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 bg-gray-200 rounded-full h-2">
+      <div className="flex-1 bg-white/8 rounded-full h-2">
         <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-dark-text-muted w-8 text-left">{pct}%</span>
+      <span className="text-xs text-text-mid w-8 text-left tabular-nums" dir="ltr">{pct}%</span>
     </div>
   )
 }
@@ -48,13 +49,13 @@ function MiniRing({ value, max, color, size = 44 }) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="5" />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth="5"
           strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-dark-text">
+      <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-text-hi tabular-nums" dir="ltr">
         {Math.round(pct)}%
       </div>
     </div>
@@ -67,9 +68,9 @@ function RemainingRing({ consumed, target, size = 96 }) {
   const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0
   return (
     <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="8" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
       <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2563EB" strokeWidth="8"
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#A3E635" strokeWidth="8"
         strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
       />
     </svg>
@@ -216,52 +217,52 @@ export default function FoodLog() {
     .filter(g => g.items.length > 0)
 
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card relative" dir="rtl">
-      <h2 className="text-2xl font-bold text-dark-text">יומן אכילה</h2>
+    <div className="space-y-6 relative" dir="rtl">
+      <h2 className="text-3xl font-extrabold text-text-hi tracking-tight anim-rise">יומן אכילה</h2>
 
       {/* Date picker */}
-      <div className="flex items-center justify-center gap-4 bg-white border border-light-border rounded-full p-3 shadow-sm max-w-xs mx-auto">
-        <button onClick={() => changeDay(-1)} className="text-dark-text-muted hover:text-dark-text text-lg px-2">→</button>
-        <span className="text-dark-text font-medium">{dayLabel}</span>
-        <button onClick={() => changeDay(1)}  className="text-dark-text-muted hover:text-dark-text text-lg px-2">←</button>
+      <div className="anim-rise anim-d1 flex items-center justify-center gap-4 card-glass !rounded-full p-3 max-w-xs mx-auto">
+        <button onClick={() => changeDay(-1)} className="text-text-mid hover:text-volt transition-colors px-2" aria-label="יום קודם"><ChevronRight className="w-5 h-5" /></button>
+        <span className="text-text-hi font-medium">{dayLabel}</span>
+        <button onClick={() => changeDay(1)}  className="text-text-mid hover:text-volt transition-colors px-2" aria-label="יום הבא"><ChevronLeft className="w-5 h-5" /></button>
       </div>
 
       {/* Daily summary rings */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm space-y-3">
+        <div className="anim-rise anim-d1 card-glass p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-left">
-              <div className="text-dark-text-muted text-xs">פחמימות</div>
-              <div className="text-dark-text text-sm font-semibold" dir="ltr">{Math.round(totals.carbs)}g / {targets.carbs}g</div>
+              <div className="text-text-mid text-xs">פחמימות</div>
+              <div className="text-text-hi text-sm font-semibold" dir="ltr">{Math.round(totals.carbs)}g / {targets.carbs}g</div>
             </div>
-            <MiniRing value={totals.carbs} max={targets.carbs} color="#F97316" />
+            <MiniRing value={totals.carbs} max={targets.carbs} color="#22D3EE" />
           </div>
           <div className="flex items-center justify-between gap-3">
             <div className="text-left">
-              <div className="text-dark-text-muted text-xs">שומן</div>
-              <div className="text-dark-text text-sm font-semibold" dir="ltr">{Math.round(totals.fat)}g / {targets.fat}g</div>
+              <div className="text-text-mid text-xs">שומן</div>
+              <div className="text-text-hi text-sm font-semibold" dir="ltr">{Math.round(totals.fat)}g / {targets.fat}g</div>
             </div>
-            <MiniRing value={totals.fat} max={targets.fat} color="#EF4444" />
+            <MiniRing value={totals.fat} max={targets.fat} color="#FBBF24" />
           </div>
         </div>
 
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex flex-col justify-center gap-2">
+        <div className="anim-rise anim-d2 card-glass p-4 flex flex-col justify-center gap-2">
           <div className="flex items-center justify-between">
-            <span className="text-dark-text-muted text-sm">חלבון</span>
-            <span className="text-dark-text font-bold" dir="ltr">{Math.round(totals.protein)}g / <span className="text-lg">{targets.protein}g</span></span>
+            <span className="text-text-mid text-sm">חלבון</span>
+            <span className="text-text-hi font-bold" dir="ltr">{Math.round(totals.protein)}g / <span className="text-lg">{targets.protein}g</span></span>
           </div>
-          <ProgressBar value={totals.protein} max={targets.protein} color="bg-green-500" />
+          <ProgressBar value={totals.protein} max={targets.protein} color="bg-volt" />
         </div>
 
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+        <div className="anim-rise anim-d3 card-glass p-4 flex items-center gap-4">
           <div className="relative shrink-0">
             <RemainingRing consumed={totals.calories} target={targets.calories} />
-            <div className="absolute inset-0 flex items-center justify-center text-xl">🔥</div>
+            <div className="absolute inset-0 flex items-center justify-center text-coral"><Flame className="w-5 h-5" /></div>
           </div>
           <div>
-            <div className="text-dark-text-muted text-xs">קלוריות שנותרו</div>
-            <div className="text-dark-text text-2xl font-bold">{remainingCalories.toLocaleString()}</div>
-            <div className="text-dark-text-muted text-xs">מתוך יעד של {targets.calories.toLocaleString()}</div>
+            <div className="text-text-mid text-xs">קלוריות שנותרו</div>
+            <div className="text-text-hi text-2xl font-extrabold tabular-nums" dir="ltr">{remainingCalories.toLocaleString()}</div>
+            <div className="text-text-mid text-xs">מתוך יעד של <span dir="ltr">{targets.calories.toLocaleString()}</span></div>
           </div>
         </div>
       </div>
@@ -269,15 +270,15 @@ export default function FoodLog() {
       {/* Log list grouped by meal */}
       <div className="space-y-4 pb-16">
         {loading ? (
-          <p className="text-dark-text-muted text-sm text-center py-4">טוען...</p>
+          <p className="text-text-mid text-sm text-center py-4 flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...</p>
         ) : groupedLogs.length === 0 ? (
-          <div className="bg-white border border-light-border rounded-card p-6 text-center text-dark-text-muted text-sm shadow-sm space-y-3">
+          <div className="card-glass p-6 text-center text-text-mid text-sm space-y-3 anim-rise anim-d3">
             <p>לא נרשמו ארוחות עדיין</p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+              className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
             >
-              + הוסף ארוחה
+              <Plus className="w-4 h-4" /> הוסף ארוחה
             </button>
           </div>
         ) : (
@@ -285,9 +286,9 @@ export default function FoodLog() {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowAddModal(true)}
-                className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-accent-blue/90 transition shadow-sm"
+                className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
               >
-                + הוסף ארוחה
+                <Plus className="w-4 h-4" /> הוסף ארוחה
               </button>
             </div>
             {groupedLogs.map(({ mealType, items }) => {
@@ -295,24 +296,24 @@ export default function FoodLog() {
             return (
               <div key={mealType} className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="text-dark-text font-semibold text-sm">{MEAL_LABELS[mealType] || mealType}</h3>
-                  <span className="text-dark-text-muted text-sm">{Math.round(mealTotal)} קלוריות</span>
+                  <h3 className="text-text-hi font-bold text-sm">{MEAL_LABELS[mealType] || mealType}</h3>
+                  <span className="text-text-mid text-sm"><span dir="ltr">{Math.round(mealTotal)}</span> קלוריות</span>
                 </div>
-                <div className="bg-white border border-light-border rounded-card shadow-sm divide-y divide-light-border overflow-hidden">
+                <div className="card-glass divide-y divide-line overflow-hidden">
                   {items.map(log => (
                     <div key={log.id} className="p-3 flex items-center justify-between gap-2">
                       <button
                         onClick={() => handleDelete(log.id)}
-                        className="text-dark-text-muted hover:text-red-600 transition text-lg px-1 shrink-0"
+                        className="text-text-mid hover:text-coral hover:bg-coral-soft rounded-lg transition p-1.5 shrink-0"
                         aria-label="מחק"
                       >
-                        🗑
+                        <Trash2 className="w-4 h-4" />
                       </button>
                       <div className="flex-1 min-w-0 text-right">
-                        <p className="text-dark-text text-sm font-medium truncate">{log.food_name}</p>
-                        <p className="text-dark-text-muted text-xs">{log.quantity_g} גרם</p>
+                        <p className="text-text-hi text-sm font-medium truncate">{log.food_name}</p>
+                        <p className="text-text-mid text-xs"><span dir="ltr">{log.quantity_g}</span> גרם</p>
                       </div>
-                      <span className="text-accent-blue font-semibold text-sm shrink-0">{log.calories} קל'</span>
+                      <span className="text-volt font-semibold text-sm shrink-0 tabular-nums"><span dir="ltr">{log.calories}</span> קל'</span>
                     </div>
                   ))}
                 </div>
@@ -326,48 +327,48 @@ export default function FoodLog() {
       {/* Floating add button */}
       <button
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-8 left-8 w-14 h-14 rounded-full bg-accent-blue text-white text-2xl shadow-lg hover:bg-accent-blue/90 transition flex items-center justify-center z-40"
+        className="fixed bottom-8 left-8 w-14 h-14 rounded-full bg-volt text-ink shadow-[0_6px_24px_rgba(163,230,53,0.35)] hover:brightness-105 active:scale-95 transition flex items-center justify-center z-40"
         aria-label="הוסף מאכל"
       >
-        +
+        <Plus className="w-6 h-6" strokeWidth={2.5} />
       </button>
 
       {/* Add food modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
           <div
-            className="bg-white rounded-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-lg"
+            className="bg-surface-2 border border-line-strong rounded-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-dark-text font-semibold">הוסף מאכל</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-dark-text-muted hover:text-dark-text text-xl px-1">×</button>
+              <h3 className="text-text-hi font-bold">הוסף מאכל</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
             </div>
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {error && <p className="text-coral text-sm">{error}</p>}
 
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <FoodSearch onSelect={handleFoodSelect} />
 
                 {selectedFood && (
-                  <div className="col-span-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex-wrap">
+                  <div className="col-span-2 flex items-center gap-2 bg-volt-soft border border-volt/25 rounded-elem px-3 py-2 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
                       {selectedFood.category}
                     </span>
-                    <span className="text-accent-blue text-sm font-medium">{selectedFood.name}</span>
-                    <span className="text-dark-text-muted text-xs mr-auto">לכל 100ג׳: {selectedFood.calories} קק״ל · חלבון {selectedFood.protein}g · פחמ׳ {selectedFood.carbs}g · שומן {selectedFood.fat}g</span>
+                    <span className="text-volt text-sm font-medium">{selectedFood.name}</span>
+                    <span className="text-text-mid text-xs mr-auto">לכל 100ג׳: <span dir="ltr">{selectedFood.calories}</span> קק״ל · חלבון <span dir="ltr">{selectedFood.protein}g</span> · פחמ׳ <span dir="ltr">{selectedFood.carbs}g</span> · שומן <span dir="ltr">{selectedFood.fat}g</span></span>
                   </div>
                 )}
 
                 <div className="col-span-2">
-                  <label className="text-dark-text-muted text-xs mb-1 block">כמות (גרם)</label>
+                  <label className="text-text-mid text-xs mb-1 block">כמות (גרם)</label>
                   <input
                     type="number"
                     min="1"
                     placeholder="100"
                     value={form.quantity_g}
                     onChange={e => handleQuantityChange(e.target.value)}
-                    className="w-full bg-white border border-light-border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue"
+                    className="input-volt"
                   />
                 </div>
 
@@ -378,32 +379,30 @@ export default function FoodLog() {
                   { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
                 ].map(field => (
                   <div key={field.key}>
-                    <label className="text-dark-text-muted text-xs mb-1 block">{field.label}</label>
+                    <label className="text-text-mid text-xs mb-1 block">{field.label}</label>
                     <input
                       type="number"
                       placeholder={field.placeholder}
                       value={form[field.key]}
                       onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                      className={`w-full bg-white border rounded-lg px-3 py-2 text-dark-text text-sm focus:outline-none focus:border-accent-blue transition-colors ${
-                        selectedFood ? 'border-accent-blue/40' : 'border-light-border'
-                      }`}
+                      className={`input-volt ${selectedFood ? '!border-volt/40' : ''}`}
                     />
                   </div>
                 ))}
               </div>
 
               <div>
-                <label className="text-dark-text-muted text-xs mb-2 block">ארוחה</label>
+                <label className="text-text-mid text-xs mb-2 block">ארוחה</label>
                 <div className="flex flex-wrap gap-2">
                   {MEAL_TYPES.map(mt => (
                     <button
                       key={mt.value}
                       type="button"
                       onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                      className={`px-3 py-1.5 rounded-elem text-xs font-medium transition ${
                         form.meal_type === mt.value
-                          ? 'bg-accent-blue text-white'
-                          : 'bg-white border border-light-border text-dark-text-muted hover:text-dark-text'
+                          ? 'bg-volt text-ink'
+                          : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
                       }`}
                     >
                       {mt.label}
@@ -415,9 +414,10 @@ export default function FoodLog() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-accent-blue text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+                className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
               >
-                {submitting ? 'שומר...' : '+ הוסף לאכילה'}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {submitting ? 'שומר...' : 'הוסף לאכילה'}
               </button>
             </form>
           </div>
