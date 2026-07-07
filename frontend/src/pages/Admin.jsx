@@ -106,12 +106,70 @@ export default function Admin() {
   );
   if (error) return <div className="p-6 text-coral card-glass" style={{ borderColor: "rgba(251,113,133,0.4)" }}>{error}</div>;
 
+  const ActionButtons = ({ u, isMe, busy, horizontal = false }) => (
+    <div className={horizontal ? "flex items-stretch gap-2" : "flex flex-col items-stretch gap-1"}>
+      <button
+        onClick={() => setResetTarget(u)}
+        disabled={busy}
+        className={`text-xs px-2 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
+      >
+        <KeyRound className="w-3 h-3" /> סיסמה
+      </button>
+      <button
+        onClick={() => handleToggleAdmin(u)}
+        disabled={busy || isMe}
+        className={`text-xs px-2 rounded-lg border border-amber/30 text-amber hover:bg-amber-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
+      >
+        {u.is_admin ? "הסר" : "אדמין"} <Crown className="w-3 h-3" />
+      </button>
+      <button
+        onClick={() => handleDelete(u)}
+        disabled={busy || isMe}
+        className={`text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
+      >
+        {busy ? "..." : <>מחק <Trash2 className="w-3 h-3" /></>}
+      </button>
+    </div>
+  );
+
   return (
     <div className="max-w-5xl mx-auto" dir="rtl">
       <h1 className="text-3xl font-extrabold text-text-hi tracking-tight mb-6 flex items-center gap-2 anim-rise">
         ניהול משתמשים <Crown className="w-6 h-6 text-amber" />
       </h1>
-      <div className="card-glass overflow-x-auto anim-rise anim-d1">
+
+      {/* Mobile: card list (actions always visible) */}
+      <div className="md:hidden space-y-3 anim-rise anim-d1">
+        {users.map((u) => {
+          const isMe = u.id === me?.id;
+          const busy = actionLoading === u.id;
+          return (
+            <div key={u.id} className="card-glass p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <p className="text-text-hi font-medium truncate">
+                    {u.full_name}
+                    {isMe && <span className="mr-2 text-xs text-volt">(אני)</span>}
+                  </p>
+                  <p className="text-text-mid text-xs truncate" dir="ltr">{u.email}</p>
+                  <p className="text-text-low text-xs mt-0.5" dir="ltr">
+                    {new Date(u.created_at).toLocaleDateString("he-IL")}
+                  </p>
+                </div>
+                {u.is_admin && (
+                  <span className="flex-shrink-0 inline-flex items-center gap-1 bg-amber-soft text-amber text-xs px-2 py-0.5 rounded-full font-medium">
+                    <Crown className="w-3 h-3" /> אדמין
+                  </span>
+                )}
+              </div>
+              <ActionButtons u={u} isMe={isMe} busy={busy} horizontal />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block card-glass overflow-x-auto anim-rise anim-d1">
         <table className="w-full text-sm">
           <thead className="border-b border-line text-text-mid">
             <tr>
@@ -140,29 +198,7 @@ export default function Admin() {
                     {u.is_admin ? <Crown className="w-4 h-4 text-amber inline" /> : <span className="text-text-low">—</span>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-col items-stretch gap-1">
-                      <button
-                        onClick={() => setResetTarget(u)}
-                        disabled={busy}
-                        className="text-xs px-2 py-1 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
-                      >
-                        <KeyRound className="w-3 h-3" /> סיסמה
-                      </button>
-                      <button
-                        onClick={() => handleToggleAdmin(u)}
-                        disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded-lg border border-amber/30 text-amber hover:bg-amber-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
-                      >
-                        {u.is_admin ? "הסר" : "אדמין"} <Crown className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(u)}
-                        disabled={busy || isMe}
-                        className="text-xs px-2 py-1 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
-                      >
-                        {busy ? "..." : <>מחק <Trash2 className="w-3 h-3" /></>}
-                      </button>
-                    </div>
+                    <ActionButtons u={u} isMe={isMe} busy={busy} />
                   </td>
                 </tr>
               );

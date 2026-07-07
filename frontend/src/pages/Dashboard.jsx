@@ -219,13 +219,13 @@ export default function Dashboard() {
       {/* Top metric cards + activity rings */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {topMetrics.map((m, i) => (
-          <div key={m.label} className={`anim-rise anim-d${i + 1} card-glass card-hover p-4 flex flex-col justify-between min-h-[140px]`}>
-            <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${m.chip}`}>
+          <div key={m.label} className={`anim-rise anim-d${i + 1} card-glass card-hover p-4 flex flex-col min-h-[140px]`}>
+            <span className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${m.chip}`}>
               <m.Icon className="w-4.5 h-4.5" strokeWidth={2.2} />
             </span>
-            <div>
-              <div className="text-2xl font-extrabold text-text-hi tabular-nums text-right" dir="ltr">{m.value}</div>
-              <div className="text-text-mid text-xs mt-0.5">{m.label}</div>
+            <div className="flex-1 flex flex-col justify-center pt-2">
+              <div className="text-3xl font-extrabold text-text-hi tabular-nums text-right" dir="ltr">{m.value}</div>
+              <div className="text-text-mid text-xs mt-1">{m.label}</div>
             </div>
           </div>
         ))}
