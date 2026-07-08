@@ -4,6 +4,19 @@ import { useWorkoutSession } from '../hooks/useWorkoutSession'
 import { workoutsAPI } from '../services/api'
 import { Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft } from 'lucide-react'
 
+// Manually-built plans store `sets` as an array of per-set {weight_kg, reps}
+// targets; AI-generated plans still store a flat `sets: <count>` with one
+// target applied to every set. Normalize to the flat shape LiveWorkout already
+// renders against, keeping per-set targets on the side for the input defaults.
+function normalizeExercises(exercises) {
+  return exercises.map(ex => {
+    if (Array.isArray(ex.sets)) {
+      return { ...ex, sets: ex.sets.length, _setTargets: ex.sets }
+    }
+    return ex
+  })
+}
+
 const demoExercises = [
   { name: "לחיצת חזה", muscle_group: "חזה", sets: 4, reps: 10, weight_kg: 60, rest_seconds: 90 },
   { name: "מתח רחב", muscle_group: "גב", sets: 3, reps: 8, weight_kg: 0, rest_seconds: 120 },
@@ -125,7 +138,7 @@ export default function LiveWorkout() {
         try {
           const { data: plan } = await workoutsAPI.getPlan()
           if (plan?.plan_data?.[day]?.exercises) {
-            setExercises(plan.plan_data[day].exercises)
+            setExercises(normalizeExercises(plan.plan_data[day].exercises))
           } else {
             setExercises(demoExercises)
           }
@@ -147,14 +160,17 @@ export default function LiveWorkout() {
     init()
   }, [day])
 
-  // Sync weight/reps inputs with current exercise defaults
+  // Sync weight/reps inputs with the current set's target — from the per-set
+  // targets array when the exercise came from a manually-built plan, else the
+  // flat per-exercise default (same for every set, as before).
   useEffect(() => {
     const ex = exercises[currentExerciseIdx]
     if (ex) {
-      setWeightInput(String(ex.weight_kg || ''))
-      setRepsInput(String(ex.reps || ''))
+      const target = ex._setTargets?.[currentSetIdx]
+      setWeightInput(String((target ? target.weight_kg : ex.weight_kg) || ''))
+      setRepsInput(String((target ? target.reps : ex.reps) || ''))
     }
-  }, [currentExerciseIdx, exercises])
+  }, [currentExerciseIdx, currentSetIdx, exercises])
 
   const currentExercise = exercises[currentExerciseIdx]
   const totalExercises = exercises.length
@@ -175,7 +191,7 @@ export default function LiveWorkout() {
     setCompletedKeys(prev => ({ ...prev, [key]: { weight_kg: weight, reps, completed: true } }))
 
     if (session) {
-      await completeSet(session.id, currentExerciseIdx, currentSetIdx, weight, reps, rest)
+      await completeSet(session.id, currentExerciseIdx, currentSetIdx, weight, reps, rest, currentExercise.name)
     }
 
     // Advance set index

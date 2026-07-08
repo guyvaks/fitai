@@ -9,6 +9,7 @@ import Nutrition from "./pages/Nutrition";
 import FoodLog from "./pages/FoodLog";
 import CalorieCalculator from "./pages/CalorieCalculator";
 import Workouts from "./pages/Workouts";
+import ManualWorkoutBuilder from "./pages/ManualWorkoutBuilder";
 import LiveWorkout from "./pages/LiveWorkout";
 import AISuggestion from "./pages/AISuggestion";
 import Progress from "./pages/Progress";
@@ -96,6 +97,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <Workouts />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workouts/manual-builder"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ManualWorkoutBuilder />
               </Layout>
             </ProtectedRoute>
           }

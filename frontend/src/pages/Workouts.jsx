@@ -16,6 +16,25 @@ const DAYS = [
 const DAY_KEYS = DAYS.map(d => d.key)
 const ACTIVE_DAY_STORAGE_KEY = 'fitai_workouts_active_day'
 
+// Exercises from the manual builder store `sets` as an array of {weight_kg, reps}
+// (one entry per real set); AI-generated plans still store a flat `sets: int` count
+// with a single `reps` target applied to all sets. Support both display shapes.
+function formatSetsReps(ex) {
+  if (Array.isArray(ex.sets)) {
+    const repsValues = ex.sets.map(s => s.reps)
+    const allSameReps = repsValues.every(r => r === repsValues[0])
+    return allSameReps ? `${ex.sets.length} x ${repsValues[0]}` : `${ex.sets.length} סטים (${Math.min(...repsValues)}-${Math.max(...repsValues)})`
+  }
+  return `${ex.sets} x ${ex.reps}`
+}
+
+function lastSetWeight(ex) {
+  if (Array.isArray(ex.sets)) {
+    return ex.sets.length > 0 ? ex.sets[ex.sets.length - 1].weight_kg : null
+  }
+  return ex.weight_kg
+}
+
 // Current week's Sun–Sat dates, purely for the date strip display
 function getWeekDates() {
   const today = new Date()
@@ -179,7 +198,10 @@ export default function Workouts() {
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
             {generating ? 'יוצר תכנית...' : 'בנה לי עם AI'}
           </button>
-          <button className="bg-white/4 border border-line text-text-hi px-4 py-2 rounded-elem font-medium text-sm hover:bg-white/8 transition-colors flex items-center gap-1.5">
+          <button
+            onClick={() => navigate('/workouts/manual-builder')}
+            className="bg-white/4 border border-line text-text-hi px-4 py-2 rounded-elem font-medium text-sm hover:bg-white/8 transition-colors flex items-center gap-1.5"
+          >
             <Pencil className="w-3.5 h-3.5" /> בנה ידנית
           </button>
         </div>
@@ -337,12 +359,12 @@ export default function Workouts() {
                 </div>
                 <div className="text-center shrink-0">
                   <p className="text-text-mid text-xs">סטים X חזרות</p>
-                  <p className="text-text-hi text-sm font-bold tabular-nums" dir="ltr">{ex.sets} x {ex.reps}</p>
+                  <p className="text-text-hi text-sm font-bold tabular-nums" dir="ltr">{formatSetsReps(ex)}</p>
                 </div>
                 <div className="text-center shrink-0">
                   <p className="text-text-mid text-xs">משקל אחרון</p>
                   <p className="text-volt text-sm font-bold tabular-nums" dir="ltr">
-                    {(lastWeights[ex.name] ?? ex.weight_kg) ? `${lastWeights[ex.name] ?? ex.weight_kg}kg` : '—'}
+                    {(lastWeights[ex.name] ?? lastSetWeight(ex)) ? `${lastWeights[ex.name] ?? lastSetWeight(ex)}kg` : '—'}
                   </p>
                 </div>
                 <ChevronLeft className="w-4 h-4 text-text-mid shrink-0" />
