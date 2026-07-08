@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { nutritionAPI } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import FoodSearch, { CATEGORY_COLOR } from '../components/FoodSearch'
-import { ChevronRight, ChevronLeft, Flame, Trash2, Plus, X, Loader2 } from 'lucide-react'
+import CalorieCalculatorPanel from '../components/CalorieCalculatorPanel'
+import { ChevronRight, ChevronLeft, Flame, Trash2, Plus, X, Loader2, Calculator } from 'lucide-react'
 
 const MEAL_TYPES = [
   { value: 'breakfast', label: 'בוקר' },
@@ -84,6 +85,8 @@ export default function FoodLog() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showCalcModal, setShowCalcModal] = useState(false)
+  const [calcMealType, setCalcMealType] = useState('breakfast')
 
   // Selected food from DB (per 100g)
   const [selectedFood, setSelectedFood] = useState(null)
@@ -185,6 +188,24 @@ export default function FoodLog() {
     }
   }
 
+  const handleAddFromCalculator = async (item) => {
+    try {
+      await nutritionAPI.logFood({
+        date: dateStr,
+        meal_type: calcMealType,
+        food_name: item.name,
+        quantity_g: item.qty_g,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+      })
+      fetchLogs()
+    } catch (e) {
+      setError(e.response?.data?.detail || 'שגיאה בהוספה ליומן')
+    }
+  }
+
   const handleDelete = async (id) => {
     try {
       await nutritionAPI.deleteLog(id)
@@ -274,16 +295,30 @@ export default function FoodLog() {
         ) : groupedLogs.length === 0 ? (
           <div className="card-glass p-6 text-center text-text-mid text-sm space-y-3 anim-rise anim-d3">
             <p>לא נרשמו ארוחות עדיין</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" /> הוסף ארוחה
-            </button>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" /> הוסף ארוחה
+              </button>
+              <button
+                onClick={() => setShowCalcModal(true)}
+                className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition inline-flex items-center gap-1.5"
+              >
+                <Calculator className="w-4 h-4" /> חשב עם AI
+              </button>
+            </div>
           </div>
         ) : (
           <>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2 flex-wrap">
+              <button
+                onClick={() => setShowCalcModal(true)}
+                className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition inline-flex items-center gap-1.5"
+              >
+                <Calculator className="w-4 h-4" /> חשב עם AI
+              </button>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
@@ -420,6 +455,43 @@ export default function FoodLog() {
                 {submitting ? 'שומר...' : 'הוסף לאכילה'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI calorie calculator modal */}
+      {showCalcModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCalcModal(false)}>
+          <div
+            className="bg-surface-2 border border-line-strong rounded-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-text-hi font-bold inline-flex items-center gap-1.5"><Calculator className="w-4 h-4 text-volt" /> חשב עם AI</h3>
+              <button onClick={() => setShowCalcModal(false)} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div>
+              <label className="text-text-mid text-xs mb-2 block">ארוחה</label>
+              <div className="flex flex-wrap gap-2">
+                {MEAL_TYPES.map(mt => (
+                  <button
+                    key={mt.value}
+                    type="button"
+                    onClick={() => setCalcMealType(mt.value)}
+                    className={`px-3 py-1.5 rounded-elem text-xs font-medium transition ${
+                      calcMealType === mt.value
+                        ? 'bg-volt text-ink'
+                        : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
+                    }`}
+                  >
+                    {mt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <CalorieCalculatorPanel onAddItem={handleAddFromCalculator} />
           </div>
         </div>
       )}

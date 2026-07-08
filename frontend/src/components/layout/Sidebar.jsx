@@ -13,6 +13,7 @@ import {
   LogOut,
   Zap,
   Crown,
+  Calculator,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/nutrition", label: "תזונה", Icon: Salad },
   { to: "/food-log", label: "יומן אכילה", Icon: ClipboardList },
+  { to: "/calorie-calculator", label: "מחשבון קלוריות", Icon: Calculator },
   { to: "/workouts", label: "אימונים", Icon: Dumbbell },
   { to: "/live-workout", label: "אימון חי", Icon: Play },
   { to: "/progress", label: "התקדמות", Icon: TrendingUp },

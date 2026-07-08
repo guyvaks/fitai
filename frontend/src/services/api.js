@@ -31,6 +31,7 @@ export const nutritionAPI = {
   logFood: (entry) => api.post('/api/v1/nutrition/food-log', entry),
   getDayLog: (date) => api.get(`/api/v1/nutrition/food-log/${date}`),
   deleteLog: (id) => api.delete(`/api/v1/nutrition/food-log/entry/${id}`),
+  calculateCalories: (payload) => api.post('/api/v1/nutrition/calculate-calories', payload),
 }
 
 export const agentsAPI = {

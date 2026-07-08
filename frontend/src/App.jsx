@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Nutrition from "./pages/Nutrition";
 import FoodLog from "./pages/FoodLog";
+import CalorieCalculator from "./pages/CalorieCalculator";
 import Workouts from "./pages/Workouts";
 import LiveWorkout from "./pages/LiveWorkout";
 import AISuggestion from "./pages/AISuggestion";
@@ -75,6 +76,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <FoodLog />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calorie-calculator"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CalorieCalculator />
               </Layout>
             </ProtectedRoute>
           }
