@@ -316,7 +316,13 @@ export default function AISuggestion() {
     )
   }
 
-  // Normalise content — handle all shapes the AI might return
+  // Normalise content — unwraps the shapes the AI response can be nested in
+  // (raw_output string, content one level deeper). Deliberately does NOT
+  // synthesise a fake single-day plan from a lone meal object — that used to
+  // silently turn a failed/incomplete generation into what looked like a
+  // legitimate one-day plan (the "1 day instead of 7" bug). If there's no
+  // real meal_plan/workout_plan, this falls through to the existing
+  // "no content" warning UI below instead of fabricating one.
   function normaliseContent(raw) {
     if (!raw || typeof raw !== 'object') return {}
 
@@ -327,25 +333,10 @@ export default function AISuggestion() {
     if (raw.raw_output) {
       try {
         const parsed = JSON.parse(raw.raw_output)
-        if (parsed && typeof parsed === 'object') {
-          if (parsed.meal_plan || parsed.workout_plan) return parsed
-          // parsed is a single meal object — wrap it
-          if (parsed.meal_type || parsed.items) {
-            return { meal_plan: { sunday: [parsed] } }
-          }
+        if (parsed && typeof parsed === 'object' && (parsed.meal_plan || parsed.workout_plan)) {
           return parsed
         }
       } catch { /* fall through */ }
-    }
-
-    // Content itself is a single meal object (meal_type / items keys)
-    if (raw.meal_type || raw.items) {
-      return { meal_plan: { sunday: [raw] } }
-    }
-
-    // Has meals array directly
-    if (Array.isArray(raw.meals)) {
-      return { meal_plan: { sunday: raw.meals } }
     }
 
     // Has content nested one level deeper
