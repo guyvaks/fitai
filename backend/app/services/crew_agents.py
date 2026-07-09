@@ -9,6 +9,29 @@ from app.core.config import settings
 if settings.ANTHROPIC_API_KEY:
     os.environ["ANTHROPIC_API_KEY"] = settings.ANTHROPIC_API_KEY
 
+DAYS = ("sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
+_DAY_SET = set(DAYS)
+_PLAN_DAY_KEYS = ("meal_plan", "workout_plan")
+
+# The LLM occasionally emits syntactically-valid-but-incomplete JSON (e.g. a
+# misplaced closing brace that terminates the top-level object right after a
+# single day instead of all 7 — observed directly in live testing). Without
+# a day-count check, that incomplete result looks just as "valid" as a real
+# one, so we retry a few times before giving up.
+MAX_PLAN_ATTEMPTS = 3
+
+
+def _plan_key_with_all_days(d: dict) -> Optional[str]:
+    """Return 'meal_plan' or 'workout_plan' if d contains one with exactly the
+    7 expected day keys, else None."""
+    if not isinstance(d, dict):
+        return None
+    for key in _PLAN_DAY_KEYS:
+        val = d.get(key)
+        if isinstance(val, dict) and set(val.keys()) == _DAY_SET:
+            return key
+    return None
+
 
 def get_nutrition_agent():
     from crewai import LLM
@@ -62,12 +85,10 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
 
     cal = profile.get('target_calories', 2000)
 
-    days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
-
     # Build a concrete example for each day so the AI sees 7 real entries (compact format)
     days_example = ""
-    for i, day in enumerate(days):
-        comma = "," if i < len(days) - 1 else ""
+    for i, day in enumerate(DAYS):
+        comma = "," if i < len(DAYS) - 1 else ""
         meals_example = ", ".join(
             f'{{"meal_type":"{mt}","name":"שם","items":[{{"name":"מרכיב","qty_g":100,"calories":150,"protein":20,"carbs":15,"fat":5}}],"total_calories":{cal // meals_per_day},"total_protein":35,"total_carbs":40,"total_fat":12}}'
             for mt in meal_types
@@ -76,7 +97,7 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
 
     totals_example = ",\n    ".join(
         f'"{day}": {{"calories": {cal}, "protein": 150, "carbs": 200, "fat": 65}}'
-        for day in days
+        for day in DAYS
     )
 
     return Task(
@@ -192,19 +213,23 @@ def build_supervisor_task(agent, nutrition_result: str, workout_result: str, pro
 _PREFERRED_KEYS = {"meal_plan", "workout_plan", "meals", "plan"}
 
 
-def _extract_json(text: str) -> dict:
-    """Extract JSON from text, preferring objects that contain plan-level keys."""
+def _json_candidates(text: str) -> list:
+    """Collect every plausible top-level JSON object found in text: a direct
+    full-text parse, any markdown-fenced blocks, and every complete brace-balanced
+    substring (depth-counting). The LLM sometimes emits a misplaced/extra closing
+    brace that ends the top-level object early — that still parses as "valid"
+    JSON, just an incomplete one — so we can't stop at the first parseable
+    candidate; the caller decides which candidate is actually complete."""
     text = str(text).strip()
+    candidates = []
 
-    # 1. Direct parse
     try:
         d = json.loads(text)
         if isinstance(d, dict):
-            return d
+            candidates.append(d)
     except json.JSONDecodeError:
         pass
 
-    # 2. Strip markdown code fences
     for fence in ("```json", "```"):
         if fence in text:
             for part in text.split(fence)[1:]:
@@ -212,14 +237,10 @@ def _extract_json(text: str) -> dict:
                 try:
                     d = json.loads(candidate)
                     if isinstance(d, dict):
-                        return d
+                        candidates.append(d)
                 except json.JSONDecodeError:
                     continue
 
-    # 3. Collect ALL complete top-level JSON objects via depth-counting,
-    #    then pick the one with preferred keys (meal_plan / workout_plan),
-    #    or the largest one as fallback.
-    candidates = []
     for m in re.finditer(r'\{', text):
         start = m.start()
         depth = 0
@@ -238,22 +259,34 @@ def _extract_json(text: str) -> dict:
                         pass
                     break
 
-    if candidates:
-        # Prefer any candidate that has a plan-level key
-        for c in candidates:
-            if _PREFERRED_KEYS & set(c.keys()):
-                return c
-        # Fallback: return the largest candidate by number of keys (deepest plan)
-        return max(candidates, key=lambda c: len(str(c)))
+    return candidates
 
-    return {"raw_output": text, "error": "Could not parse JSON"}
+
+def _extract_json(text: str) -> dict:
+    """Extract JSON from text. Prefers a candidate whose plan (meal_plan /
+    workout_plan) contains all 7 expected days; falls back to any candidate
+    with a preferred top-level key, then the largest candidate found."""
+    candidates = _json_candidates(text)
+    if not candidates:
+        return {"raw_output": str(text).strip(), "error": "Could not parse JSON"}
+
+    for c in candidates:
+        if _plan_key_with_all_days(c):
+            return c
+
+    for c in candidates:
+        if _PREFERRED_KEYS & set(c.keys()):
+            return c
+
+    return max(candidates, key=lambda c: len(str(c)))
 
 
 def _kickoff_and_extract(crew) -> dict:
-    """Kick off a crew and extract JSON from the full raw output."""
+    """Kick off a crew and extract JSON from the full raw output. Returns
+    immediately on the first source that yields a complete 7-day plan; only
+    falls back to a partial result (for the retry wrapper to catch) if none do."""
     result = crew.kickoff()
 
-    # Collect all candidate text sources, pick the longest
     candidates_text = []
     raw_attr = getattr(result, 'raw', None)
     if raw_attr:
@@ -266,51 +299,73 @@ def _kickoff_and_extract(crew) -> dict:
             if t_raw:
                 candidates_text.append(t_raw)
 
-    # Fallback to str()
     if not candidates_text:
         candidates_text.append(str(result))
 
-    # Try each source; prefer the one that yields a plan-level key
     best = None
     for text in candidates_text:
         parsed = _extract_json(text)
-        if parsed.get('meal_plan') or parsed.get('workout_plan'):
+        if _plan_key_with_all_days(parsed):
             return parsed
-        if best is None or len(str(parsed)) > len(str(best)):
-            best = parsed
+        if parsed.get('meal_plan') or parsed.get('workout_plan'):
+            if best is None or len(str(parsed)) > len(str(best)):
+                best = parsed
 
     return best or {"error": "no output"}
 
 
+def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str) -> dict:
+    """Run a fresh agent+task+crew up to MAX_PLAN_ATTEMPTS times, retrying whenever
+    the result doesn't contain a full 7-day plan under `plan_key`. Each attempt is
+    an independent LLM call (rebuilt from scratch) — the failure mode is a flaky
+    LLM formatting slip, not a deterministic one, so a fresh attempt is expected
+    to have a good chance of succeeding even when the prior one didn't."""
+    last_result = {"error": "no output"}
+    for attempt in range(1, MAX_PLAN_ATTEMPTS + 1):
+        agent, task = build_agent_and_task()
+        crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False)
+        last_result = _kickoff_and_extract(crew)
+
+        if _plan_key_with_all_days(last_result) == plan_key:
+            if attempt > 1:
+                print(f"[crew_agents] {label}: got a complete 7-day plan on attempt {attempt}/{MAX_PLAN_ATTEMPTS}")
+            return last_result
+
+        found_days = None
+        plan_val = last_result.get(plan_key)
+        if isinstance(plan_val, dict):
+            found_days = sorted(plan_val.keys())
+        print(
+            f"[crew_agents] WARNING: {label} attempt {attempt}/{MAX_PLAN_ATTEMPTS} did not return a "
+            f"complete 7-day '{plan_key}' (days found: {found_days}, top-level keys: {list(last_result.keys())})"
+            + (" — retrying" if attempt < MAX_PLAN_ATTEMPTS else " — giving up, returning best-effort result")
+        )
+
+    return last_result
+
+
 async def run_nutrition_crew(profile: dict, memory: dict) -> dict:
-    """Run only the nutrition agent."""
-    agent = get_nutrition_agent()
-    task = build_nutrition_task(agent, profile, memory)
-    crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False)
-    return _kickoff_and_extract(crew)
+    """Run only the nutrition agent, retrying on an incomplete (not-7-day) plan."""
+    def build():
+        agent = get_nutrition_agent()
+        return agent, build_nutrition_task(agent, profile, memory)
+
+    return _run_crew_with_retry(build, "meal_plan", "nutrition crew")
 
 
 async def run_workout_crew(profile: dict, memory: dict) -> dict:
-    """Run only the workout agent."""
-    agent = get_workout_agent()
-    task = build_workout_task(agent, profile, memory)
-    crew = Crew(agents=[agent], tasks=[task], process=Process.sequential, verbose=False)
-    return _kickoff_and_extract(crew)
+    """Run only the workout agent, retrying on an incomplete (not-7-day) plan."""
+    def build():
+        agent = get_workout_agent()
+        return agent, build_workout_task(agent, profile, memory)
+
+    return _run_crew_with_retry(build, "workout_plan", "workout crew")
 
 
 async def run_full_crew(profile: dict, memory: dict) -> dict:
-    """Run nutrition + workout agents in sequence, then merge results."""
-    # Run nutrition agent
-    nutrition_agent = get_nutrition_agent()
-    nutrition_task = build_nutrition_task(nutrition_agent, profile, memory)
-    nutrition_crew = Crew(agents=[nutrition_agent], tasks=[nutrition_task], process=Process.sequential, verbose=False)
-    nutrition_result = _kickoff_and_extract(nutrition_crew)
-
-    # Run workout agent
-    workout_agent = get_workout_agent()
-    workout_task = build_workout_task(workout_agent, profile, memory)
-    workout_crew = Crew(agents=[workout_agent], tasks=[workout_task], process=Process.sequential, verbose=False)
-    workout_result = _kickoff_and_extract(workout_crew)
+    """Run nutrition + workout agents (each independently retried), then merge results."""
+    nutrition_result = await run_nutrition_crew(profile, memory)
+    workout_result = await run_workout_crew(profile, memory)
 
     # Merge both results into one payload
     merged = {}

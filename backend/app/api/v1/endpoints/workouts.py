@@ -13,6 +13,8 @@ import datetime
 
 router = APIRouter()
 
+VALID_DAYS = {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
+
 # --- Schemas (inline for simplicity) ---
 
 class ExerciseUpdate(BaseModel):
@@ -30,6 +32,21 @@ class SessionSetComplete(BaseModel):
     set_index: int
     weight_kg: float
     reps: int
+    exercise_name: Optional[str] = None
+
+class ManualWorkoutSet(BaseModel):
+    weight_kg: float = 0
+    reps: int
+
+class ManualWorkoutExercise(BaseModel):
+    name: str
+    muscle_group: str = ""
+    notes: Optional[str] = None
+    sets: List[ManualWorkoutSet]
+
+class ManualWorkoutPlanCreate(BaseModel):
+    # keyed by day_of_week (sunday..saturday) -> list of exercises for that day
+    week: dict[str, List[ManualWorkoutExercise]]
 
 # --- Workout Plan endpoints ---
 
@@ -41,6 +58,44 @@ def get_workout_plan(db: Session = Depends(get_db), current_user: User = Depends
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="No active workout plan found")
+    return plan
+
+@router.post("/plan/manual")
+def create_manual_workout_plan(
+    payload: ManualWorkoutPlanCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    unknown_days = set(payload.week.keys()) - VALID_DAYS
+    if unknown_days:
+        raise HTTPException(status_code=400, detail=f"ימים לא תקינים: {', '.join(unknown_days)}")
+
+    plan_data = {}
+    has_exercises = False
+
+    for day, exercises in payload.week.items():
+        day_exercises = []
+        for ex in exercises:
+            if not ex.sets:
+                continue
+            has_exercises = True
+            day_exercises.append({
+                "name": ex.name,
+                "muscle_group": ex.muscle_group,
+                "notes": ex.notes,
+                "sets": [s.model_dump() for s in ex.sets],
+            })
+        if day_exercises:
+            plan_data[day] = {"exercises": day_exercises}
+
+    if not has_exercises:
+        raise HTTPException(status_code=400, detail="לא נוספו תרגילים לתוכנית")
+
+    db.query(WorkoutPlan).filter(WorkoutPlan.user_id == current_user.id).update({"is_active": False})
+    plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
+    db.add(plan)
+    db.commit()
+    db.refresh(plan)
     return plan
 
 # --- Session endpoints ---
@@ -102,6 +157,11 @@ def complete_set(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    # Prefer the real exercise name (sent from the client, which already knows
+    # it); fall back to the old synthetic placeholder only if it's missing so
+    # older frontend builds don't break.
+    exercise_name = data.exercise_name or f"exercise_{data.exercise_index}"
+
     # Update completed sets
     completed = dict(session.completed_sets or {})
     key = f"{data.exercise_index}_{data.set_index}"
@@ -114,7 +174,7 @@ def complete_set(
     log = ExerciseLog(
         session_id=session_id,
         user_id=str(current_user.id),
-        exercise_name=f"exercise_{data.exercise_index}",
+        exercise_name=exercise_name,
         set_number=data.set_index + 1,
         weight_kg=data.weight_kg,
         reps=data.reps,
@@ -126,7 +186,7 @@ def complete_set(
     # Update exercise memory
     memory = db.query(ExerciseMemory).filter(
         ExerciseMemory.user_id == current_user.id,
-        ExerciseMemory.exercise_name == f"exercise_{data.exercise_index}"
+        ExerciseMemory.exercise_name == exercise_name
     ).first()
     if memory:
         memory.last_weight_kg = data.weight_kg
@@ -135,7 +195,7 @@ def complete_set(
     else:
         memory = ExerciseMemory(
             user_id=current_user.id,
-            exercise_name=f"exercise_{data.exercise_index}",
+            exercise_name=exercise_name,
             last_weight_kg=data.weight_kg,
             last_reps=data.reps,
             last_used_at=datetime.datetime.now(datetime.timezone.utc)

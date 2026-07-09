@@ -5,7 +5,7 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 from app.models.fitness import NutritionPlan, Meal, FoodLog
 from app.schemas.nutrition import (
-    NutritionPlanResponse, FoodLogCreate, FoodLogResponse, ManualPlanCreate
+    NutritionPlanResponse, FoodLogCreate, FoodLogResponse, ManualPlanCreate, CalorieCalcRequest
 )
 import datetime
 
@@ -133,3 +133,24 @@ def delete_food_log(
     db.delete(log)
     db.commit()
     return {"status": "deleted"}
+
+
+@router.post("/calculate-calories")
+def calculate_calories(
+    payload: CalorieCalcRequest,
+    current_user: User = Depends(get_current_user)
+):
+    from app.services.calorie_calculator import calculate_from_text, calculate_from_image
+
+    if payload.type == "text":
+        if not payload.query:
+            raise HTTPException(status_code=400, detail="query is required for type=text")
+        items = calculate_from_text(payload.query)
+    elif payload.type == "image":
+        if not payload.image_base64:
+            raise HTTPException(status_code=400, detail="image_base64 is required for type=image")
+        items = calculate_from_image(payload.image_base64, payload.image_media_type)
+    else:
+        raise HTTPException(status_code=400, detail="type must be 'text' or 'image'")
+
+    return {"items": items}

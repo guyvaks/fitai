@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { workoutsAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
+import { Bot, Loader2, Dumbbell, Pencil, Play, Check, CheckCircle2, Moon, Inbox, ChevronLeft } from 'lucide-react'
 
 const DAYS = [
   { key: 'sunday',    label: 'ראשון' },
@@ -14,6 +15,25 @@ const DAYS = [
 ]
 const DAY_KEYS = DAYS.map(d => d.key)
 const ACTIVE_DAY_STORAGE_KEY = 'fitai_workouts_active_day'
+
+// Exercises from the manual builder store `sets` as an array of {weight_kg, reps}
+// (one entry per real set); AI-generated plans still store a flat `sets: int` count
+// with a single `reps` target applied to all sets. Support both display shapes.
+function formatSetsReps(ex) {
+  if (Array.isArray(ex.sets)) {
+    const repsValues = ex.sets.map(s => s.reps)
+    const allSameReps = repsValues.every(r => r === repsValues[0])
+    return allSameReps ? `${ex.sets.length} x ${repsValues[0]}` : `${ex.sets.length} סטים (${Math.min(...repsValues)}-${Math.max(...repsValues)})`
+  }
+  return `${ex.sets} x ${ex.reps}`
+}
+
+function lastSetWeight(ex) {
+  if (Array.isArray(ex.sets)) {
+    return ex.sets.length > 0 ? ex.sets[ex.sets.length - 1].weight_kg : null
+  }
+  return ex.weight_kg
+}
 
 // Current week's Sun–Sat dates, purely for the date strip display
 function getWeekDates() {
@@ -157,47 +177,56 @@ export default function Workouts() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 bg-light-bg rounded-card">
-        <div className="text-dark-text-muted text-lg">טוען תכנית אימונים...</div>
+      <div className="flex items-center justify-center gap-2 h-64 card-glass">
+        <Loader2 className="w-5 h-5 animate-spin text-volt" />
+        <div className="text-text-mid text-lg">טוען תכנית אימונים...</div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-dark-text">תכנית האימונים שלך</h1>
+      <div className="flex items-center justify-between anim-rise">
+        <h1 className="text-3xl font-extrabold text-text-hi tracking-tight">תכנית האימונים שלך</h1>
         <div className="flex gap-2">
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+            className="btn-volt px-4 py-2 text-sm flex items-center gap-2"
           >
-            {generating ? '⏳ יוצר תכנית...' : '🤖 בנה לי עם AI'}
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+            {generating ? 'יוצר תכנית...' : 'בנה לי עם AI'}
           </button>
-          <button className="bg-white border border-light-border text-dark-text px-4 py-2 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors shadow-sm">
-            ✏️ בנה ידנית
+          <button
+            onClick={() => navigate('/workouts/manual-builder')}
+            className="bg-white/4 border border-line text-text-hi px-4 py-2 rounded-elem font-medium text-sm hover:bg-white/8 transition-colors flex items-center gap-1.5"
+          >
+            <Pencil className="w-3.5 h-3.5" /> בנה ידנית
           </button>
         </div>
       </div>
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-white border border-light-border rounded-card p-6 text-center space-y-4 shadow-sm">
-          <div className="text-4xl">{done ? '✅' : '🏋️'}</div>
-          <p className={`font-medium transition-colors duration-300 ${done ? 'text-green-600' : 'text-dark-text'}`}>
+        <div className="card-glass p-6 text-center space-y-4 anim-rise">
+          <div className="flex justify-center">
+            {done
+              ? <CheckCircle2 className="w-10 h-10 text-volt" />
+              : <Dumbbell className="w-10 h-10 text-cyan animate-pulse" />}
+          </div>
+          <p className={`font-medium transition-colors duration-300 ${done ? 'text-volt' : 'text-text-hi'}`}>
             {done ? 'הושלם! עובר לתכנית...' : 'ה-AI בונה את תכנית האימונים שלך...'}
           </p>
-          {!done && <p className="text-dark-text-muted text-sm">כ-20–40 שניות</p>}
+          {!done && <p className="text-text-mid text-sm">כ-20–40 שניות</p>}
           <div className="space-y-1.5">
-            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-white/8 rounded-full h-2.5 overflow-hidden">
               <div
-                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${done ? 'bg-green-500' : 'bg-accent-blue'}`}
+                className={`h-2.5 rounded-full transition-all duration-500 ease-out ${done ? 'bg-volt' : 'bg-cyan'}`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className={`text-xs font-medium text-left transition-colors ${done ? 'text-green-600' : 'text-dark-text-muted'}`}>
+            <p className={`text-xs font-medium text-left transition-colors tabular-nums ${done ? 'text-volt' : 'text-text-mid'}`} dir="ltr">
               {Math.round(progress)}%
             </p>
           </div>
@@ -211,16 +240,16 @@ export default function Workouts() {
                 const completed = progress >= step.to
                 return (
                   <div key={step.num} className={`flex items-center gap-2 text-xs transition-colors duration-300 ${
-                    completed ? 'text-green-600' : active ? 'text-dark-text' : 'text-dark-text-muted/40'
+                    completed ? 'text-volt' : active ? 'text-text-hi' : 'text-text-low/60'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300 ${
-                      completed ? 'bg-green-500 text-white' : active ? 'bg-accent-blue text-white' : 'bg-gray-200 text-gray-400'
+                      completed ? 'bg-volt text-ink' : active ? 'bg-cyan text-ink' : 'bg-white/8 text-text-low'
                     }`}>
-                      {completed ? '✓' : step.num}
+                      {completed ? <Check className="w-3 h-3" /> : step.num}
                     </span>
                     <span>{step.label}</span>
-                    {active    && <span className="text-accent-blue animate-pulse mr-auto">בתהליך...</span>}
-                    {completed && <span className="text-green-600 mr-auto">הושלם</span>}
+                    {active    && <span className="text-cyan animate-pulse mr-auto">בתהליך...</span>}
+                    {completed && <span className="text-volt mr-auto">הושלם</span>}
                   </div>
                 )
               })}
@@ -231,7 +260,7 @@ export default function Workouts() {
 
       {/* Error */}
       {genError && (
-        <div className="bg-red-50 border border-red-200 rounded-card p-4 text-red-600 text-sm">
+        <div className="bg-coral-soft border border-coral/30 rounded-card p-4 text-coral text-sm">
           {genError}
         </div>
       )}
@@ -244,14 +273,18 @@ export default function Workouts() {
             <button
               key={d.key}
               onClick={() => setActiveDay(d.key)}
-              className={`flex flex-col items-center justify-center gap-0.5 min-w-[60px] h-16 px-2 rounded-xl shrink-0 transition-colors ${
-                activeDay === d.key ? 'bg-accent-blue text-white shadow-sm' : 'bg-white border border-light-border text-dark-text hover:bg-gray-50'
+              className={`flex flex-col items-center justify-center gap-0.5 min-w-[60px] h-16 px-2 rounded-xl shrink-0 transition-all ${
+                activeDay === d.key
+                  ? 'bg-volt text-ink shadow-[0_4px_18px_rgba(163,230,53,0.3)]'
+                  : d.isToday
+                    ? 'bg-white/4 border border-volt/40 text-text-hi hover:bg-white/8'
+                    : 'bg-white/4 border border-line text-text-hi hover:bg-white/8'
               }`}
             >
               <span className="text-xs font-medium opacity-90">{DAYS.find(x => x.key === d.key)?.label}</span>
-              <span className="text-base font-bold">{d.dayOfMonth}</span>
+              <span className="text-base font-bold tabular-nums">{d.dayOfMonth}</span>
               {status === 'has_plan' && (
-                <span className={`w-1 h-1 rounded-full ${activeDay === d.key ? 'bg-white' : 'bg-accent-blue'}`} />
+                <span className={`w-1 h-1 rounded-full ${activeDay === d.key ? 'bg-ink' : 'bg-volt'}`} />
               )}
             </button>
           )
@@ -260,81 +293,95 @@ export default function Workouts() {
 
       {/* Day content */}
       {!plan ? (
-        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
-          <div className="text-5xl">🏋️</div>
-          <p className="text-dark-text-muted text-lg">לא הגדרת תכנית אימונים עדיין</p>
+        <div className="card-glass p-10 text-center space-y-4 anim-rise anim-d2">
+          <div className="flex justify-center">
+            <span className="w-14 h-14 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+              <Dumbbell className="w-7 h-7" />
+            </span>
+          </div>
+          <p className="text-text-mid text-lg">לא הגדרת תכנית אימונים עדיין</p>
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="bg-accent-blue hover:bg-accent-blue/90 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 shadow-sm"
+            className="btn-volt px-6 py-3 text-sm inline-flex items-center gap-2"
           >
-            🤖 בנה עם AI
+            <Bot className="w-4 h-4" /> בנה עם AI
           </button>
         </div>
       ) : getDayStatus(activeDay) === 'rest' ? (
-        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-2 shadow-sm">
-          <div className="text-5xl">😴</div>
-          <p className="text-dark-text text-xl font-semibold mt-3">יום מנוחה</p>
-          <p className="text-dark-text-muted">המנוחה היא חלק חשוב מהאימון</p>
+        <div className="card-glass p-10 text-center space-y-2 anim-rise anim-d2">
+          <div className="flex justify-center">
+            <span className="w-14 h-14 rounded-full bg-cyan-soft text-cyan flex items-center justify-center">
+              <Moon className="w-7 h-7" />
+            </span>
+          </div>
+          <p className="text-text-hi text-xl font-bold mt-3">יום מנוחה</p>
+          <p className="text-text-mid">המנוחה היא חלק חשוב מהאימון</p>
         </div>
       ) : getDayStatus(activeDay) === 'no_plan' ? (
-        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
-          <div className="text-5xl">📭</div>
-          <p className="text-dark-text-muted text-lg">אין תרגילים מתוכננים ליום זה</p>
+        <div className="card-glass p-10 text-center space-y-4 anim-rise anim-d2">
+          <div className="flex justify-center">
+            <span className="w-14 h-14 rounded-full bg-white/6 text-text-mid flex items-center justify-center">
+              <Inbox className="w-7 h-7" />
+            </span>
+          </div>
+          <p className="text-text-mid text-lg">אין תרגילים מתוכננים ליום זה</p>
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="bg-accent-blue hover:bg-accent-blue/90 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 shadow-sm"
+            className="btn-volt px-6 py-3 text-sm inline-flex items-center gap-2"
           >
-            🤖 בנה תכנית ליום זה עם AI
+            <Bot className="w-4 h-4" /> בנה תכנית ליום זה עם AI
           </button>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             {getDayName(activeDay) && (
-              <h2 className="text-lg font-semibold text-dark-text">{getDayName(activeDay)}</h2>
+              <h2 className="text-lg font-bold text-text-hi">{getDayName(activeDay)}</h2>
             )}
             <button
               onClick={() => navigate(`/live-workout?day=${activeDay}`)}
-              className="bg-accent-blue hover:bg-accent-blue/90 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center gap-2"
+              className="btn-volt px-5 py-2.5 text-sm flex items-center gap-2"
             >
-              ▶ התחל אימון
+              <Play className="w-4 h-4" fill="currentColor" /> התחל אימון
             </button>
           </div>
           <div className="space-y-2">
             {getDayExercises(activeDay).map((ex, i) => (
-              <div key={i} className="bg-white border border-light-border rounded-card p-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
-                <span className="w-10 h-10 rounded-full bg-blue-50 text-accent-blue flex items-center justify-center text-lg shrink-0">💪</span>
+              <div key={i} className="card-glass card-hover p-3 flex items-center gap-3">
+                <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
+                  <Dumbbell className="w-5 h-5" />
+                </span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-dark-text text-sm">{ex.name}</p>
-                  <p className="text-dark-text-muted text-xs">{ex.muscle_group}{ex.notes ? ` · ${ex.notes}` : ''}</p>
+                  <p className="font-bold text-text-hi text-sm">{ex.name}</p>
+                  <p className="text-text-mid text-xs">{ex.muscle_group}{ex.notes ? ` · ${ex.notes}` : ''}</p>
                 </div>
                 <div className="text-center shrink-0">
-                  <p className="text-dark-text-muted text-xs">סטים X חזרות</p>
-                  <p className="text-dark-text text-sm font-bold" dir="ltr">{ex.sets} x {ex.reps}</p>
+                  <p className="text-text-mid text-xs">סטים X חזרות</p>
+                  <p className="text-text-hi text-sm font-bold tabular-nums" dir="ltr">{formatSetsReps(ex)}</p>
                 </div>
                 <div className="text-center shrink-0">
-                  <p className="text-dark-text-muted text-xs">משקל אחרון</p>
-                  <p className="text-green-600 text-sm font-bold" dir="ltr">
-                    {(lastWeights[ex.name] ?? ex.weight_kg) ? `${lastWeights[ex.name] ?? ex.weight_kg}kg` : '—'}
+                  <p className="text-text-mid text-xs">משקל אחרון</p>
+                  <p className="text-volt text-sm font-bold tabular-nums" dir="ltr">
+                    {(lastWeights[ex.name] ?? lastSetWeight(ex)) ? `${lastWeights[ex.name] ?? lastSetWeight(ex)}kg` : '—'}
                   </p>
                 </div>
-                <span className="text-dark-text-muted shrink-0">‹</span>
+                <ChevronLeft className="w-4 h-4 text-text-mid shrink-0" />
               </div>
             ))}
           </div>
 
           {/* Promo banner */}
-          <div className="relative rounded-card overflow-hidden h-40 shadow-sm">
+          <div className="relative rounded-card overflow-hidden h-40 ring-1 ring-line">
             <img
               src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&h=400&fit=crop&q=80"
               alt="חדר כושר"
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4">
-              <p className="text-white text-base font-bold">ההתמדה היא המפתח לתוצאות</p>
-              <p className="text-white/80 text-xs">מוטיבציה יומית</p>
+            <div className="absolute inset-0 bg-gradient-to-t from-ink/90 to-transparent flex flex-col justify-end p-4">
+              <p className="text-text-hi text-base font-extrabold">ההתמדה היא המפתח לתוצאות</p>
+              <p className="text-text-mid text-xs">מוטיבציה יומית</p>
             </div>
           </div>
         </div>

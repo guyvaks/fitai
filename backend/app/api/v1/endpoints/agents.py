@@ -17,8 +17,17 @@ task_store: Dict[str, dict] = {}
 
 def _normalise_content(raw: dict) -> dict:
     """Mirror of the frontend's normaliseContent() in AISuggestion.jsx —
-    the AI crew doesn't always return a clean {meal_plan/workout_plan} dict,
-    so approval must recognise the same shapes the UI already displays."""
+    the AI crew doesn't always return a clean {meal_plan/workout_plan} dict
+    at the top level (e.g. it's nested one level under raw_output/content),
+    so approval must recognise those same wrapper shapes.
+
+    Deliberately does NOT synthesise a fake single-day plan from a lone meal
+    object — that used to silently turn a failed/incomplete generation into
+    what looked like a legitimate one-day plan, which is exactly the "1 day
+    instead of 7" bug this mirrors away from. If there's no real meal_plan/
+    workout_plan, this returns content that fails the "meal_plan" in content
+    check below, so approval correctly reports no valid content instead of
+    persisting fabricated data."""
     if not isinstance(raw, dict):
         return {}
 
@@ -28,20 +37,10 @@ def _normalise_content(raw: dict) -> dict:
     if raw.get("raw_output"):
         try:
             parsed = json.loads(raw["raw_output"])
-            if isinstance(parsed, dict):
-                if "meal_plan" in parsed or "workout_plan" in parsed:
-                    return parsed
-                if "meal_type" in parsed or "items" in parsed:
-                    return {"meal_plan": {"sunday": [parsed]}}
+            if isinstance(parsed, dict) and ("meal_plan" in parsed or "workout_plan" in parsed):
                 return parsed
         except (json.JSONDecodeError, TypeError):
             pass
-
-    if "meal_type" in raw or "items" in raw:
-        return {"meal_plan": {"sunday": [raw]}}
-
-    if isinstance(raw.get("meals"), list):
-        return {"meal_plan": {"sunday": raw["meals"]}}
 
     if isinstance(raw.get("content"), dict):
         return _normalise_content(raw["content"])

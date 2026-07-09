@@ -4,6 +4,7 @@ import { nutritionAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
 import { useAuth } from '../hooks/useAuth'
 import ManualPlanModal from '../components/ManualPlanModal'
+import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog } from 'lucide-react'
 
 const DAYS = [
   { key: 'sunday', label: 'ראשון' },
@@ -32,7 +33,7 @@ const MEAL_IMAGES = {
 function MiniBar({ value, max, color }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
   return (
-    <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+    <div className="w-full bg-white/8 rounded-full h-1.5 mt-1">
       <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
     </div>
   )
@@ -44,9 +45,9 @@ function RemainingRing({ consumed, target, size = 96 }) {
   const pct = target > 0 ? Math.min(100, (consumed / target) * 100) : 0
   return (
     <svg width={size} height={size} className="-rotate-90 shrink-0">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#F3F4F6" strokeWidth="8" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
       <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2563EB" strokeWidth="8"
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#A3E635" strokeWidth="8"
         strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
       />
     </svg>
@@ -144,21 +145,22 @@ export default function Nutrition() {
   const remainingCalories = dayTotals ? Math.max(0, Math.round(targets.calories - dayTotals.calories)) : targets.calories
 
   return (
-    <div className="space-y-6 bg-light-bg p-6 rounded-card" dir="rtl">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-2xl font-bold text-dark-text">תזונה</h2>
+      <div className="flex items-center justify-between flex-wrap gap-2 anim-rise">
+        <h2 className="text-3xl font-extrabold text-text-hi tracking-tight">תזונה</h2>
         <div className="flex gap-2">
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="bg-accent-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-blue/90 disabled:opacity-50 transition shadow-sm"
+            className="btn-volt px-4 py-2 text-sm flex items-center gap-2"
           >
-            {generating ? '⏳ יוצר תפריט...' : '🤖 בנה לי תפריט עם AI'}
+            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+            {generating ? 'יוצר תפריט...' : 'בנה לי תפריט עם AI'}
           </button>
           <button
             onClick={() => setShowManualBuilder(true)}
-            className="border border-accent-blue text-accent-blue px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
+            className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition"
           >
             בנה ידנית
           </button>
@@ -177,24 +179,28 @@ export default function Nutrition() {
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-white border border-light-border rounded-card p-6 text-center space-y-4 shadow-sm">
-          <div className="text-4xl">{done ? '✅' : '⚙️'}</div>
-          <p className={`font-medium transition-colors duration-300 ${done ? 'text-green-600' : 'text-dark-text'}`}>
+        <div className="card-glass p-6 text-center space-y-4 anim-rise">
+          <div className="flex justify-center">
+            {done
+              ? <CheckCircle2 className="w-10 h-10 text-volt" />
+              : <Cog className="w-10 h-10 text-cyan animate-spin [animation-duration:3s]" />}
+          </div>
+          <p className={`font-medium transition-colors duration-300 ${done ? 'text-volt' : 'text-text-hi'}`}>
             {done ? 'הושלם! עובר לתכנית...' : 'ה-AI בונה את התפריט שלך...'}
           </p>
-          {!done && <p className="text-dark-text-muted text-sm">כ-30–60 שניות</p>}
+          {!done && <p className="text-text-mid text-sm">כ-30–60 שניות</p>}
 
           {/* Progress bar */}
           <div className="space-y-1.5">
-            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full bg-white/8 rounded-full h-2.5 overflow-hidden">
               <div
                 className={`h-2.5 rounded-full transition-all duration-500 ease-out ${
-                  done ? 'bg-green-500' : 'bg-accent-blue'
+                  done ? 'bg-volt' : 'bg-cyan'
                 }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className={`text-xs font-medium text-left transition-colors duration-300 ${done ? 'text-green-600' : 'text-dark-text-muted'}`}>
+            <p className={`text-xs font-medium text-left transition-colors duration-300 tabular-nums ${done ? 'text-volt' : 'text-text-mid'}`} dir="ltr">
               {Math.round(progress)}%
             </p>
           </div>
@@ -210,16 +216,16 @@ export default function Nutrition() {
                 const completed = progress >= step.to
                 return (
                   <div key={step.num} className={`flex items-center gap-2 text-xs transition-colors duration-300 ${
-                    completed ? 'text-green-600' : active ? 'text-dark-text' : 'text-dark-text-muted/40'
+                    completed ? 'text-volt' : active ? 'text-text-hi' : 'text-text-low/60'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300 ${
-                      completed ? 'bg-green-500 text-white' : active ? 'bg-accent-blue text-white' : 'bg-gray-200 text-gray-400'
+                      completed ? 'bg-volt text-ink' : active ? 'bg-cyan text-ink' : 'bg-white/8 text-text-low'
                     }`}>
-                      {completed ? '✓' : step.num}
+                      {completed ? <Check className="w-3 h-3" /> : step.num}
                     </span>
                     <span>{step.label}</span>
-                    {active && <span className="text-accent-blue animate-pulse mr-auto">בתהליך...</span>}
-                    {completed && <span className="text-green-600 mr-auto">הושלם</span>}
+                    {active && <span className="text-cyan animate-pulse mr-auto">בתהליך...</span>}
+                    {completed && <span className="text-volt mr-auto">הושלם</span>}
                   </div>
                 )
               })}
@@ -230,66 +236,66 @@ export default function Nutrition() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-card p-4 text-red-600 text-sm">
+        <div className="bg-coral-soft border border-coral/30 rounded-card p-4 text-coral text-sm">
           {error}
         </div>
       )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm space-y-3">
-          <h3 className="text-dark-text font-semibold text-sm">סיכום יומי</h3>
+        <div className="anim-rise anim-d1 card-glass p-4 space-y-3">
+          <h3 className="text-text-hi font-bold text-sm">סיכום יומי</h3>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-dark-text-muted">💧 שתיית מים</span>
-            <span className="text-dark-text font-medium" dir="ltr">1.5L / 2.5L</span>
+            <span className="text-text-mid inline-flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-cyan" /> שתיית מים</span>
+            <span className="text-text-hi font-medium" dir="ltr">1.5L / 2.5L</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-dark-text-muted">🥩 יעד חלבון</span>
-            <span className="text-green-600 font-medium">{dayTotals ? `${dayTotals.protein}g / ${targets.protein}g` : 'קרוב ליעד'}</span>
+            <span className="text-text-mid inline-flex items-center gap-1.5"><Beef className="w-3.5 h-3.5 text-volt" /> יעד חלבון</span>
+            <span className="text-volt font-medium" dir="ltr">{dayTotals ? `${dayTotals.protein}g / ${targets.protein}g` : 'קרוב ליעד'}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-dark-text-muted">🔥 קלוריות בתפריט</span>
-            <span className="text-dark-text font-medium">{dayTotals ? `${dayTotals.calories} קק"ל` : '—'}</span>
+            <span className="text-text-mid inline-flex items-center gap-1.5"><Flame className="w-3.5 h-3.5 text-coral" /> קלוריות בתפריט</span>
+            <span className="text-text-hi font-medium">{dayTotals ? <><span dir="ltr">{dayTotals.calories}</span> קק"ל</> : '—'}</span>
           </div>
           <button
             onClick={() => navigate('/profile')}
-            className="w-full border border-accent-blue text-accent-blue py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
+            className="w-full border border-volt/40 text-volt py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition"
           >
             עריכת יעדים
           </button>
         </div>
 
-        <div className="bg-white border border-light-border rounded-card p-4 shadow-sm flex items-center gap-4">
+        <div className="anim-rise anim-d2 card-glass p-4 flex items-center gap-4">
           <div className="flex-1 space-y-3">
             <div>
               <div className="flex justify-between text-sm mb-0.5">
-                <span className="text-dark-text-muted">חלבון</span>
-                <span className="text-dark-text font-medium" dir="ltr">{dayTotals?.protein ?? 0}g / {targets.protein}g</span>
+                <span className="text-text-mid">חלבון</span>
+                <span className="text-text-hi font-medium" dir="ltr">{dayTotals?.protein ?? 0}g / {targets.protein}g</span>
               </div>
-              <MiniBar value={dayTotals?.protein ?? 0} max={targets.protein} color="#22C55E" />
+              <MiniBar value={dayTotals?.protein ?? 0} max={targets.protein} color="#A3E635" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-dark-text-muted">שומן</span>
-                  <span className="text-dark-text font-medium" dir="ltr">{dayTotals?.fat ?? 0}g</span>
+                  <span className="text-text-mid">שומן</span>
+                  <span className="text-text-hi font-medium" dir="ltr">{dayTotals?.fat ?? 0}g</span>
                 </div>
-                <MiniBar value={dayTotals?.fat ?? 0} max={targets.fat} color="#374151" />
+                <MiniBar value={dayTotals?.fat ?? 0} max={targets.fat} color="#FBBF24" />
               </div>
               <div>
                 <div className="flex justify-between text-xs mb-0.5">
-                  <span className="text-dark-text-muted">פחמימות</span>
-                  <span className="text-dark-text font-medium" dir="ltr">{dayTotals?.carbs ?? 0}g</span>
+                  <span className="text-text-mid">פחמימות</span>
+                  <span className="text-text-hi font-medium" dir="ltr">{dayTotals?.carbs ?? 0}g</span>
                 </div>
-                <MiniBar value={dayTotals?.carbs ?? 0} max={targets.carbs} color="#F97316" />
+                <MiniBar value={dayTotals?.carbs ?? 0} max={targets.carbs} color="#22D3EE" />
               </div>
             </div>
           </div>
           <div className="relative shrink-0">
             <RemainingRing consumed={dayTotals?.calories ?? 0} target={targets.calories} />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-dark-text text-lg font-bold">{remainingCalories.toLocaleString()}</span>
-              <span className="text-dark-text-muted text-[10px]">נותרו קלוריות</span>
+              <span className="text-text-hi text-lg font-extrabold tabular-nums" dir="ltr">{remainingCalories.toLocaleString()}</span>
+              <span className="text-text-mid text-[10px]">נותרו קלוריות</span>
             </div>
           </div>
         </div>
@@ -303,8 +309,8 @@ export default function Nutrition() {
             onClick={() => setActiveDay(d.key)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
               activeDay === d.key
-                ? 'bg-white text-dark-text shadow-sm border border-light-border'
-                : 'bg-gray-100 text-dark-text-muted hover:text-dark-text'
+                ? 'bg-volt-soft text-volt border border-volt/40'
+                : 'bg-white/4 border border-transparent text-text-mid hover:text-text-hi'
             }`}
           >
             {d.label}
@@ -318,7 +324,7 @@ export default function Nutrition() {
           {dayMeals.map((meal, i) => {
             const isExpanded = expandedMeal === i
             return (
-              <div key={i} className="bg-white border border-light-border rounded-card shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+              <div key={i} className="card-glass card-hover overflow-hidden">
                 <button
                   onClick={() => setExpandedMeal(isExpanded ? null : i)}
                   className="w-full flex items-center gap-4 p-3 text-right"
@@ -326,26 +332,26 @@ export default function Nutrition() {
                   <img
                     src={MEAL_IMAGES[meal.meal_type] || MEAL_IMAGES.snack}
                     alt={MEAL_NAMES[meal.meal_type] || meal.meal_type}
-                    className="w-16 h-16 rounded-lg object-cover shrink-0"
+                    className="w-16 h-16 rounded-xl object-cover shrink-0 ring-1 ring-line"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-dark-text">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
-                    {meal.name && <p className="text-dark-text-muted text-sm truncate">{meal.name}</p>}
-                    <div className="flex gap-3 text-xs text-dark-text-muted mt-1 flex-wrap">
-                      <span>קלוריות <span className="text-dark-text font-medium">{meal.total_calories}</span></span>
-                      <span>חלבון <span className="text-dark-text font-medium">{meal.total_protein}g</span></span>
-                      <span>פחמימות <span className="text-dark-text font-medium">{meal.total_carbs}g</span></span>
-                      <span>שומן <span className="text-dark-text font-medium">{meal.total_fat}g</span></span>
+                    <p className="font-bold text-text-hi">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
+                    {meal.name && <p className="text-text-mid text-sm truncate">{meal.name}</p>}
+                    <div className="flex gap-3 text-xs text-text-mid mt-1 flex-wrap">
+                      <span>קלוריות <span className="text-text-hi font-medium" dir="ltr">{meal.total_calories}</span></span>
+                      <span>חלבון <span className="text-text-hi font-medium" dir="ltr">{meal.total_protein}g</span></span>
+                      <span>פחמימות <span className="text-text-hi font-medium" dir="ltr">{meal.total_carbs}g</span></span>
+                      <span>שומן <span className="text-text-hi font-medium" dir="ltr">{meal.total_fat}g</span></span>
                     </div>
                   </div>
-                  <span className={`text-dark-text-muted transition-transform shrink-0 ${isExpanded ? '-rotate-90' : ''}`}>‹</span>
+                  <ChevronLeft className={`w-4 h-4 text-text-mid transition-transform shrink-0 ${isExpanded ? '-rotate-90' : ''}`} />
                 </button>
                 {isExpanded && meal.items && meal.items.length > 0 && (
-                  <div className="border-t border-light-border px-4 py-3 space-y-1 bg-gray-50">
+                  <div className="border-t border-line px-4 py-3 space-y-1 bg-white/3">
                     {meal.items.map((item, j) => (
-                      <div key={j} className="flex justify-between text-xs text-dark-text-muted">
-                        <span>{item.name} ({item.qty_g}g)</span>
-                        <span>{item.calories} קק"ל</span>
+                      <div key={j} className="flex justify-between text-xs text-text-mid">
+                        <span>{item.name} (<span dir="ltr">{item.qty_g}g</span>)</span>
+                        <span><span dir="ltr">{item.calories}</span> קק"ל</span>
                       </div>
                     ))}
                   </div>
@@ -355,10 +361,14 @@ export default function Nutrition() {
           })}
         </div>
       ) : !generating && (
-        <div className="bg-white border border-light-border rounded-card p-10 text-center space-y-4 shadow-sm">
-          <div className="text-5xl">🥗</div>
-          <p className="text-dark-text font-medium">אין תפריט עדיין</p>
-          <p className="text-dark-text-muted text-sm">לחץ על "בנה לי תפריט עם AI" ליצירת תפריט מותאם אישית</p>
+        <div className="card-glass p-10 text-center space-y-4 anim-rise anim-d3">
+          <div className="flex justify-center">
+            <span className="w-14 h-14 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+              <Salad className="w-7 h-7" />
+            </span>
+          </div>
+          <p className="text-text-hi font-bold">אין תפריט עדיין</p>
+          <p className="text-text-mid text-sm">לחץ על "בנה לי תפריט עם AI" ליצירת תפריט מותאם אישית</p>
         </div>
       )}
     </div>

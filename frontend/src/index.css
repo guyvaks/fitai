@@ -1,23 +1,50 @@
 @import "tailwindcss";
 
+/*
+ * FitAI "Volt" design system — dark athletic theme.
+ * Deep-ink background, glass surfaces, electric-lime primary.
+ */
 @theme {
-  --color-primary: #22C55E;
-  --color-background: #0F172A;
-  --color-surface: #1E293B;
-  --color-text-main: #F8FAFC;
+  /* Core surfaces */
+  --color-ink: #0B0F1A;
+  --color-surface: #121826;
+  --color-surface-2: #1A2234;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.14);
+
+  /* Brand + functional accents */
+  --color-volt: #A3E635;
+  --color-volt-soft: rgba(163, 230, 53, 0.14);
+  --color-cyan: #22D3EE;
+  --color-cyan-soft: rgba(34, 211, 238, 0.14);
+  --color-coral: #FB7185;
+  --color-coral-soft: rgba(251, 113, 133, 0.14);
+  --color-amber: #FBBF24;
+  --color-amber-soft: rgba(251, 191, 36, 0.14);
+  --color-violet: #A78BFA;
+  --color-violet-soft: rgba(167, 139, 250, 0.14);
+
+  /* Text */
+  --color-text-hi: #F1F5F9;
+  --color-text-mid: #94A3B8;
+  --color-text-low: #64748B;
+
+  /* Legacy aliases still referenced by not-yet-redesigned pages */
+  --color-primary: #A3E635;
+  --color-background: #0B0F1A;
+  --color-text-main: #F1F5F9;
   --color-text-muted: #94A3B8;
+  --color-accent-blue: #22D3EE;
+  --color-light-bg: #121826;
+  --color-light-surface: #121826;
+  --color-light-border: rgba(255, 255, 255, 0.08);
+  --color-dark-text: #F1F5F9;
+  --color-dark-text-muted: #94A3B8;
 
-  --color-accent-blue: #2563EB;
-  --color-light-bg: #FFFFFF;
-  --color-light-surface: #FFFFFF;
-  --color-light-border: #E5E7EB;
-  --color-dark-text: #111827;
-  --color-dark-text-muted: #6B7280;
+  --font-family-sans: "Rubik Variable", "Rubik", "Heebo", sans-serif;
 
-  --font-family-heebo: "Heebo", sans-serif;
-
-  --radius-card: 12px;
-  --radius-elem: 8px;
+  --radius-card: 20px;
+  --radius-elem: 12px;
 }
 
 * {
@@ -26,12 +53,159 @@
 
 body {
   margin: 0;
-  background-color: #0F172A;
-  color: #F8FAFC;
-  font-family: 'Heebo', sans-serif;
+  background-color: #0B0F1A;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(163, 230, 53, 0.07), transparent 60%),
+    radial-gradient(800px 500px at 0% 110%, rgba(34, 211, 238, 0.06), transparent 60%);
+  background-attachment: fixed;
+  color: #F1F5F9;
+  color-scheme: dark;
+  font-family: "Rubik Variable", "Rubik", "Heebo", sans-serif;
   direction: rtl;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ---- Shared primitives ---- */
+
+.card-glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.btn-volt {
+  background: linear-gradient(135deg, #BEF264, #A3E635);
+  color: #0B0F1A;
+  font-weight: 700;
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(163, 230, 53, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.btn-volt:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 8px 28px rgba(163, 230, 53, 0.4);
+}
+
+.btn-volt:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-volt:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.text-gradient-volt {
+  background: linear-gradient(90deg, #BEF264, #22D3EE);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.input-volt {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  color: #F1F5F9;
+  font-family: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input-volt::placeholder {
+  color: #64748B;
+}
+
+.input-volt:focus {
+  outline: none;
+  border-color: rgba(163, 230, 53, 0.5);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/*
+ * Browser autofill overrides — Chromium/WebKit paint autofilled fields with a
+ * light-yellow UA background and dark text, unreadable on the dark theme. The
+ * inset box-shadow trick repaints the field; solid surface-2 stands in for the
+ * translucent input background (inset shadows can't be transparent).
+ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #1A2234 inset !important;
+  -webkit-text-fill-color: #F1F5F9 !important;
+  caret-color: #F1F5F9;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ---- Motion ---- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-rise {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.anim-pop {
+  animation: pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-d1 { animation-delay: 0.05s; }
+.anim-d2 { animation-delay: 0.12s; }
+.anim-d3 { animation-delay: 0.19s; }
+.anim-d4 { animation-delay: 0.26s; }
+.anim-d5 { animation-delay: 0.33s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-pop {
+    animation: none;
+  }
+  .card-glass,
+  .card-hover:hover,
+  .btn-volt {
+    transition: none;
+    transform: none;
+  }
 }

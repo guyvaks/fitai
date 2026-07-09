@@ -31,6 +31,7 @@ export const nutritionAPI = {
   logFood: (entry) => api.post('/api/v1/nutrition/food-log', entry),
   getDayLog: (date) => api.get(`/api/v1/nutrition/food-log/${date}`),
   deleteLog: (id) => api.delete(`/api/v1/nutrition/food-log/entry/${id}`),
+  calculateCalories: (payload) => api.post('/api/v1/nutrition/calculate-calories', payload),
 }
 
 export const agentsAPI = {
@@ -45,6 +46,7 @@ export const agentsAPI = {
 
 export const workoutsAPI = {
   getPlan: () => api.get('/api/v1/workouts/plan'),
+  createManualPlan: (week) => api.post('/api/v1/workouts/plan/manual', { week }),
   startSession: (day) => api.post(`/api/v1/workouts/sessions/start?day_of_week=${day}`),
   getActiveSession: () => api.get('/api/v1/workouts/sessions/active'),
   completeSet: (sessionId, data) => api.patch(`/api/v1/workouts/sessions/${sessionId}/set-complete`, data),
@@ -56,6 +58,10 @@ export const workoutsAPI = {
 
 export const foodsAPI = {
   search: (q, category = '') => api.get('/api/v1/foods/search', { params: { q, category } }),
+}
+
+export const exercisesAPI = {
+  search: (q, muscle_group = '') => api.get('/api/v1/exercises/search', { params: { q, muscle_group } }),
 }
 
 export default api;

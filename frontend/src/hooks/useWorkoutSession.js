@@ -35,7 +35,7 @@ export function useWorkoutSession() {
     setRestTimer(t => t + seconds)
   }, [])
 
-  const completeSet = useCallback(async (sessionId, exerciseIdx, setIdx, weightKg, reps, restSeconds) => {
+  const completeSet = useCallback(async (sessionId, exerciseIdx, setIdx, weightKg, reps, restSeconds, exerciseName) => {
     setSaving(true)
     try {
       const { data } = await api.patch(`/api/v1/workouts/sessions/${sessionId}/set-complete`, {
@@ -43,6 +43,7 @@ export function useWorkoutSession() {
         set_index: setIdx,
         weight_kg: weightKg,
         reps: reps,
+        exercise_name: exerciseName,
       })
       setSession(data)
       startRestTimer(restSeconds)

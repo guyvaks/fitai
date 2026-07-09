@@ -5,13 +5,13 @@ app = FastAPI(title="FitAI API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://*.railway.app", "https://poetic-vitality-production-41ea.up.railway.app"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "https://*.railway.app", "https://poetic-vitality-production-41ea.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-from app.api.v1.endpoints import auth, users, nutrition, agents, workouts, foods, admin
+from app.api.v1.endpoints import auth, users, nutrition, agents, workouts, foods, exercises, admin
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
@@ -19,6 +19,7 @@ app.include_router(nutrition.router, prefix="/api/v1/nutrition", tags=["nutritio
 app.include_router(agents.router, prefix="/api/v1/agents", tags=["agents"])
 app.include_router(workouts.router, prefix="/api/v1/workouts", tags=["workouts"])
 app.include_router(foods.router, prefix="/api/v1/foods", tags=["foods"])
+app.include_router(exercises.router, prefix="/api/v1/exercises", tags=["exercises"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 
 
