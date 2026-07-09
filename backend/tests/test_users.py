@@ -104,3 +104,48 @@ def test_profile_equipment_roundtrip(client):
 
     get_resp = client.get("/api/v1/users/profile", headers=headers)
     assert get_resp.json()["equipment"] == ["dumbbells", "bench"]
+
+
+def test_weight_history_unauthenticated(client):
+    response = client.get("/api/v1/users/weight-history")
+    assert response.status_code == 401
+
+
+def test_weight_history_empty_for_new_user(client):
+    headers = get_auth_headers(client)
+    response = client.get("/api/v1/users/weight-history", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_creating_profile_logs_a_weight_history_point(client):
+    headers = get_auth_headers(client)
+    client.post("/api/v1/users/profile", headers=headers, json=PROFILE_PAYLOAD)
+
+    history = client.get("/api/v1/users/weight-history", headers=headers).json()
+    assert len(history) == 1
+    assert history[0]["weight_kg"] == 80
+    assert history[0]["body_fat_pct"] is None
+
+
+def test_updating_weight_same_day_upserts_not_duplicates(client):
+    """Two profile writes on the same day must produce one history point with
+    the latest value, not two — this is what the dashboard graph's 'is there
+    real history' check depends on being accurate."""
+    headers = get_auth_headers(client)
+    client.post("/api/v1/users/profile", headers=headers, json=PROFILE_PAYLOAD)
+    client.put("/api/v1/users/profile", headers=headers, json={"weight_kg": 79.5})
+
+    history = client.get("/api/v1/users/weight-history", headers=headers).json()
+    assert len(history) == 1
+    assert history[0]["weight_kg"] == 79.5
+
+
+def test_partial_update_without_weight_does_not_touch_history(client):
+    headers = get_auth_headers(client)
+    client.post("/api/v1/users/profile", headers=headers, json=PROFILE_PAYLOAD)
+    client.put("/api/v1/users/profile", headers=headers, json={"age": 31})
+
+    history = client.get("/api/v1/users/weight-history", headers=headers).json()
+    assert len(history) == 1
+    assert history[0]["weight_kg"] == 80

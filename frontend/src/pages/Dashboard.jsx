@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { agentsAPI, nutritionAPI, workoutsAPI } from "../services/api";
+import { agentsAPI, nutritionAPI, workoutsAPI, usersAPI } from "../services/api";
 import {
   HeartPulse,
   Flame,
@@ -29,16 +29,6 @@ import {
 } from "recharts";
 
 const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-
-const weeklyWeightDemo = [
-  { day: "א", weight: 79.5, bodyFat: 22.5 },
-  { day: "ב", weight: 79.2, bodyFat: 22.3 },
-  { day: "ג", weight: 79.0, bodyFat: 22.0 },
-  { day: "ד", weight: 78.9, bodyFat: 21.9 },
-  { day: "ה", weight: 78.7, bodyFat: 21.7 },
-  { day: "ו", weight: 78.6, bodyFat: 21.6 },
-  { day: "ש", weight: 78.5, bodyFat: 21.5 },
-];
 
 function toIso(date) {
   return date.toISOString().split("T")[0];
@@ -98,6 +88,7 @@ export default function Dashboard() {
   const [todayLogs, setTodayLogs] = useState([]);
   const [todayWorkout, setTodayWorkout] = useState(null);
   const [records, setRecords] = useState([]);
+  const [weightHistory, setWeightHistory] = useState([]);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
   const today = new Date();
   const todayDayKey = DAY_KEYS[today.getDay()];
@@ -127,6 +118,10 @@ export default function Dashboard() {
     workoutsAPI.getPersonalRecords()
       .then(({ data }) => setRecords(data || []))
       .catch(() => setRecords([]));
+
+    usersAPI.getWeightHistory()
+      .then(({ data }) => setWeightHistory(data || []))
+      .catch(() => setWeightHistory([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -180,6 +175,13 @@ export default function Dashboard() {
   const latestRecords = [...records]
     .sort((a, b) => new Date(b.achieved_at) - new Date(a.achieved_at))
     .slice(0, 3);
+
+  const hasBodyFatData = weightHistory.some((e) => e.body_fat_pct != null);
+  const weightChartData = weightHistory.map((e) => ({
+    day: new Date(e.date).toLocaleDateString("he-IL", { day: "numeric", month: "short" }),
+    weight: e.weight_kg,
+    bodyFat: e.body_fat_pct,
+  }));
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -325,30 +327,58 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Weekly weight progress chart */}
+      {/* Weight progress chart */}
       <div className="anim-rise anim-d3 card-glass p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-text-hi font-bold">התקדמות משקל שבועי</h3>
+          <h3 className="text-text-hi font-bold">התקדמות משקל</h3>
           <div className="flex items-center gap-3 text-xs text-text-mid">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan inline-block" />אחוז שומן</span>
+            {hasBodyFatData && (
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-cyan inline-block" />אחוז שומן</span>
+            )}
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-volt inline-block" />משקל</span>
           </div>
         </div>
-        {new Set(weeklyWeightDemo.map(d => d.weight)).size < 2 ? (
+        {weightHistory.length < 2 ? (
           <div className="h-[200px] flex items-center justify-center text-text-mid text-sm text-center px-6">
             עדיין אין מספיק נתונים להצגת מגמה
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={weeklyWeightDemo}>
+            <LineChart data={weightChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
               <XAxis dataKey="day" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
-              <YAxis tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+              <YAxis
+                yAxisId="weight"
+                tick={{ fill: "#A3E635", fontSize: 12 }}
+                axisLine={false}
+                tickLine={false}
+                domain={["auto", "auto"]}
+              />
+              {hasBodyFatData && (
+                <YAxis
+                  yAxisId="bodyFat"
+                  orientation="right"
+                  tick={{ fill: "#22D3EE", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={["auto", "auto"]}
+                />
+              )}
               <Tooltip
                 contentStyle={{ backgroundColor: "#1A2234", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "12px", color: "#F1F5F9" }}
               />
-              <Line type="monotone" dataKey="weight" stroke="#A3E635" strokeWidth={2.5} dot={{ fill: "#A3E635", r: 3 }} />
-              <Line type="monotone" dataKey="bodyFat" stroke="#22D3EE" strokeWidth={2.5} dot={{ fill: "#22D3EE", r: 3 }} />
+              <Line yAxisId="weight" type="monotone" dataKey="weight" stroke="#A3E635" strokeWidth={2.5} dot={{ fill: "#A3E635", r: 3 }} />
+              {hasBodyFatData && (
+                <Line
+                  yAxisId="bodyFat"
+                  type="monotone"
+                  dataKey="bodyFat"
+                  stroke="#22D3EE"
+                  strokeWidth={2.5}
+                  dot={{ fill: "#22D3EE", r: 3 }}
+                  connectNulls
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}

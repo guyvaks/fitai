@@ -56,6 +56,10 @@ export const workoutsAPI = {
   getExerciseMemory: (name) => api.get(`/api/v1/workouts/exercise-memory/${encodeURIComponent(name)}`),
 }
 
+export const usersAPI = {
+  getWeightHistory: () => api.get('/api/v1/users/weight-history'),
+}
+
 export const foodsAPI = {
   search: (q, category = '') => api.get('/api/v1/foods/search', { params: { q, category } }),
 }

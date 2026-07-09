@@ -10,7 +10,7 @@ from app.models.fitness import (
     NutritionPlan, Meal, FoodLog, WorkoutPlan, WorkoutExercise,
     WorkoutSession, ExerciseLog, AISuggestion, SmartProgression,
     UserMemory, ExerciseMemory, FoodMemory, PersonalRecord,
-    EnduranceLog, StrengthLog, HydrationLog,
+    EnduranceLog, StrengthLog, HydrationLog, WeightLog,
 )
 
 
@@ -65,7 +65,8 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
     for model in (
         WorkoutSession, NutritionPlan, WorkoutPlan, FoodLog, AISuggestion,
         SmartProgression, UserMemory, ExerciseMemory, FoodMemory,
-        PersonalRecord, EnduranceLog, StrengthLog, HydrationLog, UserProfile,
+        PersonalRecord, EnduranceLog, StrengthLog, HydrationLog, WeightLog,
+        UserProfile,
     ):
         db.query(model).filter(model.user_id == user_id).delete(synchronize_session=False)
 

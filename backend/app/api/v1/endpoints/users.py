@@ -1,3 +1,4 @@
+import datetime
 import json
 import uuid
 
@@ -7,10 +8,25 @@ from sqlalchemy.orm import Session
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.models.user import User, UserProfile
+from app.models.fitness import WeightLog
 from app.schemas.user import UserProfileCreate, UserProfileResponse, UserProfileUpdate
 from app.services.metrics import calculate_all_metrics
 
 router = APIRouter()
+
+
+def _upsert_weight_log(db: Session, user_id, weight_kg: float) -> None:
+    """Record today's weight as a history point, updating the existing entry
+    if the user already logged one today rather than creating a duplicate."""
+    today = datetime.date.today()
+    entry = db.query(WeightLog).filter(
+        WeightLog.user_id == user_id,
+        WeightLog.date == today,
+    ).first()
+    if entry:
+        entry.weight_kg = weight_kg
+    else:
+        db.add(WeightLog(id=uuid.uuid4(), user_id=user_id, date=today, weight_kg=weight_kg))
 
 
 def _deserialize_equipment(profile):
@@ -64,6 +80,8 @@ def create_or_update_profile(
     for key, value in metrics.items():
         setattr(profile, key, value)
 
+    _upsert_weight_log(db, current_user.id, profile_data.weight_kg)
+
     db.commit()
     db.refresh(profile)
     return _deserialize_equipment(profile)
@@ -80,8 +98,12 @@ def update_profile(
         profile = UserProfile(id=uuid.uuid4(), user_id=current_user.id)
         db.add(profile)
 
-    for field, value in profile_data.model_dump(exclude_unset=True).items():
+    update_data = profile_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
         setattr(profile, field, value)
+
+    if update_data.get("weight_kg") is not None:
+        _upsert_weight_log(db, current_user.id, update_data["weight_kg"])
 
     db.commit()
     db.refresh(profile)
@@ -94,3 +116,14 @@ def get_metrics(current_user: User = Depends(get_current_user), db: Session = De
     if not profile:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
     return _deserialize_equipment(profile)
+
+
+@router.get("/weight-history")
+def get_weight_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    entries = db.query(WeightLog).filter(
+        WeightLog.user_id == current_user.id
+    ).order_by(WeightLog.date.asc()).all()
+    return [
+        {"date": str(e.date), "weight_kg": e.weight_kg, "body_fat_pct": e.body_fat_pct}
+        for e in entries
+    ]
