@@ -124,7 +124,7 @@ def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: Us
         crew_fn_name,
         _build_profile_dict(profile),
         memory,
-        str(current_user.id),
+        current_user.id,
         suggestion_type,
     )
     return {"task_id": task_id, "status": "pending", "suggestion_type": suggestion_type}
@@ -177,7 +177,7 @@ def approve_suggestion(
     current_user: User = Depends(get_current_user),
 ):
     suggestion = db.query(AISuggestion).filter(
-        AISuggestion.id == suggestion_id,
+        AISuggestion.id == uuid.UUID(suggestion_id),
         AISuggestion.user_id == current_user.id,
     ).first()
     if not suggestion:
@@ -211,7 +211,7 @@ def reject_suggestion(
     current_user: User = Depends(get_current_user),
 ):
     suggestion = db.query(AISuggestion).filter(
-        AISuggestion.id == suggestion_id,
+        AISuggestion.id == uuid.UUID(suggestion_id),
         AISuggestion.user_id == current_user.id,
     ).first()
     if not suggestion:

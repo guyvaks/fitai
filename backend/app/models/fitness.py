@@ -232,6 +232,16 @@ class StrengthLog(Base):
     relative_strength_ratio = Column(Float)
 
 
+class WeightLog(Base):
+    __tablename__ = "weight_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    weight_kg = Column(Float, nullable=False)
+    body_fat_pct = Column(Float)
+
+
 class HydrationLog(Base):
     __tablename__ = "hydration_logs"
 

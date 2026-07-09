@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { workoutsAPI } from '../services/api'
+import { workoutsAPI, usersAPI } from '../services/api'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
@@ -21,44 +21,78 @@ const VOLUME_DATA = {
   ],
 }
 
-const WEIGHT_DATA = {
-  'שבוע': [
-    { label: '1', value: 79.5 }, { label: '2', value: 79.3 }, { label: '3', value: 79.0 },
-    { label: '4', value: 78.9 }, { label: '5', value: 78.7 }, { label: '6', value: 78.5 }, { label: '7', value: 78.4 },
-  ],
-  'חודש': [
-    { label: '1 ביוני', value: 80.2 }, { label: '10 ביוני', value: 79.6 }, { label: '20 ביוני', value: 79.0 }, { label: '30 ביוני', value: 78.4 },
-  ],
-  'שנה': [
-    { label: 'ינואר', value: 84.0 }, { label: 'מרץ', value: 81.5 }, { label: 'מאי', value: 79.8 }, { label: 'יולי', value: 78.4 },
-  ],
+const PERIOD_DAYS = { 'שבוע': 7, 'חודש': 30, 'שנה': 365 }
+
+function buildWeightSeriesByPeriod(history) {
+  const series = {}
+  for (const [period, days] of Object.entries(PERIOD_DAYS)) {
+    const cutoff = Date.now() - days * 86400000
+    series[period] = history
+      .filter((e) => new Date(e.date).getTime() >= cutoff)
+      .map((e) => ({
+        label: new Date(e.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }),
+        value: e.weight_kg,
+      }))
+  }
+  return series
+}
+
+function weightChangeLabel(series) {
+  if (series.length < 2) return { text: '', positive: true }
+  const diff = series[series.length - 1].value - series[0].value
+  const sign = diff > 0 ? '+' : ''
+  return { text: `${sign}${diff.toFixed(1)} ק״ג`, positive: diff >= 0 }
 }
 
 function TrendChart({ title, unit, data, color, gradientId, changeLabel, changePositive }) {
   const [period, setPeriod] = useState('חודש')
   const series = data[period]
+  const isDynamicChange = typeof changeLabel === 'function'
+  const resolvedChangeText = isDynamicChange ? changeLabel(series).text : changeLabel
+  const resolvedChangePositive = isDynamicChange ? changeLabel(series).positive : changePositive
+
+  const periodButtons = (
+    <div className="flex gap-1 bg-white/4 border border-line rounded-full p-1">
+      {PERIODS.map(p => (
+        <button
+          key={p}
+          onClick={() => setPeriod(p)}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+            period === p ? 'bg-volt text-ink' : 'text-text-mid hover:text-text-hi'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (series.length < 2) {
+    return (
+      <div className="card-glass p-5">
+        <div className="flex items-center justify-between mb-1">
+          {periodButtons}
+          <h3 className="text-text-mid text-sm">{title}</h3>
+        </div>
+        <div className="h-[180px] flex items-center justify-center text-text-mid text-sm text-center px-6">
+          עדיין אין מספיק נתונים להצגת מגמה
+        </div>
+      </div>
+    )
+  }
+
   const latest = series[series.length - 1].value
 
   return (
     <div className="card-glass p-5">
       <div className="flex items-center justify-between mb-1">
-        <div className="flex gap-1 bg-white/4 border border-line rounded-full p-1">
-          {PERIODS.map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition ${
-                period === p ? 'bg-volt text-ink' : 'text-text-mid hover:text-text-hi'
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
+        {periodButtons}
         <div className="text-left">
           <h3 className="text-text-mid text-sm">{title}</h3>
           <div className="flex items-center gap-2 justify-end">
-            <span className={`text-xs font-medium ${changePositive ? 'text-volt' : 'text-coral'}`} dir="ltr">{changeLabel}</span>
+            {resolvedChangeText && (
+              <span className={`text-xs font-medium ${resolvedChangePositive ? 'text-volt' : 'text-coral'}`} dir="ltr">{resolvedChangeText}</span>
+            )}
             <span className="text-2xl font-extrabold text-text-hi tabular-nums" dir="ltr">{latest.toLocaleString()}</span>
           </div>
         </div>
@@ -96,13 +130,20 @@ export default function Progress() {
   const navigate = useNavigate()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [weightHistory, setWeightHistory] = useState([])
 
   useEffect(() => {
     workoutsAPI.getPersonalRecords()
       .then(({ data }) => setRecords(data))
       .catch(() => setRecords([]))
       .finally(() => setLoading(false))
+
+    usersAPI.getWeightHistory()
+      .then(({ data }) => setWeightHistory(data || []))
+      .catch(() => setWeightHistory([]))
   }, [])
+
+  const weightSeriesByPeriod = buildWeightSeriesByPeriod(weightHistory)
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -122,11 +163,10 @@ export default function Progress() {
         <TrendChart
           title="משקל גוף (ק״ג)"
           unit=""
-          data={WEIGHT_DATA}
+          data={weightSeriesByPeriod}
           color="#22D3EE"
           gradientId="weightGradient"
-          changeLabel="0.5- השבוע"
-          changePositive={false}
+          changeLabel={weightChangeLabel}
         />
       </div>
 

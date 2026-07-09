@@ -10,6 +10,7 @@ from app.models.fitness import (
 from pydantic import BaseModel
 from typing import Optional, List
 import datetime
+import uuid
 
 router = APIRouter()
 
@@ -151,7 +152,7 @@ def complete_set(
     current_user: User = Depends(get_current_user)
 ):
     session = db.query(WorkoutSession).filter(
-        WorkoutSession.id == session_id,
+        WorkoutSession.id == uuid.UUID(session_id),
         WorkoutSession.user_id == current_user.id
     ).first()
     if not session:
@@ -172,8 +173,8 @@ def complete_set(
 
     # Log exercise
     log = ExerciseLog(
-        session_id=session_id,
-        user_id=str(current_user.id),
+        session_id=session.id,
+        user_id=current_user.id,
         exercise_name=exercise_name,
         set_number=data.set_index + 1,
         weight_kg=data.weight_kg,
@@ -213,7 +214,7 @@ def complete_session(
     current_user: User = Depends(get_current_user)
 ):
     session = db.query(WorkoutSession).filter(
-        WorkoutSession.id == session_id,
+        WorkoutSession.id == uuid.UUID(session_id),
         WorkoutSession.user_id == current_user.id
     ).first()
     if not session:
@@ -231,7 +232,7 @@ def abandon_session(
     current_user: User = Depends(get_current_user)
 ):
     session = db.query(WorkoutSession).filter(
-        WorkoutSession.id == session_id,
+        WorkoutSession.id == uuid.UUID(session_id),
         WorkoutSession.user_id == current_user.id
     ).first()
     if not session:
