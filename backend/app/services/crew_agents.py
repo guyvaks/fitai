@@ -2,8 +2,11 @@ import json
 import os
 import re
 from typing import Optional
-from crewai import Agent, Task, Crew, Process
 from app.core.config import settings
+# app.core.config must load before crewai: importing crewai pulls in litellm,
+# which runs its own load_dotenv() on import and can plant .env's placeholder
+# ANTHROPIC_API_KEY in os.environ before pydantic-settings reads .env.local.
+from crewai import Agent, Task, Crew, Process
 
 # Ensure ANTHROPIC_API_KEY is set in the environment for CrewAI/LiteLLM
 if settings.ANTHROPIC_API_KEY:
