@@ -253,3 +253,16 @@ class HydrationLog(Base):
     entries = Column(JSON)
     workout_bonus_ml = Column(Integer)
     weather_bonus_ml = Column(Integer)
+
+
+class ExerciseMaster(Base):
+    __tablename__ = "exercises_master"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    canonical_name_en = Column(String, nullable=False, unique=True)
+    canonical_name_he = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    muscle_group_primary = Column(String, nullable=True)
+    equipment = Column(String, nullable=True, default="none")
+    aliases = Column(JSON, default=list)
+    is_active = Column(Boolean, default=True, nullable=False)
