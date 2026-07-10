@@ -56,6 +56,7 @@ class UserProfile(Base):
     bmr = Column(Float)
     tdee = Column(Float)
     target_calories = Column(Float)
+    theme_preference = Column(String, nullable=False, default="dark", server_default="dark")
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

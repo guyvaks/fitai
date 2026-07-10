@@ -10,6 +10,17 @@ export function useAuth() {
     try {
       const { data } = await api.get("/api/v1/users/profile");
       setProfile(data);
+      if (data?.theme_preference) {
+        // useAuth() has no shared context — each caller gets independent state,
+        // so ThemeProvider (mounted once, separately) can't observe this
+        // instance's `profile` update directly. Broadcast the value via a
+        // custom event instead; ThemeProvider alone decides whether to accept
+        // it (it may be stale relative to a more recent user toggle) and is
+        // the only thing that writes localStorage["fitai_theme"].
+        window.dispatchEvent(
+          new CustomEvent("fitai-theme-sync", { detail: data.theme_preference })
+        );
+      }
     } catch {
       setProfile(null);
     }

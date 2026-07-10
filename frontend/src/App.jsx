@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -29,8 +30,9 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -152,6 +154,7 @@ export default function App() {
           }
         />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

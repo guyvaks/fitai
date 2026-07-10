@@ -37,6 +37,11 @@ class Gender(str, Enum):
     female = "female"
 
 
+class ThemePreference(str, Enum):
+    dark = "dark"
+    light = "light"
+
+
 class UserProfileCreate(BaseModel):
     age: int
     gender: Gender
@@ -50,6 +55,7 @@ class UserProfileCreate(BaseModel):
     allergies: Optional[str] = None
     equipment: Optional[List[str]] = None
     meals_per_day: int = 5
+    theme_preference: Optional[ThemePreference] = None
 
 
 class UserProfileResponse(BaseModel):
@@ -70,6 +76,7 @@ class UserProfileResponse(BaseModel):
     bmr: Optional[float] = None
     tdee: Optional[float] = None
     target_calories: Optional[float] = None
+    theme_preference: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -88,3 +95,4 @@ class UserProfileUpdate(BaseModel):
     allergies: Optional[str] = None
     equipment: Optional[str] = None
     meals_per_day: Optional[int] = None
+    theme_preference: Optional[ThemePreference] = None
