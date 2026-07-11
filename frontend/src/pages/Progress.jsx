@@ -8,19 +8,6 @@ import { Trophy, Plus, Loader2 } from 'lucide-react'
 
 const PERIODS = ['שבוע', 'חודש', 'שנה']
 
-const VOLUME_DATA = {
-  'שבוע': [
-    { label: '1', value: 8200 }, { label: '2', value: 8900 }, { label: '3', value: 8100 },
-    { label: '4', value: 9500 }, { label: '5', value: 10200 }, { label: '6', value: 9800 }, { label: '7', value: 11400 },
-  ],
-  'חודש': [
-    { label: '1 ביוני', value: 9800 }, { label: '10 ביוני', value: 10500 }, { label: '20 ביוני', value: 9900 }, { label: '30 ביוני', value: 14250 },
-  ],
-  'שנה': [
-    { label: 'ינואר', value: 7200 }, { label: 'מרץ', value: 8400 }, { label: 'מאי', value: 9100 }, { label: 'יולי', value: 14250 },
-  ],
-}
-
 const PERIOD_DAYS = { 'שבוע': 7, 'חודש': 30, 'שנה': 365 }
 
 function buildWeightSeriesByPeriod(history) {
@@ -42,6 +29,30 @@ function weightChangeLabel(series) {
   const diff = series[series.length - 1].value - series[0].value
   const sign = diff > 0 ? '+' : ''
   return { text: `${sign}${diff.toFixed(1)} ק״ג`, positive: diff >= 0 }
+}
+
+function buildVolumeSeriesByPeriod(history) {
+  const series = {}
+  for (const [period, days] of Object.entries(PERIOD_DAYS)) {
+    const cutoff = Date.now() - days * 86400000
+    series[period] = history
+      .filter((e) => new Date(e.date).getTime() >= cutoff)
+      .map((e) => ({
+        label: new Date(e.date).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }),
+        value: e.volume_kg,
+      }))
+  }
+  return series
+}
+
+function volumeChangeLabel(series) {
+  if (series.length < 2) return { text: '', positive: true }
+  const first = series[0].value
+  const last = series[series.length - 1].value
+  if (!first) return { text: '', positive: true }
+  const pct = ((last - first) / first) * 100
+  const sign = pct > 0 ? '+' : ''
+  return { text: `${sign}${pct.toFixed(0)}%`, positive: pct >= 0 }
 }
 
 function TrendChart({ title, unit, data, color, gradientId, changeLabel, changePositive }) {
@@ -131,6 +142,7 @@ export default function Progress() {
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [weightHistory, setWeightHistory] = useState([])
+  const [volumeHistory, setVolumeHistory] = useState([])
 
   useEffect(() => {
     workoutsAPI.getPersonalRecords()
@@ -141,9 +153,14 @@ export default function Progress() {
     usersAPI.getWeightHistory()
       .then(({ data }) => setWeightHistory(data || []))
       .catch(() => setWeightHistory([]))
+
+    workoutsAPI.getVolumeHistory()
+      .then(({ data }) => setVolumeHistory(data || []))
+      .catch(() => setVolumeHistory([]))
   }, [])
 
   const weightSeriesByPeriod = buildWeightSeriesByPeriod(weightHistory)
+  const volumeSeriesByPeriod = buildVolumeSeriesByPeriod(volumeHistory)
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -154,11 +171,10 @@ export default function Progress() {
         <TrendChart
           title="נפח אימון (ק״ג)"
           unit=""
-          data={VOLUME_DATA}
+          data={volumeSeriesByPeriod}
           color="#A3E635"
           gradientId="volumeGradient"
-          changeLabel="12%+"
-          changePositive
+          changeLabel={volumeChangeLabel}
         />
         <TrendChart
           title="משקל גוף (ק״ג)"

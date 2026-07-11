@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
@@ -272,3 +273,30 @@ def get_personal_records(db: Session = Depends(get_db), current_user: User = Dep
         PersonalRecord.user_id == current_user.id
     ).order_by(PersonalRecord.achieved_at.desc()).all()
     return records
+
+
+@router.get("/volume-history")
+def get_volume_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Daily training volume (SUM of weight_kg * reps) from completed sets, ascending by date."""
+    day = func.date(ExerciseLog.completed_at)
+    rows = (
+        db.query(
+            day.label("day"),
+            func.sum(ExerciseLog.weight_kg * ExerciseLog.reps).label("volume_kg"),
+        )
+        .filter(
+            ExerciseLog.user_id == current_user.id,
+            ExerciseLog.completed == True,
+            ExerciseLog.completed_at.isnot(None),
+        )
+        .group_by(day)
+        .order_by(day.asc())
+        .all()
+    )
+    return [
+        {
+            "date": r.day if isinstance(r.day, str) else r.day.isoformat(),
+            "volume_kg": round(float(r.volume_kg or 0), 1),
+        }
+        for r in rows
+    ]
