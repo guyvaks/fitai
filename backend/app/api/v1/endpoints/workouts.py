@@ -7,7 +7,7 @@ from app.models.fitness import (
     WorkoutPlan, WorkoutExercise, WorkoutSession, ExerciseLog,
     ExerciseMemory, PersonalRecord
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import datetime
 import uuid
@@ -36,8 +36,8 @@ class SessionSetComplete(BaseModel):
     exercise_name: Optional[str] = None
 
 class ManualWorkoutSet(BaseModel):
-    weight_kg: float = 0
-    reps: int
+    weight_kg: float = Field(0, ge=0)
+    reps: int = Field(..., ge=1)
 
 class ManualWorkoutExercise(BaseModel):
     name: str

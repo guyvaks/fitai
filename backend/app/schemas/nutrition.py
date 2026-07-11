@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import datetime
 
@@ -6,11 +6,11 @@ class FoodLogCreate(BaseModel):
     date: Optional[datetime.date] = None
     meal_type: str  # breakfast, lunch, dinner, snack
     food_name: str
-    quantity_g: float
-    calories: float
-    protein: float = 0
-    carbs: float = 0
-    fat: float = 0
+    quantity_g: float = Field(..., gt=0)
+    calories: float = Field(..., ge=0)
+    protein: float = Field(0, ge=0)
+    carbs: float = Field(0, ge=0)
+    fat: float = Field(0, ge=0)
 
 class FoodLogResponse(BaseModel):
     id: str
@@ -28,11 +28,11 @@ class FoodLogResponse(BaseModel):
 
 class ManualFoodItem(BaseModel):
     name: str
-    qty_g: float
-    calories: float
-    protein: float = 0
-    carbs: float = 0
-    fat: float = 0
+    qty_g: float = Field(..., gt=0)
+    calories: float = Field(..., ge=0)
+    protein: float = Field(0, ge=0)
+    carbs: float = Field(0, ge=0)
+    fat: float = Field(0, ge=0)
 
 class ManualMeal(BaseModel):
     meal_type: str  # breakfast, lunch, dinner, snack

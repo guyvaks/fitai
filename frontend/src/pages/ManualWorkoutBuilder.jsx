@@ -213,7 +213,10 @@ export default function ManualWorkoutBuilder() {
             name: e.name,
             muscle_group: e.muscle_group || '',
             notes: e.notes || null,
-            sets: e.sets.map(s => ({ weight_kg: parseFloat(s.weight_kg) || 0, reps: parseInt(s.reps) || 0 })),
+            sets: e.sets.map(s => ({
+              weight_kg: Math.max(0, parseFloat(s.weight_kg) || 0),
+              reps: Math.max(1, parseInt(s.reps) || 1),
+            })),
           }))
         }
       }

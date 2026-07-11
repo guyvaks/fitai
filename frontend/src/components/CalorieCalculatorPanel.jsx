@@ -108,7 +108,7 @@ export default function CalorieCalculatorPanel({ onAddItem }) {
   }
 
   function computed(r) {
-    const qty = parseFloat(r.qtyG) || 0
+    const qty = Math.max(0, parseFloat(r.qtyG) || 0)
     const factor = r.baseQtyG > 0 ? qty / r.baseQtyG : 0
     return {
       calories: round1(r.baseCalories * factor),
@@ -120,10 +120,12 @@ export default function CalorieCalculatorPanel({ onAddItem }) {
 
   function handleAdd(idx) {
     const r = results[idx]
+    const qty = parseFloat(r.qtyG) || 0
+    if (qty <= 0) return
     const c = computed(r)
     onAddItem({
       name: r.name,
-      qty_g: parseFloat(r.qtyG) || 0,
+      qty_g: qty,
       calories: c.calories,
       protein: c.protein,
       carbs: c.carbs,
