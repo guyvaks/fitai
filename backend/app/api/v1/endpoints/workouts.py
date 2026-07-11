@@ -92,9 +92,22 @@ def create_manual_workout_plan(
     if not has_exercises:
         raise HTTPException(status_code=400, detail="לא נוספו תרגילים לתוכנית")
 
-    db.query(WorkoutPlan).filter(WorkoutPlan.user_id == current_user.id).update({"is_active": False})
-    plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
-    db.add(plan)
+    existing = db.query(WorkoutPlan).filter(
+        WorkoutPlan.user_id == current_user.id,
+        WorkoutPlan.is_active == True
+    ).first()
+
+    if existing:
+        # Merge into the existing active plan: days that were sent are added/replaced,
+        # days that were not sent stay untouched.
+        prev = existing.plan_data or {}
+        # Reassign a new dict so SQLAlchemy tracks the JSON column as dirty.
+        existing.plan_data = {**prev, **plan_data}
+        plan = existing
+    else:
+        plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
+        db.add(plan)
+
     db.commit()
     db.refresh(plan)
     return plan

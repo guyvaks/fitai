@@ -69,11 +69,25 @@ def create_manual_plan(
     if not has_items:
         raise HTTPException(status_code=400, detail="לא נוספו פריטי מזון לתפריט")
 
-    plan_data = {"meal_plan": meal_plan, "daily_totals": daily_totals}
+    existing = db.query(NutritionPlan).filter(
+        NutritionPlan.user_id == current_user.id,
+        NutritionPlan.is_active == True
+    ).first()
 
-    db.query(NutritionPlan).filter(NutritionPlan.user_id == current_user.id).update({"is_active": False})
-    plan = NutritionPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
-    db.add(plan)
+    if existing:
+        # Merge into the existing active plan: days that were sent are added/replaced,
+        # days that were not sent stay untouched.
+        prev = existing.plan_data or {}
+        merged_meal_plan = {**(prev.get("meal_plan") or {}), **meal_plan}
+        merged_daily_totals = {**(prev.get("daily_totals") or {}), **daily_totals}
+        # Reassign a new dict so SQLAlchemy tracks the JSON column as dirty.
+        existing.plan_data = {"meal_plan": merged_meal_plan, "daily_totals": merged_daily_totals}
+        plan = existing
+    else:
+        plan_data = {"meal_plan": meal_plan, "daily_totals": daily_totals}
+        plan = NutritionPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
+        db.add(plan)
+
     db.commit()
     db.refresh(plan)
     return plan

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { workoutsAPI } from '../services/api'
 import ExerciseSearch, { MUSCLE_GROUP_COLOR, MUSCLE_GROUPS } from '../components/ExerciseSearch'
@@ -103,6 +103,31 @@ export default function ManualWorkoutBuilder() {
   const [freeMuscleGroup, setFreeMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  // Load the existing active plan so edits merge onto it instead of replacing it.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await workoutsAPI.getPlan()
+        const planData = data?.plan_data || {}
+        const loaded = {}
+        for (const [day, dayData] of Object.entries(planData)) {
+          const exercises = dayData?.exercises || []
+          loaded[day] = exercises.map(ex => ({
+            name: ex.name,
+            muscle_group: ex.muscle_group || '',
+            notes: ex.notes ?? null,
+            sets: (ex.sets || []).map(s => ({ weight_kg: s.weight_kg ?? 0, reps: s.reps ?? 0 })),
+          }))
+        }
+        if (!cancelled) setWeek(loaded)
+      } catch (e) {
+        // 404 = no active plan yet; start from empty, anything else is non-fatal here.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const dayExercises = week[activeDay] || []
   const totalExerciseCount = Object.values(week).reduce((sum, exs) => sum + exs.filter(e => e.sets.length > 0).length, 0)
