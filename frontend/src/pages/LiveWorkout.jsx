@@ -227,6 +227,7 @@ export default function LiveWorkout() {
     if (!currentExercise) return
     const weight = parseFloat(weightInput) || 0
     const reps = parseInt(repsInput) || 0
+    if (weight < 0 || reps < 0) return
     const rest = currentExercise.rest_seconds || 90
     setInitialRest(rest)
 
@@ -444,6 +445,7 @@ export default function LiveWorkout() {
                 {isCurrent ? (
                   <input
                     type="number"
+                    min="0"
                     value={weightInput}
                     onChange={e => setWeightInput(e.target.value)}
                     onClick={e => e.stopPropagation()}
@@ -455,6 +457,7 @@ export default function LiveWorkout() {
                 {isCurrent ? (
                   <input
                     type="number"
+                    min="0"
                     value={repsInput}
                     onChange={e => setRepsInput(e.target.value)}
                     onClick={e => e.stopPropagation()}
