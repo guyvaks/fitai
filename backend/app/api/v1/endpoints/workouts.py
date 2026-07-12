@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
@@ -7,7 +8,7 @@ from app.models.fitness import (
     WorkoutPlan, WorkoutExercise, WorkoutSession, ExerciseLog,
     ExerciseMemory, PersonalRecord
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import datetime
 import uuid
@@ -36,8 +37,8 @@ class SessionSetComplete(BaseModel):
     exercise_name: Optional[str] = None
 
 class ManualWorkoutSet(BaseModel):
-    weight_kg: float = 0
-    reps: int
+    weight_kg: float = Field(0, ge=0)
+    reps: int = Field(..., ge=1)
 
 class ManualWorkoutExercise(BaseModel):
     name: str
@@ -92,9 +93,22 @@ def create_manual_workout_plan(
     if not has_exercises:
         raise HTTPException(status_code=400, detail="לא נוספו תרגילים לתוכנית")
 
-    db.query(WorkoutPlan).filter(WorkoutPlan.user_id == current_user.id).update({"is_active": False})
-    plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
-    db.add(plan)
+    existing = db.query(WorkoutPlan).filter(
+        WorkoutPlan.user_id == current_user.id,
+        WorkoutPlan.is_active == True
+    ).first()
+
+    if existing:
+        # Merge into the existing active plan: days that were sent are added/replaced,
+        # days that were not sent stay untouched.
+        prev = existing.plan_data or {}
+        # Reassign a new dict so SQLAlchemy tracks the JSON column as dirty.
+        existing.plan_data = {**prev, **plan_data}
+        plan = existing
+    else:
+        plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
+        db.add(plan)
+
     db.commit()
     db.refresh(plan)
     return plan
@@ -259,3 +273,30 @@ def get_personal_records(db: Session = Depends(get_db), current_user: User = Dep
         PersonalRecord.user_id == current_user.id
     ).order_by(PersonalRecord.achieved_at.desc()).all()
     return records
+
+
+@router.get("/volume-history")
+def get_volume_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Daily training volume (SUM of weight_kg * reps) from completed sets, ascending by date."""
+    day = func.date(ExerciseLog.completed_at)
+    rows = (
+        db.query(
+            day.label("day"),
+            func.sum(ExerciseLog.weight_kg * ExerciseLog.reps).label("volume_kg"),
+        )
+        .filter(
+            ExerciseLog.user_id == current_user.id,
+            ExerciseLog.completed == True,
+            ExerciseLog.completed_at.isnot(None),
+        )
+        .group_by(day)
+        .order_by(day.asc())
+        .all()
+    )
+    return [
+        {
+            "date": r.day if isinstance(r.day, str) else r.day.isoformat(),
+            "volume_kg": round(float(r.volume_kg or 0), 1),
+        }
+        for r in rows
+    ]

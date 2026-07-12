@@ -54,6 +54,7 @@ export const workoutsAPI = {
   abandonSession: (sessionId) => api.delete(`/api/v1/workouts/sessions/${sessionId}`),
   getPersonalRecords: () => api.get('/api/v1/workouts/personal-records'),
   getExerciseMemory: (name) => api.get(`/api/v1/workouts/exercise-memory/${encodeURIComponent(name)}`),
+  getVolumeHistory: () => api.get('/api/v1/workouts/volume-history'),
 }
 
 export const usersAPI = {

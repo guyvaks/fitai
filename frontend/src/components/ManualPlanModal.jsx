@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { nutritionAPI } from '../services/api'
 import FoodSearch from './FoodSearch'
 import { X, Plus, Loader2, Sunrise, Sun, Moon, Apple } from 'lucide-react'
@@ -32,6 +32,29 @@ export default function ManualPlanModal({ onClose, onSaved }) {
   const [qty, setQty] = useState('100')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+
+  // Load the existing active plan so edits merge onto it instead of replacing it.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await nutritionAPI.getPlan()
+        const mealPlan = data?.plan_data?.meal_plan || {}
+        const loaded = {}
+        for (const [day, meals] of Object.entries(mealPlan)) {
+          const dayMeals = {}
+          for (const meal of meals) {
+            dayMeals[meal.meal_type] = meal.items || []
+          }
+          loaded[day] = dayMeals
+        }
+        if (!cancelled) setWeek(loaded)
+      } catch (e) {
+        // 404 = no active plan yet; start from empty, anything else is non-fatal here.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const dayMeal = week[activeDay]?.[activeMeal] || []
 

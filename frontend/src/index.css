@@ -47,6 +47,45 @@
   --radius-elem: 12px;
 }
 
+/*
+ * Light-mode counterpart, toggled via `data-theme="light"` on <html>.
+ * --color-ink stays dark in both themes — it's used as high-contrast text
+ * on top of bright volt/gradient badges (logo, avatar initials), not as a
+ * page background, so it must not invert with the rest of the palette.
+ */
+:root[data-theme="light"] {
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F1F5F9;
+  --color-line: rgba(15, 23, 42, 0.08);
+  --color-line-strong: rgba(15, 23, 42, 0.14);
+
+  --color-volt: #65A30D;
+  --color-volt-soft: rgba(101, 163, 13, 0.12);
+  --color-cyan: #0891B2;
+  --color-cyan-soft: rgba(8, 145, 178, 0.10);
+  --color-coral: #E11D48;
+  --color-coral-soft: rgba(225, 29, 72, 0.10);
+  --color-amber: #B45309;
+  --color-amber-soft: rgba(180, 83, 9, 0.10);
+  --color-violet: #7C3AED;
+  --color-violet-soft: rgba(124, 58, 237, 0.10);
+
+  --color-text-hi: #0F172A;
+  --color-text-mid: #475569;
+  --color-text-low: #64748B;
+
+  --color-primary: #65A30D;
+  --color-background: #F8FAFC;
+  --color-text-main: #0F172A;
+  --color-text-muted: #475569;
+  --color-accent-blue: #0891B2;
+  --color-light-bg: #FFFFFF;
+  --color-light-surface: #FFFFFF;
+  --color-light-border: rgba(15, 23, 42, 0.08);
+  --color-dark-text: #0F172A;
+  --color-dark-text-muted: #475569;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -62,6 +101,15 @@ body {
   color-scheme: dark;
   font-family: "Rubik Variable", "Rubik", "Heebo", sans-serif;
   direction: rtl;
+}
+
+:root[data-theme="light"] body {
+  background-color: #F8FAFC;
+  background-image:
+    radial-gradient(900px 500px at 85% -10%, rgba(101, 163, 13, 0.05), transparent 60%),
+    radial-gradient(800px 500px at 0% 110%, rgba(8, 145, 178, 0.04), transparent 60%);
+  color: #0F172A;
+  color-scheme: light;
 }
 
 #root {
@@ -83,6 +131,17 @@ body {
   transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] .card-glass {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.035), rgba(15, 23, 42, 0.01));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+:root[data-theme="light"] .card-hover:hover {
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
 }
 
 .btn-volt {
@@ -108,11 +167,25 @@ body {
   box-shadow: none;
 }
 
+:root[data-theme="light"] .btn-volt {
+  box-shadow: 0 6px 22px rgba(101, 163, 13, 0.22);
+}
+
+:root[data-theme="light"] .btn-volt:hover:not(:disabled) {
+  box-shadow: 0 8px 28px rgba(101, 163, 13, 0.32);
+}
+
 .text-gradient-volt {
   background: linear-gradient(90deg, #BEF264, #22D3EE);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+:root[data-theme="light"] .text-gradient-volt {
+  background: linear-gradient(90deg, #65A30D, #0891B2);
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 .input-volt {
@@ -138,6 +211,22 @@ body {
   background: rgba(255, 255, 255, 0.06);
 }
 
+:root[data-theme="light"] .input-volt {
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0F172A;
+}
+
+:root[data-theme="light"] .input-volt::placeholder {
+  color: #94A3B8;
+}
+
+:root[data-theme="light"] .input-volt:focus {
+  border-color: rgba(101, 163, 13, 0.5);
+  box-shadow: 0 0 0 3px rgba(101, 163, 13, 0.12);
+  background: rgba(15, 23, 42, 0.05);
+}
+
 /*
  * Browser autofill overrides — Chromium/WebKit paint autofilled fields with a
  * light-yellow UA background and dark text, unreadable on the dark theme. The
@@ -154,6 +243,18 @@ select:-webkit-autofill {
   -webkit-text-fill-color: #F1F5F9 !important;
   caret-color: #F1F5F9;
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="light"] input:-webkit-autofill,
+:root[data-theme="light"] input:-webkit-autofill:hover,
+:root[data-theme="light"] input:-webkit-autofill:focus,
+:root[data-theme="light"] input:-webkit-autofill:active,
+:root[data-theme="light"] textarea:-webkit-autofill,
+:root[data-theme="light"] select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #F1F5F9 inset !important;
+  -webkit-text-fill-color: #0F172A !important;
+  caret-color: #0F172A;
+  border-color: rgba(15, 23, 42, 0.12);
 }
 
 /* ---- Motion ---- */

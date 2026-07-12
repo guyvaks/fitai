@@ -165,17 +165,22 @@ export default function FoodLog() {
       setError('נא למלא שם מאכל וקלוריות')
       return
     }
+    const quantity_g = parseFloat(form.quantity_g) || 100
+    if (quantity_g <= 0) {
+      setError('כמות חייבת להיות גדולה מ-0')
+      return
+    }
     setSubmitting(true)
     try {
       await nutritionAPI.logFood({
         date:       dateStr,
         meal_type:  form.meal_type,
         food_name:  form.food_name,
-        quantity_g: parseFloat(form.quantity_g) || 100,
-        calories:   parseFloat(form.calories)   || 0,
-        protein:    parseFloat(form.protein)    || 0,
-        carbs:      parseFloat(form.carbs)      || 0,
-        fat:        parseFloat(form.fat)        || 0,
+        quantity_g,
+        calories:   Math.max(0, parseFloat(form.calories) || 0),
+        protein:    Math.max(0, parseFloat(form.protein)  || 0),
+        carbs:      Math.max(0, parseFloat(form.carbs)    || 0),
+        fat:        Math.max(0, parseFloat(form.fat)      || 0),
       })
       setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: form.meal_type })
       setSelectedFood(null)
@@ -417,6 +422,7 @@ export default function FoodLog() {
                     <label className="text-text-mid text-xs mb-1 block">{field.label}</label>
                     <input
                       type="number"
+                      min="0"
                       placeholder={field.placeholder}
                       value={form[field.key]}
                       onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}

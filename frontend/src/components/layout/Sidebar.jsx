@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useTheme } from "../../context/ThemeContext";
 import {
   LayoutDashboard,
   User,
@@ -14,6 +15,8 @@ import {
   Zap,
   Crown,
   Calculator,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const navItems = [
@@ -53,6 +56,7 @@ function NavItem({ to, label, Icon, onClose }) {
 
 export default function Sidebar({ onClose }) {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = () => {
     localStorage.clear()
@@ -114,6 +118,13 @@ export default function Sidebar({ onClose }) {
             </div>
             <p className="text-text-mid text-xs truncate" dir="ltr">{user?.email}</p>
           </div>
+          <button
+            onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
+            className="text-text-mid hover:text-text-hi transition-colors text-xs font-medium px-2 py-1 rounded-elem hover:bg-white/5 inline-flex items-center gap-1"
+            title={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+          >
+            {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+          </button>
           <button
             onClick={handleLogout}
             className="text-coral hover:text-coral/80 transition-colors text-xs font-medium px-2 py-1 rounded-elem hover:bg-coral-soft inline-flex items-center gap-1"

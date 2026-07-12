@@ -72,6 +72,10 @@ def create_or_update_profile(
     data["gender"] = profile_data.gender.value
     data["activity_level"] = profile_data.activity_level.value
     data["goal"] = profile_data.goal.value
+    if profile_data.theme_preference is not None:
+        data["theme_preference"] = profile_data.theme_preference.value
+    else:
+        data.pop("theme_preference", None)
     if data.get("equipment") is not None:
         data["equipment"] = json.dumps(data["equipment"])
 
@@ -99,6 +103,8 @@ def update_profile(
         db.add(profile)
 
     update_data = profile_data.model_dump(exclude_unset=True)
+    if update_data.get("theme_preference") is not None:
+        update_data["theme_preference"] = update_data["theme_preference"].value
     for field, value in update_data.items():
         setattr(profile, field, value)
 

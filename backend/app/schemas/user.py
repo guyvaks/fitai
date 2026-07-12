@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserResponse(BaseModel):
@@ -37,19 +37,25 @@ class Gender(str, Enum):
     female = "female"
 
 
+class ThemePreference(str, Enum):
+    dark = "dark"
+    light = "light"
+
+
 class UserProfileCreate(BaseModel):
-    age: int
+    age: int = Field(..., ge=1, le=120)
     gender: Gender
-    height_cm: float
-    weight_kg: float
-    target_weight_kg: Optional[float] = None
+    height_cm: float = Field(..., gt=0, le=300)
+    weight_kg: float = Field(..., gt=0, le=500)
+    target_weight_kg: Optional[float] = Field(None, gt=0, le=500)
     activity_level: ActivityLevel
     goal: Goal
     medical_conditions: Optional[str] = None
     injuries: Optional[str] = None
     allergies: Optional[str] = None
     equipment: Optional[List[str]] = None
-    meals_per_day: int = 5
+    meals_per_day: int = Field(5, ge=1, le=12)
+    theme_preference: Optional[ThemePreference] = None
 
 
 class UserProfileResponse(BaseModel):
@@ -70,21 +76,23 @@ class UserProfileResponse(BaseModel):
     bmr: Optional[float] = None
     tdee: Optional[float] = None
     target_calories: Optional[float] = None
+    theme_preference: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
 
 # Keep backward-compat alias
 class UserProfileUpdate(BaseModel):
-    age: Optional[int] = None
+    age: Optional[int] = Field(None, ge=1, le=120)
     gender: Optional[str] = None
-    height_cm: Optional[float] = None
-    weight_kg: Optional[float] = None
-    target_weight_kg: Optional[float] = None
+    height_cm: Optional[float] = Field(None, gt=0, le=300)
+    weight_kg: Optional[float] = Field(None, gt=0, le=500)
+    target_weight_kg: Optional[float] = Field(None, gt=0, le=500)
     activity_level: Optional[str] = None
     goal: Optional[str] = None
     medical_conditions: Optional[str] = None
     injuries: Optional[str] = None
     allergies: Optional[str] = None
     equipment: Optional[str] = None
-    meals_per_day: Optional[int] = None
+    meals_per_day: Optional[int] = Field(None, ge=1, le=12)
+    theme_preference: Optional[ThemePreference] = None

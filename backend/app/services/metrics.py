@@ -24,6 +24,8 @@ ACTIVITY_MULTIPLIERS = {
 
 
 def calculate_bmi(weight_kg: float, height_cm: float) -> float:
+    if not height_cm or height_cm <= 0:
+        return 0.0
     height_m = height_cm / 100
     return round(weight_kg / (height_m ** 2), 1)
 
