@@ -87,6 +87,7 @@ export default function Dashboard() {
   const [fullPlanError, setFullPlanError] = useState(null);
   const [todayLogs, setTodayLogs] = useState([]);
   const [todayWorkout, setTodayWorkout] = useState(null);
+  const [hasPlan, setHasPlan] = useState(false);
   const [records, setRecords] = useState([]);
   const [weightHistory, setWeightHistory] = useState([]);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
@@ -107,13 +108,17 @@ export default function Dashboard() {
 
     workoutsAPI.getPlan()
       .then(({ data }) => {
+        setHasPlan(!!data?.plan_data);
         const dayData = data?.plan_data?.[todayDayKey];
         if (dayData) {
           const exercises = Array.isArray(dayData) ? dayData : dayData.exercises || [];
           setTodayWorkout({ name: dayData.name || "אימון היום", count: exercises.length });
         }
       })
-      .catch(() => setTodayWorkout(null));
+      .catch(() => {
+        setTodayWorkout(null);
+        setHasPlan(false);
+      });
 
     workoutsAPI.getPersonalRecords()
       .then(({ data }) => setRecords(data || []))
@@ -404,12 +409,33 @@ export default function Dashboard() {
 
         <div className="anim-rise anim-d4 card-glass card-hover p-4 flex items-center gap-4">
           <div className="flex-1 min-w-0">
-            <span className="inline-block bg-volt-soft text-volt text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">
-              {todayWorkout ? "בוצע" : "מנוחה"}
-            </span>
-            <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום אימון היום</h4>
-            <p className="text-text-hi text-xl font-extrabold">{todayWorkout?.name || "יום מנוחה"}</p>
-            <p className="text-text-mid text-xs">{todayWorkout ? `${todayWorkout.count} תרגילים` : "המנוחה חלק מהאימון"}</p>
+            {todayWorkout ? (
+              <>
+                <span className="inline-block bg-volt-soft text-volt text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">בוצע</span>
+                <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום אימון היום</h4>
+                <p className="text-text-hi text-xl font-extrabold">{todayWorkout.name}</p>
+                <p className="text-text-mid text-xs">{todayWorkout.count} תרגילים</p>
+              </>
+            ) : hasPlan ? (
+              <>
+                <span className="inline-block bg-volt-soft text-volt text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">מנוחה</span>
+                <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום אימון היום</h4>
+                <p className="text-text-hi text-xl font-extrabold">יום מנוחה</p>
+                <p className="text-text-mid text-xs">המנוחה חלק מהאימון</p>
+              </>
+            ) : (
+              <>
+                <span className="inline-block bg-white/6 text-text-mid text-xs px-2.5 py-0.5 rounded-full font-medium mb-2">אין תוכנית</span>
+                <h4 className="text-text-hi font-semibold text-sm mb-1">סיכום אימון היום</h4>
+                <p className="text-text-hi text-xl font-extrabold">עדיין לא תיעדת היום</p>
+                <button
+                  onClick={() => navigate('/workouts')}
+                  className="text-volt text-xs font-medium hover:underline mt-1 inline-flex items-center gap-1"
+                >
+                  בוא נתחיל · לתיעוד אימון
+                </button>
+              </>
+            )}
           </div>
           <img
             src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=160&h=160&fit=crop&q=80"
