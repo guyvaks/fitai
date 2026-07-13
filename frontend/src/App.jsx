@@ -31,6 +31,22 @@ export default function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
+        {/*
+          Mobile-only frame: the whole app is constrained to a phone-width
+          column centred on screen, with a darker backdrop outside so it reads
+          as a device frame on desktop. Paired with the neutralised breakpoints
+          in index.css. To bring desktop back: remove this wrapper (and the
+          breakpoint block in index.css) — no page markup needs to change.
+        */}
+        <div className="min-h-screen w-full flex justify-center bg-[#05070d]">
+          {/*
+            The `transform` makes this frame the containing block for every
+            `position: fixed` descendant (slide-in sidebar, floating + button,
+            modals, overlays), so they anchor to the 430px frame instead of the
+            viewport. `overflow-hidden` clips the off-screen (closed) sidebar so
+            it doesn't peek into the dark backdrop on desktop.
+          */}
+          <div className="relative w-full max-w-[430px] min-h-screen bg-background shadow-[0_0_80px_rgba(0,0,0,0.55)] overflow-hidden [transform:translateZ(0)]">
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -145,6 +161,8 @@ export default function App() {
           }
         />
       </Routes>
+          </div>
+        </div>
       </BrowserRouter>
     </ThemeProvider>
   );

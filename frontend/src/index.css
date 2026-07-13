@@ -45,6 +45,21 @@
 
   --radius-card: 20px;
   --radius-elem: 12px;
+
+  /*
+   * Mobile-only app. In Tailwind v4 the `sm:`/`md:`/… variants are
+   * VIEWPORT-based, not container-based, so the 430px frame in App.jsx alone
+   * wouldn't stop them firing on a wide desktop. Pushing every breakpoint out
+   * of reach makes all responsive variants fall back to their mobile base
+   * styles, so the whole app renders as mobile at any viewport width. No `md:`
+   * classes are removed from the components — they simply never trigger.
+   * To restore a real desktop layout: delete this block AND the frame wrapper.
+   */
+  --breakpoint-sm: 9999px;
+  --breakpoint-md: 9999px;
+  --breakpoint-lg: 9999px;
+  --breakpoint-xl: 9999px;
+  --breakpoint-2xl: 9999px;
 }
 
 /*
