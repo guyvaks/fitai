@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
-import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2 } from 'lucide-react'
+import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react'
 
 const STATUS_BADGE = {
   pending: { label: 'ממתין לאישורך', color: 'bg-cyan-soft text-cyan border-cyan/30' },
@@ -239,6 +239,7 @@ export default function AISuggestion() {
   const [suggestion, setSuggestion] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [approved, setApproved] = useState(false)
   const [activeTab, setActiveTab] = useState(() =>
     // will be overridden after load, but start with nutrition
     'nutrition'
@@ -264,10 +265,15 @@ export default function AISuggestion() {
     setActionLoading(true)
     try {
       await agentsAPI.approve(suggestion.id)
-      navigate('/nutrition')
+      // Confirm the adoption before leaving the page, then route to whichever
+      // plan was actually adopted — a workout-only suggestion used to dump the
+      // user on /nutrition with no feedback (UX-8).
+      const c = normaliseContent(suggestion.content || {})
+      const dest = c.workout_plan && !c.meal_plan ? '/workouts' : '/nutrition'
+      setApproved(true)
+      setTimeout(() => navigate(dest), 1500)
     } catch (e) {
       alert(e.response?.data?.detail || 'שגיאה באישור')
-    } finally {
       setActionLoading(false)
     }
   }
@@ -290,6 +296,33 @@ export default function AISuggestion() {
       <div className="flex items-center justify-center gap-2 h-64 card-glass">
         <Loader2 className="w-5 h-5 animate-spin text-volt" />
         <p className="text-text-mid">טוען...</p>
+      </div>
+    )
+  }
+
+  // Success confirmation after adopting a plan — content-aware so the user
+  // gets explicit feedback for a workout, a menu, or both (UX-8).
+  if (approved) {
+    const c = normaliseContent(suggestion?.content || {})
+    const adoptedMeal = !!c.meal_plan
+    const adoptedWorkout = !!c.workout_plan
+    const title = adoptedMeal && adoptedWorkout
+      ? 'התפריט ותכנית האימונים אומצו בהצלחה!'
+      : adoptedWorkout
+        ? 'תכנית האימונים אומצה בהצלחה!'
+        : 'התפריט אומץ בהצלחה!'
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 h-64 card-glass text-center anim-rise" dir="rtl">
+        <span className="w-16 h-16 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+          <CheckCircle2 className="w-8 h-8" />
+        </span>
+        <div>
+          <p className="text-text-hi font-bold text-lg">{title}</p>
+          <p className="text-text-mid text-sm mt-1 inline-flex items-center gap-1.5">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-volt" />
+            מעבירים אותך לתכנית שלך...
+          </p>
+        </div>
       </div>
     )
   }

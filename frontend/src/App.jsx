@@ -7,7 +7,6 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Nutrition from "./pages/Nutrition";
-import FoodLog from "./pages/FoodLog";
 import CalorieCalculator from "./pages/CalorieCalculator";
 import Workouts from "./pages/Workouts";
 import ManualWorkoutBuilder from "./pages/ManualWorkoutBuilder";
@@ -73,16 +72,8 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/food-log"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <FoodLog />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+        {/* יומן אכילה מוזג לתוך דף התזונה כטאב "מעקב יומי" — קישורים ישנים ממשיכים לעבוד */}
+        <Route path="/food-log" element={<Navigate to="/nutrition?tab=daily" replace />} />
         <Route
           path="/calorie-calculator"
           element={

@@ -6,7 +6,6 @@ const pageTitles = {
   "/dashboard": "דשבורד",
   "/profile": "פרופיל ומדדים",
   "/nutrition": "תזונה",
-  "/food-log": "יומן אכילה",
   "/workouts": "אימונים",
   "/live-workout": "אימון חי",
   "/progress": "התקדמות",

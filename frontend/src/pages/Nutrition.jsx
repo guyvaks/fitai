@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { nutritionAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
 import { useAuth } from '../hooks/useAuth'
 import ManualPlanModal from '../components/ManualPlanModal'
-import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog } from 'lucide-react'
+import FoodLog from './FoodLog'
+import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog, CalendarDays, ClipboardList } from 'lucide-react'
+
+const TABS = [
+  { key: 'weekly', label: 'תכנון שבועי', Icon: CalendarDays },
+  { key: 'daily',  label: 'מעקב יומי',  Icon: ClipboardList },
+]
 
 const DAYS = [
   { key: 'sunday', label: 'ראשון' },
@@ -57,6 +63,10 @@ function RemainingRing({ consumed, target, size = 96 }) {
 export default function Nutrition() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') === 'daily' ? 'daily' : 'weekly'
+  const setActiveTab = (tab) =>
+    setSearchParams(tab === 'daily' ? { tab: 'daily' } : {}, { replace: true })
   const [plan, setPlan] = useState(null)
   const [activeDay, setActiveDay] = useState('sunday')
   const [generating, setGenerating] = useState(false)
@@ -147,24 +157,51 @@ export default function Nutrition() {
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-2 anim-rise">
+      <div className="anim-rise">
         <h2 className="text-3xl font-extrabold text-text-hi tracking-tight">תזונה</h2>
-        <div className="flex gap-2">
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="btn-volt px-4 py-2 text-sm flex items-center gap-2"
-          >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
-            {generating ? 'יוצר תפריט...' : 'בנה לי תפריט עם AI'}
-          </button>
-          <button
-            onClick={() => setShowManualBuilder(true)}
-            className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition"
-          >
-            בנה ידנית
-          </button>
-        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-line anim-rise">
+        {TABS.map((t) => {
+          const isActive = activeTab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+                isActive
+                  ? 'border-volt text-volt'
+                  : 'border-transparent text-text-mid hover:text-text-hi'
+              }`}
+            >
+              <t.Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === 'daily' ? (
+        <FoodLog />
+      ) : (
+      <>
+      {/* Weekly plan actions */}
+      <div className="flex justify-end gap-2 flex-wrap anim-rise">
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="btn-volt px-4 py-2 text-sm flex items-center gap-2"
+        >
+          {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+          {generating ? 'יוצר תפריט...' : 'בנה לי תפריט עם AI'}
+        </button>
+        <button
+          onClick={() => setShowManualBuilder(true)}
+          className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition"
+        >
+          בנה ידנית
+        </button>
       </div>
 
       {showManualBuilder && (
@@ -370,6 +407,8 @@ export default function Nutrition() {
           <p className="text-text-hi font-bold">אין תפריט עדיין</p>
           <p className="text-text-mid text-sm">לחץ על "בנה לי תפריט עם AI" ליצירת תפריט מותאם אישית</p>
         </div>
+      )}
+      </>
       )}
     </div>
   )
