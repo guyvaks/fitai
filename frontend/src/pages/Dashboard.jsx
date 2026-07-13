@@ -248,7 +248,7 @@ export default function Dashboard() {
                 עדיין לא תיעדת היום — בוא נתחיל
               </p>
               <button
-                onClick={() => navigate('/food-log')}
+                onClick={() => navigate('/nutrition?tab=daily')}
                 className="text-volt text-xs font-medium hover:underline inline-flex items-center gap-1"
               >
                 לתיעוד ארוחה

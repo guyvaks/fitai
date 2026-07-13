@@ -244,8 +244,6 @@ export default function FoodLog() {
 
   return (
     <div className="space-y-6 relative" dir="rtl">
-      <h2 className="text-3xl font-extrabold text-text-hi tracking-tight anim-rise">יומן אכילה</h2>
-
       {/* Date picker */}
       <div className="anim-rise anim-d1 flex items-center justify-center gap-4 card-glass !rounded-full p-3 max-w-xs mx-auto">
         <button onClick={() => changeDay(-1)} className="text-text-mid hover:text-volt transition-colors px-2" aria-label="יום קודם"><ChevronRight className="w-5 h-5" /></button>

@@ -3,9 +3,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../context/ThemeContext";
 import {
   LayoutDashboard,
-  User,
   Salad,
-  ClipboardList,
   Dumbbell,
   Play,
   TrendingUp,
@@ -21,9 +19,7 @@ import {
 
 const navItems = [
   { to: "/dashboard", label: "דשבורד", Icon: LayoutDashboard },
-  { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/nutrition", label: "תזונה", Icon: Salad },
-  { to: "/food-log", label: "יומן אכילה", Icon: ClipboardList },
   { to: "/calorie-calculator", label: "מחשבון קלוריות", Icon: Calculator },
   { to: "/workouts", label: "אימונים", Icon: Dumbbell },
   { to: "/live-workout", label: "אימון חי", Icon: Play },

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { Menu, Home, Zap } from "lucide-react";
 
@@ -6,7 +6,6 @@ const pageTitles = {
   "/dashboard": "דשבורד",
   "/profile": "פרופיל ומדדים",
   "/nutrition": "תזונה",
-  "/food-log": "יומן אכילה",
   "/workouts": "אימונים",
   "/live-workout": "אימון חי",
   "/progress": "התקדמות",
@@ -49,13 +48,17 @@ export default function Header({ onToggleSidebar }) {
         <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
-      {/* Desktop: user info */}
-      <div className="hidden md:flex items-center gap-3">
-        <span className="text-text-mid text-sm">{user?.full_name}</span>
+      {/* Desktop: user info — links to profile */}
+      <NavLink
+        to="/profile"
+        className="hidden md:flex items-center gap-3 rounded-full px-2 py-1 -mx-2 hover:bg-white/5 transition-colors"
+        title="הפרופיל שלי"
+      >
+        <span className="text-text-mid text-sm hover:text-text-hi transition-colors">{user?.full_name}</span>
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-xs font-bold">
           {initials}
         </div>
-      </div>
+      </NavLink>
 
       {/* Mobile: page title */}
       <h1 className="md:hidden text-base font-bold text-text-hi">{title}</h1>

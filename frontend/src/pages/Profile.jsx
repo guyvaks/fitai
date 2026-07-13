@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 import BMIMeter from "../components/ui/BMIMeter";
-import { Target, Lightbulb, Loader2, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Target, Lightbulb, Loader2, AlertTriangle, ArrowLeft, UserPlus } from "lucide-react";
 
 const ACTIVITY_OPTIONS = [
   { value: "sedentary", label: "מושבי", desc: "ללא פעילות גופנית" },
@@ -80,6 +81,7 @@ function MacroRing({ pct, color, size = 64 }) {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [form, setForm] = useState(defaultForm);
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -87,10 +89,12 @@ export default function Profile() {
   const [error, setError] = useState(null);
   const [fetchingProfile, setFetchingProfile] = useState(true);
   const [profileError, setProfileError] = useState(false);
+  const [isNewProfile, setIsNewProfile] = useState(false);
 
   const loadProfile = () => {
     setFetchingProfile(true);
     setProfileError(false);
+    setIsNewProfile(false);
     api
       .get("/api/v1/users/profile")
       .then(({ data }) => {
@@ -121,18 +125,29 @@ export default function Profile() {
         }
       })
       .catch((err) => {
-        // 404 just means the user hasn't saved a profile yet — not an error state
-        if (err.response?.status !== 404) {
+        // 404 just means the user hasn't saved a profile yet — a new user, not an error
+        if (err.response?.status === 404) {
+          setIsNewProfile(true);
+        } else {
           setProfileError(true);
         }
       })
       .finally(() => setFetchingProfile(false));
   };
 
-  // Load existing profile on mount
+  // Load existing profile once auth is resolved. Guarding on the auth state
+  // avoids a race where loadProfile fires before useAuth has restored the
+  // token/user from localStorage, which would 401 and bounce to /login.
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      // Not authenticated — App's route guard will redirect; don't fetch.
+      setFetchingProfile(false);
+      return;
+    }
     loadProfile();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   const handleEquipmentToggle = (item) => {
     setForm((prev) => ({
@@ -207,6 +222,20 @@ export default function Profile() {
         <h2 className="text-3xl font-extrabold text-text-hi tracking-tight">פרופיל ומדדים</h2>
         <p className="text-text-mid mt-1">עדכן את הנתונים האישיים שלך לקבלת תוכנית מותאמת אישית</p>
       </div>
+
+      {isNewProfile && (
+        <div className="anim-rise flex items-center gap-4 rounded-card border border-volt/30 bg-volt-soft p-5">
+          <div className="shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-volt/15">
+            <UserPlus className="w-5 h-5 text-volt" />
+          </div>
+          <div>
+            <p className="text-text-hi font-bold">ברוך הבא! נשמח להכיר אותך</p>
+            <p className="text-text-mid text-sm mt-0.5">
+              מלא את הפרטים כדי שנוכל ליצור עבורך תוכנית מותאמת אישית
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
         {/* Metrics analysis (left side in RTL) */}
