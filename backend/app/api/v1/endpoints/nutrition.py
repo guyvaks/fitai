@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
-from app.models.fitness import NutritionPlan, Meal, FoodLog
+from app.models.fitness import NutritionPlan, FoodLog
 from app.schemas.nutrition import (
-    NutritionPlanResponse, FoodLogCreate, FoodLogResponse, ManualPlanCreate, CalorieCalcRequest
+    FoodLogCreate, ManualPlanCreate, CalorieCalcRequest
 )
 import datetime
 
@@ -18,7 +18,7 @@ VALID_DAYS = {"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", 
 def get_nutrition_plan(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     plan = db.query(NutritionPlan).filter(
         NutritionPlan.user_id == current_user.id,
-        NutritionPlan.is_active == True
+        NutritionPlan.is_active.is_(True)
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="No active nutrition plan found")
@@ -71,7 +71,7 @@ def create_manual_plan(
 
     existing = db.query(NutritionPlan).filter(
         NutritionPlan.user_id == current_user.id,
-        NutritionPlan.is_active == True
+        NutritionPlan.is_active.is_(True)
     ).first()
 
     if existing:
