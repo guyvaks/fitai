@@ -3,6 +3,8 @@ import os
 import re
 from typing import Optional
 from app.core.config import settings
+from app.core.database import SessionLocal
+from app.models.fitness import ExerciseMaster
 # app.core.config must load before crewai: importing crewai pulls in litellm,
 # which runs its own load_dotenv() on import and can plant .env's placeholder
 # ANTHROPIC_API_KEY in os.environ before pydantic-settings reads .env.local.
@@ -138,9 +140,123 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
     )
 
 
+def get_canonical_exercises():
+    """Return every active exercise from exercises_master as a list of dicts.
+    This is the single source of truth for exercise names the workout agent is
+    allowed to use."""
+    db = SessionLocal()
+    try:
+        exercises = db.query(ExerciseMaster).filter(ExerciseMaster.is_active.is_(True)).all()
+        return [
+            {
+                "name_he": e.canonical_name_he,
+                "name_en": e.canonical_name_en,
+                "muscle_group": e.muscle_group_primary,
+                "equipment": e.equipment,
+                "aliases": e.aliases or [],
+            }
+            for e in exercises
+        ]
+    finally:
+        db.close()
+
+
+def _parse_equipment(raw) -> set:
+    """Normalise the profile's equipment value into a lowercase token set.
+    In the crew flow `profile['equipment']` comes straight off the ORM column,
+    so it is usually a JSON-encoded string (e.g. '["dumbbells"]'); tolerate a
+    plain string or an already-decoded list too."""
+    if not raw:
+        return set()
+    if isinstance(raw, str):
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            decoded = [raw]
+    else:
+        decoded = raw
+    if isinstance(decoded, str):
+        decoded = [decoded]
+    return {str(item).strip().lower() for item in decoded if str(item).strip()}
+
+
+# Equipment values that never require owned gear, so they stay available no
+# matter what the user listed.
+_FREE_EQUIPMENT = {"", "none", "bodyweight", "משקל גוף", "ללא ציוד"}
+
+
+def _filter_exercises_by_equipment(exercises: list, equipment: set) -> list:
+    """Keep exercises the user can actually perform: bodyweight/no-equipment
+    ones are always allowed; the rest only if their equipment is one the user
+    listed. If the user listed no equipment, don't restrict — a full canonical
+    list is more useful to the agent than an empty one."""
+    if not equipment:
+        return exercises
+    kept = []
+    for ex in exercises:
+        eq = (ex.get("equipment") or "").strip().lower()
+        if eq in _FREE_EQUIPMENT or eq in equipment:
+            kept.append(ex)
+    return kept or exercises
+
+
+def _build_exercise_name_set(exercises: list) -> set:
+    """Lowercased set of every acceptable exercise name (Hebrew, English, and
+    aliases) for case-insensitive validation of the agent's output."""
+    names = set()
+    for ex in exercises:
+        for key in ("name_he", "name_en"):
+            val = ex.get(key)
+            if val:
+                names.add(str(val).strip().lower())
+        for alias in ex.get("aliases", []):
+            if alias:
+                names.add(str(alias).strip().lower())
+    return names
+
+
+def validate_workout_exercises(result: dict) -> list:
+    """Check every exercise name in a workout_plan result against
+    exercises_master (case-insensitive). Returns the list of unrecognised names.
+    Logs a warning for each but never raises or mutates the result — for now this
+    is observation only, not enforcement."""
+    plan = result.get("workout_plan")
+    if not isinstance(plan, dict):
+        return []
+
+    allowed = _build_exercise_name_set(get_canonical_exercises())
+    if not allowed:
+        return []
+
+    unknown = []
+    for day, day_plan in plan.items():
+        if not isinstance(day_plan, dict):
+            continue
+        for ex in day_plan.get("exercises", []) or []:
+            name = ex.get("name") if isinstance(ex, dict) else None
+            if not name:
+                continue
+            if str(name).strip().lower() not in allowed:
+                unknown.append(name)
+                print(
+                    f"[crew_agents] WARNING: workout exercise '{name}' (day {day}) "
+                    "is not in exercises_master — AI may have invented it"
+                )
+    if unknown:
+        print(
+            f"[crew_agents] WARNING: {len(unknown)} exercise name(s) not found in "
+            f"exercises_master: {unknown}"
+        )
+    return unknown
+
+
 def build_workout_task(agent, profile: dict, memory: dict) -> Task:
     preferred_ex = memory.get("preferred_exercises", [])
     skipped_ex = memory.get("skipped_exercises", [])
+
+    equipment = _parse_equipment(profile.get("equipment"))
+    allowed_exercises = _filter_exercises_by_equipment(get_canonical_exercises(), equipment)
+    allowed_names_he = ", ".join(ex["name_he"] for ex in allowed_exercises if ex.get("name_he"))
 
     return Task(
         description=f"""החזר JSON בלבד. אסור טקסט לפני או אחרי ה-JSON. התחל ישירות עם {{ וסיים עם }}.
@@ -151,6 +267,8 @@ def build_workout_task(agent, profile: dict, memory: dict) -> Task:
 - רמת פעילות: {profile.get('activity_level')}
 - פציעות: {profile.get('injuries', 'אין')}
 - ציוד זמין: {profile.get('equipment', 'ללא ציוד')}
+- רשימת תרגילים מאושרת (בחר רק מתוכה): {allowed_names_he}
+- חשוב: השתמש אך ורק בשמות תרגילים מהרשימה הזו. אסור להמציא שמות חדשים.
 - תרגילים מועדפים: {', '.join(preferred_ex) if preferred_ex else 'לא צוין'}
 - תרגילים שנדלגו: {', '.join(skipped_ex) if skipped_ex else 'לא צוין'}
 
@@ -362,7 +480,9 @@ async def run_workout_crew(profile: dict, memory: dict) -> dict:
         agent = get_workout_agent()
         return agent, build_workout_task(agent, profile, memory)
 
-    return _run_crew_with_retry(build, "workout_plan", "workout crew")
+    result = _run_crew_with_retry(build, "workout_plan", "workout crew")
+    validate_workout_exercises(result)
+    return result
 
 
 async def run_full_crew(profile: dict, memory: dict) -> dict:

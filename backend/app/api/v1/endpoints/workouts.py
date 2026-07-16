@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 from app.models.fitness import (
-    WorkoutPlan, WorkoutExercise, WorkoutSession, ExerciseLog,
+    WorkoutPlan, WorkoutSession, ExerciseLog,
     ExerciseMemory, PersonalRecord
 )
 from pydantic import BaseModel, Field
@@ -56,7 +56,7 @@ class ManualWorkoutPlanCreate(BaseModel):
 def get_workout_plan(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     plan = db.query(WorkoutPlan).filter(
         WorkoutPlan.user_id == current_user.id,
-        WorkoutPlan.is_active == True
+        WorkoutPlan.is_active.is_(True)
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="No active workout plan found")
@@ -95,7 +95,7 @@ def create_manual_workout_plan(
 
     existing = db.query(WorkoutPlan).filter(
         WorkoutPlan.user_id == current_user.id,
-        WorkoutPlan.is_active == True
+        WorkoutPlan.is_active.is_(True)
     ).first()
 
     if existing:
@@ -131,7 +131,7 @@ def start_session(
 
     plan = db.query(WorkoutPlan).filter(
         WorkoutPlan.user_id == current_user.id,
-        WorkoutPlan.is_active == True
+        WorkoutPlan.is_active.is_(True)
     ).first()
 
     session = WorkoutSession(
@@ -286,7 +286,7 @@ def get_volume_history(db: Session = Depends(get_db), current_user: User = Depen
         )
         .filter(
             ExerciseLog.user_id == current_user.id,
-            ExerciseLog.completed == True,
+            ExerciseLog.completed.is_(True),
             ExerciseLog.completed_at.isnot(None),
         )
         .group_by(day)
