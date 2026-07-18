@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { Menu, Home, Zap } from "lucide-react";
+import { useTheme } from "../../context/ThemeContext";
+import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
 
 const pageTitles = {
   "/dashboard": "דשבורד",
@@ -17,6 +18,7 @@ export default function Header({ onToggleSidebar }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const title = pageTitles[location.pathname] || "FitAI";
 
   const initials = user?.full_name
@@ -48,29 +50,42 @@ export default function Header({ onToggleSidebar }) {
         <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
-      {/* Desktop: user info — links to profile */}
-      <NavLink
-        to="/profile"
-        className="hidden md:flex items-center gap-3 rounded-full px-2 py-1 -mx-2 hover:bg-white/5 transition-colors"
-        title="הפרופיל שלי"
-      >
-        <span className="text-text-mid text-sm hover:text-text-hi transition-colors">{user?.full_name}</span>
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-xs font-bold">
-          {initials}
-        </div>
-      </NavLink>
-
       {/* Mobile: page title */}
       <h1 className="md:hidden text-base font-bold text-text-hi">{title}</h1>
 
-      {/* Mobile: home button */}
-      <button
-        className="md:hidden text-text-mid hover:text-volt p-2 transition-colors"
-        onClick={() => navigate('/dashboard')}
-        aria-label="בית"
-      >
-        <Home className="w-5 h-5" />
-      </button>
+      {/* Right cluster */}
+      <div className="flex items-center gap-1 md:gap-3">
+        {/* Theme toggle — always visible */}
+        <button
+          onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
+          className="text-text-mid hover:text-volt p-2 rounded-elem hover:bg-white/5 transition-colors"
+          title={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+          aria-label={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+        >
+          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+
+        {/* Desktop: user info — links to profile */}
+        <NavLink
+          to="/profile"
+          className="hidden md:flex items-center gap-3 rounded-full px-2 py-1 hover:bg-white/5 transition-colors"
+          title="הפרופיל שלי"
+        >
+          <span className="text-text-mid text-sm hover:text-text-hi transition-colors">{user?.full_name}</span>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-xs font-bold">
+            {initials}
+          </div>
+        </NavLink>
+
+        {/* Mobile: home button */}
+        <button
+          className="md:hidden text-text-mid hover:text-volt p-2 transition-colors"
+          onClick={() => navigate('/dashboard')}
+          aria-label="בית"
+        >
+          <Home className="w-5 h-5" />
+        </button>
+      </div>
     </header>
   );
 }

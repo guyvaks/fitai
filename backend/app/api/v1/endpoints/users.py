@@ -30,13 +30,21 @@ def _upsert_weight_log(db: Session, user_id, weight_kg: float) -> None:
 
 
 def _deserialize_equipment(profile):
-    """Deserialize equipment JSON string to list in-place."""
-    if profile.equipment and isinstance(profile.equipment, str):
+    """Build the profile response, parsing the equipment JSON string to a list.
+
+    Must NOT mutate the ORM row: assigning a list back to `profile.equipment`
+    (a Text column) makes the object dirty, so the next flush on that session
+    tries to bind a Python list to the column and raises. Build a detached
+    response model instead — see test_update_theme_with_equipment_set_does_not_500.
+    """
+    data = {name: getattr(profile, name, None) for name in UserProfileResponse.model_fields}
+    equipment = data.get("equipment")
+    if equipment and isinstance(equipment, str):
         try:
-            profile.equipment = json.loads(profile.equipment)
+            data["equipment"] = json.loads(equipment)
         except Exception:
-            profile.equipment = [profile.equipment]
-    return profile
+            data["equipment"] = [equipment]
+    return UserProfileResponse.model_validate(data)
 
 
 @router.get("/profile", response_model=UserProfileResponse)
@@ -113,7 +121,7 @@ def update_profile(
 
     db.commit()
     db.refresh(profile)
-    return profile
+    return _deserialize_equipment(profile)
 
 
 @router.get("/metrics", response_model=UserProfileResponse)

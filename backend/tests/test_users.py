@@ -106,6 +106,23 @@ def test_profile_equipment_roundtrip(client):
     assert get_resp.json()["equipment"] == ["dumbbells", "bench"]
 
 
+def test_update_theme_with_equipment_set_does_not_500(client):
+    # Regression: update_profile returned the raw ORM row, whose `equipment`
+    # is a JSON string, tripping UserProfileResponse validation -> HTTP 500.
+    # The frontend theme toggle then hit its catch/revert (flash-and-revert bug).
+    headers = get_auth_headers(client)
+    payload = dict(PROFILE_PAYLOAD, equipment=["dumbbells", "bench"])
+    client.post("/api/v1/users/profile", headers=headers, json=payload)
+
+    resp = client.put(
+        "/api/v1/users/profile", headers=headers, json={"theme_preference": "light"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["theme_preference"] == "light"
+    assert body["equipment"] == ["dumbbells", "bench"]
+
+
 def test_weight_history_unauthenticated(client):
     response = client.get("/api/v1/users/weight-history")
     assert response.status_code == 401
