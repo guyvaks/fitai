@@ -259,7 +259,7 @@ class ExerciseMaster(Base):
     __tablename__ = "exercises_master"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    canonical_name_en = Column(String, nullable=False, unique=True)
+    canonical_name_en = Column(String, nullable=True, unique=True)
     canonical_name_he = Column(String, nullable=False)
     category = Column(String, nullable=False)
     muscle_group_primary = Column(String, nullable=True)

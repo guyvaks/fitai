@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -10,7 +12,7 @@ from app.models.fitness import (
     NutritionPlan, Meal, FoodLog, WorkoutPlan, WorkoutExercise,
     WorkoutSession, ExerciseLog, AISuggestion, SmartProgression,
     UserMemory, ExerciseMemory, FoodMemory, PersonalRecord,
-    EnduranceLog, StrengthLog, HydrationLog, WeightLog,
+    EnduranceLog, StrengthLog, HydrationLog, WeightLog, ExerciseMaster,
 )
 
 
@@ -95,3 +97,44 @@ def reset_password(user_id: str, body: ResetPasswordRequest, db: Session = Depen
     user.hashed_password = get_password_hash(body.new_password)
     db.commit()
     return {"message": "סיסמה עודכנה בהצלחה"}
+
+
+@router.get("/exercises/pending")
+def list_pending_exercises(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    exercises = (
+        db.query(ExerciseMaster)
+        .filter(ExerciseMaster.is_active.is_(False))
+        .order_by(ExerciseMaster.canonical_name_he)
+        .all()
+    )
+    return [
+        {
+            "id": str(e.id),
+            "canonical_name_he": e.canonical_name_he,
+            "canonical_name_en": e.canonical_name_en,
+            "category": e.category,
+            "muscle_group_primary": e.muscle_group_primary,
+            "equipment": e.equipment,
+        }
+        for e in exercises
+    ]
+
+
+@router.post("/exercises/{exercise_id}/approve")
+def approve_exercise(exercise_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    exercise = db.query(ExerciseMaster).filter(ExerciseMaster.id == uuid.UUID(exercise_id)).first()
+    if not exercise:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+    exercise.is_active = True
+    db.commit()
+    return {"id": str(exercise.id), "is_active": exercise.is_active}
+
+
+@router.delete("/exercises/{exercise_id}/reject")
+def reject_exercise(exercise_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    exercise = db.query(ExerciseMaster).filter(ExerciseMaster.id == uuid.UUID(exercise_id)).first()
+    if not exercise:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
+    db.delete(exercise)
+    db.commit()
+    return {"ok": True}
