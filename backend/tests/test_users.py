@@ -123,6 +123,23 @@ def test_update_theme_with_equipment_set_does_not_500(client):
     assert body["equipment"] == ["dumbbells", "bench"]
 
 
+def test_get_profile_after_theme_only_update_returns_nulls_not_error(client):
+    # Regression for Known_Bugs "טוען פרופיל..." stuck forever: a user who never
+    # filled the profile form but toggled theme gets a UserProfile row created by
+    # PUT (all real fields null). GET must return 200 with nulls, not 404 (which
+    # would be fine too) and not 500/hang, so the frontend can render the empty
+    # form instead of spinning forever.
+    headers = get_auth_headers(client)
+    client.put("/api/v1/users/profile", headers=headers, json={"theme_preference": "dark"})
+
+    resp = client.get("/api/v1/users/profile", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["age"] is None
+    assert body["bmi"] is None
+    assert body["theme_preference"] == "dark"
+
+
 def test_weight_history_unauthenticated(client):
     response = client.get("/api/v1/users/weight-history")
     assert response.status_code == 401
