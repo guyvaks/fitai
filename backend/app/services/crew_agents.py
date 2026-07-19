@@ -38,6 +38,27 @@ def _plan_key_with_all_days(d: dict) -> Optional[str]:
     return None
 
 
+def incomplete_plan_keys(content: dict) -> list:
+    """Which of 'meal_plan'/'workout_plan' are present in content but not a
+    complete 7-day dict. Used at the approve-suggestion boundary to catch a
+    plan _run_crew_with_retry gave up on (see MAX_PLAN_ATTEMPTS above) before
+    it's saved — that function intentionally returns its best-effort partial
+    result instead of raising, so callers that persist the result must check
+    completeness themselves. Checks every key present independently, so a
+    merged run_full_crew result with one complete plan and one partial one
+    still gets flagged."""
+    if not isinstance(content, dict):
+        return []
+    incomplete = []
+    for key in _PLAN_DAY_KEYS:
+        if key not in content:
+            continue
+        val = content[key]
+        if not (isinstance(val, dict) and set(val.keys()) == _DAY_SET):
+            incomplete.append(key)
+    return incomplete
+
+
 def get_nutrition_agent():
     from crewai import LLM
     llm = LLM(model="anthropic/claude-sonnet-4-6", max_tokens=16000)
