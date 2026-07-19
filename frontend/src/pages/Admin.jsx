@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
-import { KeyRound, Crown, Trash2, Loader2 } from "lucide-react";
+import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X } from "lucide-react";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {
   const [password, setPassword] = useState("");
@@ -54,7 +55,101 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
   );
 }
 
-export default function Admin() {
+function PendingExercises() {
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  const fetchPending = () => {
+    setLoading(true);
+    api.get("/api/v1/admin/exercises/pending")
+      .then(({ data }) => setExercises(data))
+      .catch(() => setError("אין גישה או שגיאת שרת"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchPending(); }, []);
+
+  const handleApprove = async (ex) => {
+    setActionLoading(ex.id);
+    try {
+      await api.post(`/api/v1/admin/exercises/${ex.id}/approve`);
+      setExercises((prev) => prev.filter((x) => x.id !== ex.id));
+    } catch {
+      alert("שגיאה באישור התרגיל");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (ex) => {
+    if (!window.confirm(`לדחות (ולמחוק) את התרגיל "${ex.canonical_name_he}"?\nפעולה זו אינה ניתנת לביטול.`)) return;
+    setActionLoading(ex.id);
+    try {
+      await api.delete(`/api/v1/admin/exercises/${ex.id}/reject`);
+      setExercises((prev) => prev.filter((x) => x.id !== ex.id));
+    } catch {
+      alert("שגיאה בדחיית התרגיל");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) return (
+    <div className="p-6 text-text-mid card-glass flex items-center gap-2 anim-rise anim-d1">
+      <Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...
+    </div>
+  );
+  if (error) return <div className="p-6 text-coral card-glass anim-rise anim-d1" style={{ borderColor: "rgba(251,113,133,0.4)" }}>{error}</div>;
+
+  if (exercises.length === 0) {
+    return (
+      <div className="p-6 text-text-mid card-glass text-center anim-rise anim-d1">
+        אין תרגילים הממתינים לאישור כרגע
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 anim-rise anim-d1">
+      {exercises.map((ex) => {
+        const busy = actionLoading === ex.id;
+        return (
+          <div key={ex.id} className="card-glass p-4">
+            <div className="mb-3">
+              <p className="text-text-hi font-medium">{ex.canonical_name_he}</p>
+              {ex.canonical_name_en && (
+                <p className="text-text-mid text-xs" dir="ltr">{ex.canonical_name_en}</p>
+              )}
+              <p className="text-text-low text-xs mt-1">
+                {ex.category} · {ex.muscle_group_primary} · {ex.equipment}
+              </p>
+            </div>
+            <div className="flex items-stretch gap-2">
+              <button
+                onClick={() => handleApprove(ex)}
+                disabled={busy}
+                className="flex-1 py-2 text-xs px-2 rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+              >
+                <Check className="w-3 h-3" /> אשר
+              </button>
+              <button
+                onClick={() => handleReject(ex)}
+                disabled={busy}
+                className="flex-1 py-2 text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+              >
+                {busy ? "..." : <>דחה <X className="w-3 h-3" /></>}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function UsersTab() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,11 +228,7 @@ export default function Admin() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto" dir="rtl">
-      <h1 className="text-3xl font-extrabold text-text-hi tracking-tight mb-6 flex items-center gap-2 anim-rise">
-        ניהול משתמשים <Crown className="w-6 h-6 text-amber" />
-      </h1>
-
+    <>
       {/* Mobile: card list (actions always visible) */}
       <div className="md:hidden space-y-3 anim-rise anim-d1">
         {users.map((u) => {
@@ -215,6 +306,49 @@ export default function Admin() {
           onSuccess={() => alert(`סיסמה עודכנה בהצלחה עבור ${resetTarget.full_name}`)}
         />
       )}
+    </>
+  );
+}
+
+const TABS = [
+  { key: "users", label: "משתמשים", Icon: Users },
+  { key: "exercises", label: "תרגילים ממתינים", Icon: Dumbbell },
+];
+
+export default function Admin() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") === "exercises" ? "exercises" : "users";
+  const setActiveTab = (tab) =>
+    setSearchParams(tab === "exercises" ? { tab: "exercises" } : {}, { replace: true });
+
+  return (
+    <div className="max-w-5xl mx-auto" dir="rtl">
+      <h1 className="text-3xl font-extrabold text-text-hi tracking-tight mb-6 flex items-center gap-2 anim-rise">
+        ניהול <Crown className="w-6 h-6 text-amber" />
+      </h1>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-line mb-6 anim-rise">
+        {TABS.map((t) => {
+          const isActive = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition ${
+                isActive
+                  ? "border-volt text-volt"
+                  : "border-transparent text-text-mid hover:text-text-hi"
+              }`}
+            >
+              <t.Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === "users" ? <UsersTab /> : <PendingExercises />}
     </div>
   );
 }
