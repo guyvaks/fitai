@@ -184,6 +184,19 @@ def approve_suggestion(
         raise HTTPException(status_code=404, detail="Suggestion not found")
 
     content = _normalise_content(suggestion.content)
+
+    from app.services.crew_agents import incomplete_plan_keys
+
+    incomplete = incomplete_plan_keys(content)
+    if incomplete:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "התוכנית שנוצרה חלקית ולא כוללת את כל 7 ימי השבוע "
+                f"({', '.join(incomplete)}) — נסה ליצור תכנית מחדש"
+            ),
+        )
+
     saved_something = False
 
     if "meal_plan" in content:

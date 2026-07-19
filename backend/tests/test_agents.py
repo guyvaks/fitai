@@ -3,8 +3,6 @@
 (app.core.database.SessionLocal, separate from the request-scoped get_db
 override) is redirected to the same in-memory test DB so nothing touches
 the real staging/production database."""
-import pytest
-
 import app.core.database as database_module
 from app.services import crew_agents
 from tests.conftest import TestingSessionLocal, get_auth_headers
@@ -181,32 +179,14 @@ def test_approve_suggestion_with_invalid_content_returns_400(client, monkeypatch
     assert approve_response.status_code == 400
 
 
-@pytest.mark.xfail(
-    reason=(
-        "KNOWN BUG (retry-path mapping, 2026-07-19, not fixed by this task): when "
-        "_run_crew_with_retry exhausts MAX_PLAN_ATTEMPTS on an incomplete plan, it "
-        "returns the partial dict as-is (e.g. only 1 of 7 days) instead of raising. "
-        "That partial dict still has the 'meal_plan'/'workout_plan' key, and "
-        "_normalise_content()/approve_suggestion() in agents.py only check for that "
-        "key's presence — they never call _plan_key_with_all_days to check day "
-        "completeness. So a retry-exhausted partial plan sails through "
-        "generate -> status='ready' -> approve -> saved to NutritionPlan/WorkoutPlan "
-        "as if it were a complete, valid plan. This is the same failure family as the "
-        "historical '1 day instead of 7' bug, at the approve-time boundary instead of "
-        "the generation boundary. Fix requires a completeness guard in "
-        "_normalise_content or approve_suggestion; out of scope here."
-    ),
-    strict=True,
-)
 def test_approve_suggestion_with_retry_exhausted_partial_plan_is_rejected(client, monkeypatch):
-    """Desired behavior once fixed: a suggestion whose content is exactly what
-    _run_crew_with_retry returns after giving up (meal_plan present, but only
-    1 of 7 days) must be rejected at approve time (400), the same way a fully
-    empty {'error': 'no output'} result already is (see
-    test_approve_suggestion_with_invalid_content_returns_400). strict=True means
-    this test must stay RED (fail) until the completeness guard is added — an
-    unexpected pass (XPASS) will itself fail the suite, flagging that the xfail
-    marker needs to be removed."""
+    """Regression for the completeness-guard gap found while mapping the agents
+    retry path (2026-07-19, commit 5924aad, xfail removed by the fix in this
+    commit): a suggestion whose content is exactly what _run_crew_with_retry
+    returns after giving up (meal_plan present, but only 1 of 7 days) must be
+    rejected at approve time (400), the same way a fully empty
+    {'error': 'no output'} result already is (see
+    test_approve_suggestion_with_invalid_content_returns_400)."""
     _patch_background_db(monkeypatch)
 
     async def _fake_retry_exhausted_crew(profile, memory):
@@ -226,6 +206,120 @@ def test_approve_suggestion_with_retry_exhausted_partial_plan_is_rejected(client
 
     approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
     assert approve_response.status_code == 400
+
+
+def test_approve_suggestion_with_partial_workout_full_nutrition_is_rejected(client, monkeypatch):
+    """The completeness guard checks each plan key independently: a merged
+    run_full_crew result where nutrition retried successfully (full 7 days)
+    but workout exhausted its retries (partial) must still be rejected as a
+    whole, not partially saved. Neither NutritionPlan nor WorkoutPlan should
+    end up written."""
+    _patch_background_db(monkeypatch)
+
+    async def _fake_full_crew_partial_workout(profile, memory):
+        return {
+            "meal_plan": {day: {"meals": []} for day in DAYS},
+            "workout_plan": {"sunday": {"exercises": []}},
+        }
+
+    monkeypatch.setattr(crew_agents, "run_full_crew", _fake_full_crew_partial_workout)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    task_id = client.post("/api/v1/agents/full-plan", headers=headers).json()["task_id"]
+    suggestion_id = client.get(
+        f"/api/v1/agents/status/{task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
+    assert approve_response.status_code == 400
+
+    plan_response = client.get("/api/v1/nutrition/plan", headers=headers)
+    assert plan_response.status_code == 404
+
+
+def test_approve_suggestion_with_partial_nutrition_full_workout_is_rejected(client, monkeypatch):
+    """Mirror of the above with the roles reversed: nutrition partial, workout
+    complete. Also must be rejected as a whole."""
+    _patch_background_db(monkeypatch)
+
+    async def _fake_full_crew_partial_nutrition(profile, memory):
+        return {
+            "meal_plan": {"sunday": {"meals": []}},
+            "workout_plan": {day: {"exercises": []} for day in DAYS},
+        }
+
+    monkeypatch.setattr(crew_agents, "run_full_crew", _fake_full_crew_partial_nutrition)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    task_id = client.post("/api/v1/agents/full-plan", headers=headers).json()["task_id"]
+    suggestion_id = client.get(
+        f"/api/v1/agents/status/{task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
+    assert approve_response.status_code == 400
+
+    plan_response = client.get("/api/v1/workouts/plan", headers=headers)
+    assert plan_response.status_code == 404
+
+
+def test_approve_suggestion_with_partial_workout_only_is_rejected(client, monkeypatch):
+    """Same completeness guard, but for the workout-only generation route
+    (not the merged full-plan route) — mirrors the existing nutrition-only
+    retry-exhausted test above."""
+    _patch_background_db(monkeypatch)
+
+    async def _fake_retry_exhausted_workout_crew(profile, memory):
+        return {"workout_plan": {"sunday": {"exercises": []}}}
+
+    monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_retry_exhausted_workout_crew)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
+    suggestion_id = client.get(
+        f"/api/v1/agents/status/{task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
+    assert approve_response.status_code == 400
+
+
+def test_approve_full_plan_with_both_complete_still_approves(client, monkeypatch):
+    """Happy-path guardrail: the new completeness check must not reject a
+    genuinely complete merged full-plan result — both plans get saved as
+    before."""
+    _patch_background_db(monkeypatch)
+
+    async def _fake_full_crew_complete(profile, memory):
+        return {
+            "meal_plan": {day: {"meals": []} for day in DAYS},
+            "workout_plan": {day: {"exercises": []} for day in DAYS},
+        }
+
+    monkeypatch.setattr(crew_agents, "run_full_crew", _fake_full_crew_complete)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    task_id = client.post("/api/v1/agents/full-plan", headers=headers).json()["task_id"]
+    suggestion_id = client.get(
+        f"/api/v1/agents/status/{task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
+    assert approve_response.status_code == 200
+
+    nutrition_response = client.get("/api/v1/nutrition/plan", headers=headers)
+    assert sorted(nutrition_response.json()["plan_data"]["meal_plan"].keys()) == sorted(DAYS)
+
+    workout_response = client.get("/api/v1/workouts/plan", headers=headers)
+    assert sorted(workout_response.json()["plan_data"]["workout_plan"].keys()) == sorted(DAYS)
 
 
 def test_reject_suggestion_success(client, monkeypatch):
