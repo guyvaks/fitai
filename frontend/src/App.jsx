@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import Metrics from "./pages/Metrics";
 import Nutrition from "./pages/Nutrition";
 import CalorieCalculator from "./pages/CalorieCalculator";
 import Workouts from "./pages/Workouts";
@@ -74,6 +75,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <Profile />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/metrics"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Metrics />
               </Layout>
             </ProtectedRoute>
           }

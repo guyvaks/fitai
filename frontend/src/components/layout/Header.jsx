@@ -6,6 +6,7 @@ import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
 const pageTitles = {
   "/dashboard": "דשבורד",
   "/profile": "פרופיל ומדדים",
+  "/metrics": "ניתוח מדדים",
   "/nutrition": "תזונה",
   "/workouts": "אימונים",
   "/live-workout": "אימון חי",
