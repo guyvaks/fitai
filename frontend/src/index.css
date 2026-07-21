@@ -25,6 +25,13 @@
   --color-violet: #A78BFA;
   --color-violet-soft: rgba(167, 139, 250, 0.14);
 
+  /* Macro-specific colors (protein/carbs/fat) -- deliberately distinct from
+     the brand accent (--color-volt) and same in both themes, so a macro's
+     color always means the same thing regardless of light/dark. */
+  --color-macro-protein: #EF4444;
+  --color-macro-carbs: #22D3EE;
+  --color-macro-fat: #FACC15;
+
   /* Text */
   --color-text-hi: #F1F5F9;
   --color-text-mid: #94A3B8;

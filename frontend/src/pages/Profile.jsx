@@ -38,9 +38,9 @@ const GOAL_LABELS = {
 
 // Same macro split already used for daily targets in FoodLog.jsx (30% protein / 45% carbs / 25% fat)
 const MACRO_SPLIT = [
-  { key: "fat", label: "שומן", pct: 25, color: "#FBBF24" },
-  { key: "carbs", label: "פחמימות", pct: 45, color: "#22D3EE" },
-  { key: "protein", label: "חלבון", pct: 30, color: "var(--color-volt)" },
+  { key: "fat", label: "שומן", pct: 25, color: "var(--color-macro-fat)" },
+  { key: "carbs", label: "פחמימות", pct: 45, color: "var(--color-macro-carbs)" },
+  { key: "protein", label: "חלבון", pct: 30, color: "var(--color-macro-protein)" },
 ];
 
 const defaultForm = {
