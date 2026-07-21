@@ -174,7 +174,7 @@ export default function Dashboard() {
     { label: "TDEE", value: tdee ? tdee.toLocaleString() : "—", Icon: HeartPulse, chip: "bg-coral-soft text-coral" },
     { label: "יעד קלוריות", value: targetCal ? targetCal.toLocaleString() : "—", Icon: Flame, chip: "bg-amber-soft text-amber" },
     { label: "BMI", value: bmi ?? "—", Icon: Scale, chip: "bg-volt-soft text-volt" },
-    { label: "משקל נוכחי", value: weightKg ?? "—", Icon: Weight, chip: "bg-cyan-soft text-cyan" },
+    { label: "משקל", value: weightKg ?? "—", Icon: Weight, chip: "bg-cyan-soft text-cyan" },
   ];
 
   const latestRecords = [...records]
@@ -223,54 +223,58 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Top metric cards + activity rings */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* Top metric pills */}
+      <div className="anim-rise card-glass p-3 flex items-center gap-1">
         {topMetrics.map((m, i) => (
-          <div key={m.label} className={`anim-rise anim-d${i + 1} card-glass card-hover p-4 flex flex-col min-h-[140px]`}>
-            <span className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${m.chip}`}>
-              <m.Icon className="w-4.5 h-4.5" strokeWidth={2.2} />
+          <div
+            key={m.label}
+            className={`flex-1 min-w-0 flex items-center gap-1.5 px-1.5 ${i > 0 ? "border-r border-line" : ""}`}
+          >
+            <span className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${m.chip}`}>
+              <m.Icon className="w-3 h-3" strokeWidth={2.2} />
             </span>
-            <div className="flex-1 flex flex-col justify-center pt-2">
-              <div className="text-3xl font-extrabold text-text-hi tabular-nums text-right" dir="ltr">{m.value}</div>
-              <div className="text-text-mid text-xs mt-1">{m.label}</div>
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-text-hi tabular-nums truncate" dir="ltr">{m.value}</div>
+              <div className="text-text-mid text-[10px] truncate">{m.label}</div>
             </div>
           </div>
         ))}
+      </div>
 
-        <div className="anim-rise anim-d5 col-span-2 md:col-span-1 card-glass p-4 flex flex-col items-center gap-3">
-          <span className="text-text-mid text-sm self-start">פעילות יומית</span>
-          {workoutPct === 0 && proteinPct === 0 && caloriesPct === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-2">
-              <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center">
-                <Dumbbell className="w-5 h-5" />
-              </span>
-              <p className="text-text-mid text-xs leading-relaxed">
-                עדיין לא תיעדת היום — בוא נתחיל
-              </p>
-              <button
-                onClick={() => navigate('/nutrition?tab=daily')}
-                className="text-volt text-xs font-medium hover:underline inline-flex items-center gap-1"
-              >
-                לתיעוד ארוחה
-                <ArrowLeft className="w-3 h-3" />
-              </button>
+      {/* Activity rings */}
+      <div className="anim-rise anim-d1 card-glass p-4 flex flex-col items-center gap-3">
+        <span className="text-text-mid text-sm self-start">פעילות יומית</span>
+        {workoutPct === 0 && proteinPct === 0 && caloriesPct === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-2">
+            <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center">
+              <Dumbbell className="w-5 h-5" />
+            </span>
+            <p className="text-text-mid text-xs leading-relaxed">
+              עדיין לא תיעדת היום — בוא נתחיל
+            </p>
+            <button
+              onClick={() => navigate('/nutrition?tab=daily')}
+              className="text-volt text-xs font-medium hover:underline inline-flex items-center gap-1"
+            >
+              לתיעוד ארוחה
+              <ArrowLeft className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="relative">
+              <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
+              <div className="absolute inset-0 flex items-center justify-center text-volt">
+                <UtensilsCrossed className="w-6 h-6" />
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="relative">
-                <ActivityRings workoutPct={workoutPct} proteinPct={proteinPct} caloriesPct={caloriesPct} />
-                <div className="absolute inset-0 flex items-center justify-center text-volt">
-                  <UtensilsCrossed className="w-6 h-6" />
-                </div>
-              </div>
-              <div className="flex gap-3 text-xs">
-                <span className="text-volt font-semibold">אימון <span dir="ltr">{workoutPct}%</span></span>
-                <span className="text-cyan font-semibold">חלבון <span dir="ltr">{proteinPct}%</span></span>
-                <span className="text-coral font-semibold">קלוריות <span dir="ltr">{caloriesPct}%</span></span>
-              </div>
-            </>
-          )}
-        </div>
+            <div className="flex gap-3 text-xs">
+              <span className="text-volt font-semibold">אימון <span dir="ltr">{workoutPct}%</span></span>
+              <span className="text-cyan font-semibold">חלבון <span dir="ltr">{proteinPct}%</span></span>
+              <span className="text-coral font-semibold">קלוריות <span dir="ltr">{caloriesPct}%</span></span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* AI full plan card */}
