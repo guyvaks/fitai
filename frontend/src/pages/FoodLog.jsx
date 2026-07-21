@@ -71,7 +71,7 @@ function RemainingRing({ consumed, target, size = 96 }) {
     <svg width={size} height={size} className="-rotate-90 shrink-0">
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
       <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#A3E635" strokeWidth="8"
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-volt)" strokeWidth="8"
         strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
       />
     </svg>

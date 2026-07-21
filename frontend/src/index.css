@@ -2,7 +2,7 @@
 
 /*
  * FitAI "Volt" design system — dark athletic theme.
- * Deep-ink background, glass surfaces, electric-lime primary.
+ * Deep-ink background, glass surfaces, sky-blue primary.
  */
 @theme {
   /* Core surfaces */
@@ -13,8 +13,9 @@
   --color-line-strong: rgba(255, 255, 255, 0.14);
 
   /* Brand + functional accents */
-  --color-volt: #A3E635;
-  --color-volt-soft: rgba(163, 230, 53, 0.14);
+  --color-volt: #38BDF8;
+  --color-volt-tint: #7DD3FC;
+  --color-volt-soft: rgba(56, 189, 248, 0.14);
   --color-cyan: #22D3EE;
   --color-cyan-soft: rgba(34, 211, 238, 0.14);
   --color-coral: #FB7185;
@@ -30,7 +31,7 @@
   --color-text-low: #64748B;
 
   /* Legacy aliases still referenced by not-yet-redesigned pages */
-  --color-primary: #A3E635;
+  --color-primary: #38BDF8;
   --color-background: #0B0F1A;
   --color-text-main: #F1F5F9;
   --color-text-muted: #94A3B8;
@@ -74,8 +75,9 @@
   --color-line: rgba(15, 23, 42, 0.08);
   --color-line-strong: rgba(15, 23, 42, 0.14);
 
-  --color-volt: #65A30D;
-  --color-volt-soft: rgba(101, 163, 13, 0.12);
+  --color-volt: #0EA5E9;
+  --color-volt-tint: #38BDF8;
+  --color-volt-soft: rgba(14, 165, 233, 0.12);
   --color-cyan: #0891B2;
   --color-cyan-soft: rgba(8, 145, 178, 0.10);
   --color-coral: #E11D48;
@@ -89,7 +91,7 @@
   --color-text-mid: #475569;
   --color-text-low: #64748B;
 
-  --color-primary: #65A30D;
+  --color-primary: #0EA5E9;
   --color-background: #F8FAFC;
   --color-text-main: #0F172A;
   --color-text-muted: #475569;
@@ -109,7 +111,7 @@ body {
   margin: 0;
   background-color: #0B0F1A;
   background-image:
-    radial-gradient(900px 500px at 85% -10%, rgba(163, 230, 53, 0.07), transparent 60%),
+    radial-gradient(900px 500px at 85% -10%, rgba(56, 189, 248, 0.07), transparent 60%),
     radial-gradient(800px 500px at 0% 110%, rgba(34, 211, 238, 0.06), transparent 60%);
   background-attachment: fixed;
   color: #F1F5F9;
@@ -121,7 +123,7 @@ body {
 :root[data-theme="light"] body {
   background-color: #F8FAFC;
   background-image:
-    radial-gradient(900px 500px at 85% -10%, rgba(101, 163, 13, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 85% -10%, rgba(14, 165, 233, 0.05), transparent 60%),
     radial-gradient(800px 500px at 0% 110%, rgba(8, 145, 178, 0.04), transparent 60%);
   color: #0F172A;
   color-scheme: light;
@@ -160,17 +162,17 @@ body {
 }
 
 .btn-volt {
-  background: linear-gradient(135deg, #BEF264, #A3E635);
+  background: linear-gradient(135deg, var(--color-volt-tint), var(--color-volt));
   color: #0B0F1A;
   font-weight: 700;
   border-radius: 14px;
-  box-shadow: 0 6px 22px rgba(163, 230, 53, 0.28);
+  box-shadow: 0 6px 22px rgba(56, 189, 248, 0.28);
   transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .btn-volt:hover:not(:disabled) {
   filter: brightness(1.06);
-  box-shadow: 0 8px 28px rgba(163, 230, 53, 0.4);
+  box-shadow: 0 8px 28px rgba(56, 189, 248, 0.4);
 }
 
 .btn-volt:active:not(:disabled) {
@@ -183,22 +185,22 @@ body {
 }
 
 :root[data-theme="light"] .btn-volt {
-  box-shadow: 0 6px 22px rgba(101, 163, 13, 0.22);
+  box-shadow: 0 6px 22px rgba(14, 165, 233, 0.22);
 }
 
 :root[data-theme="light"] .btn-volt:hover:not(:disabled) {
-  box-shadow: 0 8px 28px rgba(101, 163, 13, 0.32);
+  box-shadow: 0 8px 28px rgba(14, 165, 233, 0.32);
 }
 
 .text-gradient-volt {
-  background: linear-gradient(90deg, #BEF264, #22D3EE);
+  background: linear-gradient(90deg, var(--color-volt-tint), #22D3EE);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 :root[data-theme="light"] .text-gradient-volt {
-  background: linear-gradient(90deg, #65A30D, #0891B2);
+  background: linear-gradient(90deg, var(--color-volt), #0891B2);
   -webkit-background-clip: text;
   background-clip: text;
 }
@@ -221,8 +223,8 @@ body {
 
 .input-volt:focus {
   outline: none;
-  border-color: rgba(163, 230, 53, 0.5);
-  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.12);
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -237,8 +239,8 @@ body {
 }
 
 :root[data-theme="light"] .input-volt:focus {
-  border-color: rgba(101, 163, 13, 0.5);
-  box-shadow: 0 0 0 3px rgba(101, 163, 13, 0.12);
+  border-color: rgba(14, 165, 233, 0.5);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
   background: rgba(15, 23, 42, 0.05);
 }
 

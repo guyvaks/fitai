@@ -40,7 +40,7 @@ const GOAL_LABELS = {
 const MACRO_SPLIT = [
   { key: "fat", label: "שומן", pct: 25, color: "#FBBF24" },
   { key: "carbs", label: "פחמימות", pct: 45, color: "#22D3EE" },
-  { key: "protein", label: "חלבון", pct: 30, color: "#A3E635" },
+  { key: "protein", label: "חלבון", pct: 30, color: "var(--color-volt)" },
 ];
 
 const defaultForm = {

@@ -48,7 +48,7 @@ function ActivityRings({ workoutPct, proteinPct, caloriesPct }) {
   const rings = [
     { pct: caloriesPct, color: "#FB7185", track: "rgba(251,113,133,0.12)", radius: 78 },
     { pct: proteinPct, color: "#22D3EE", track: "rgba(34,211,238,0.12)", radius: 58 },
-    { pct: workoutPct, color: "#A3E635", track: "rgba(163,230,53,0.12)", radius: 38 },
+    { pct: workoutPct, color: "var(--color-volt)", track: "var(--color-volt-soft)", radius: 38 },
   ];
 
   return (
@@ -354,7 +354,7 @@ export default function Dashboard() {
               <XAxis dataKey="day" tick={{ fill: "#94A3B8", fontSize: 12 }} axisLine={false} tickLine={false} reversed />
               <YAxis
                 yAxisId="weight"
-                tick={{ fill: "#A3E635", fontSize: 12 }}
+                tick={{ fill: "var(--color-volt)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 domain={["auto", "auto"]}
@@ -372,7 +372,7 @@ export default function Dashboard() {
               <Tooltip
                 contentStyle={{ backgroundColor: "#1A2234", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "12px", color: "#F1F5F9" }}
               />
-              <Line yAxisId="weight" type="monotone" dataKey="weight" stroke="#A3E635" strokeWidth={2.5} dot={{ fill: "#A3E635", r: 3 }} />
+              <Line yAxisId="weight" type="monotone" dataKey="weight" stroke="var(--color-volt)" strokeWidth={2.5} dot={{ fill: "var(--color-volt)", r: 3 }} />
               {hasBodyFatData && (
                 <Line
                   yAxisId="bodyFat"

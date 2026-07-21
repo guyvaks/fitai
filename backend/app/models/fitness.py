@@ -266,3 +266,19 @@ class ExerciseMaster(Base):
     equipment = Column(String, nullable=True, default="none")
     aliases = Column(JSON, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
+
+
+class FoodMaster(Base):
+    __tablename__ = "food_master"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    canonical_name_en = Column(String, nullable=True, unique=True)
+    canonical_name_he = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    calories_per_100g = Column(Float, nullable=False)
+    protein_per_100g = Column(Float, nullable=False)
+    carbs_per_100g = Column(Float, nullable=False)
+    fat_per_100g = Column(Float, nullable=False)
+    fiber_per_100g = Column(Float, nullable=True)
+    aliases = Column(JSON, default=list)
+    is_active = Column(Boolean, default=True, nullable=False)

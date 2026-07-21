@@ -13,6 +13,7 @@ from app.models.fitness import (
     WorkoutSession, ExerciseLog, AISuggestion, SmartProgression,
     UserMemory, ExerciseMemory, FoodMemory, PersonalRecord,
     EnduranceLog, StrengthLog, HydrationLog, WeightLog, ExerciseMaster,
+    FoodMaster,
 )
 
 
@@ -136,5 +137,49 @@ def reject_exercise(exercise_id: str, db: Session = Depends(get_db), _: User = D
     if not exercise:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exercise not found")
     db.delete(exercise)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/food-master/pending")
+def list_pending_foods(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    foods = (
+        db.query(FoodMaster)
+        .filter(FoodMaster.is_active.is_(False))
+        .order_by(FoodMaster.canonical_name_he)
+        .all()
+    )
+    return [
+        {
+            "id": str(f.id),
+            "canonical_name_he": f.canonical_name_he,
+            "canonical_name_en": f.canonical_name_en,
+            "category": f.category,
+            "calories_per_100g": f.calories_per_100g,
+            "protein_per_100g": f.protein_per_100g,
+            "carbs_per_100g": f.carbs_per_100g,
+            "fat_per_100g": f.fat_per_100g,
+            "fiber_per_100g": f.fiber_per_100g,
+        }
+        for f in foods
+    ]
+
+
+@router.post("/food-master/{food_id}/approve")
+def approve_food(food_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    food = db.query(FoodMaster).filter(FoodMaster.id == uuid.UUID(food_id)).first()
+    if not food:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Food not found")
+    food.is_active = True
+    db.commit()
+    return {"id": str(food.id), "is_active": food.is_active}
+
+
+@router.delete("/food-master/{food_id}/reject")
+def reject_food(food_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    food = db.query(FoodMaster).filter(FoodMaster.id == uuid.UUID(food_id)).first()
+    if not food:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Food not found")
+    db.delete(food)
     db.commit()
     return {"ok": True}
