@@ -1,0 +1,13 @@
+{
+  "name": "fitai-e2e-monitor",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled E2E health check (register->login->dashboard->API) for staging and production, run via .github/workflows/e2e-monitor.yml",
+  "scripts": {
+    "check": "node e2e-check.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^23.0.0",
+    "pg": "^8.13.0"
+  }
+}

@@ -1,0 +1,46 @@
+name: E2E Monitor
+
+# Scheduled real-browser health check for both environments -- not just
+# GET /health, but register -> login -> reach /dashboard -> confirm the
+# browser-driven GET /api/v1/auth/me actually returns 200. See
+# monitoring/e2e-check.mjs for the full flow and monitoring/package.json for
+# dependencies.
+#
+# Alerting: no webhook step here on purpose -- a failed job/step makes this
+# workflow run "failed", and GitHub Actions sends its own default failure
+# email for scheduled runs (gated by the repo owner's personal notification
+# settings, not configured here).
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {} # manual "Run workflow" button, for testing without waiting on the clock
+
+jobs:
+  e2e-check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one environment's failure must not cancel the other's check
+      matrix:
+        environment: [staging, production]
+        include:
+          - environment: staging
+            frontend_base_url: https://fitai-frontend-staging.up.railway.app
+          - environment: production
+            frontend_base_url: https://poetic-vitality-production-41ea.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: monitoring
+        run: npm install
+
+      - name: Run E2E check
+        working-directory: monitoring
+        run: node e2e-check.mjs
+        env:
+          FRONTEND_BASE_URL: ${{ matrix.frontend_base_url }}
+          DATABASE_URL: ${{ matrix.environment == 'staging' && secrets.STAGING_DATABASE_URL || secrets.PRODUCTION_DATABASE_URL }}
