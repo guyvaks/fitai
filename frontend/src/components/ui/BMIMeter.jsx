@@ -47,11 +47,11 @@ export default function BMIMeter({ bmi, category }) {
           y1={cy}
           x2={needleX}
           y2={needleY}
-          stroke="#F1F5F9"
+          stroke="var(--color-text-hi)"
           strokeWidth="3"
           strokeLinecap="round"
         />
-        <circle cx={cx} cy={cy} r="6" fill="#F1F5F9" />
+        <circle cx={cx} cy={cy} r="6" fill="var(--color-text-hi)" />
       </svg>
       <div className={`text-3xl font-extrabold -mt-2 tabular-nums ${categoryTextColor}`} dir="ltr">{bmi}</div>
       {category && <div className={`text-sm font-medium ${categoryTextColor}`}>{category}</div>}
