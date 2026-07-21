@@ -53,7 +53,7 @@ function RemainingRing({ consumed, target, size = 96 }) {
     <svg width={size} height={size} className="-rotate-90 shrink-0">
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
       <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#A3E635" strokeWidth="8"
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-volt)" strokeWidth="8"
         strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - pct / 100)}
       />
     </svg>
@@ -309,7 +309,7 @@ export default function Nutrition() {
                 <span className="text-text-mid">חלבון</span>
                 <span className="text-text-hi font-medium" dir="ltr">{dayTotals?.protein ?? 0}g / {targets.protein}g</span>
               </div>
-              <MiniBar value={dayTotals?.protein ?? 0} max={targets.protein} color="#A3E635" />
+              <MiniBar value={dayTotals?.protein ?? 0} max={targets.protein} color="var(--color-volt)" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

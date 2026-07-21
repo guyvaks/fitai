@@ -172,7 +172,7 @@ export default function Progress() {
           title="נפח אימון (ק״ג)"
           unit=""
           data={volumeSeriesByPeriod}
-          color="#A3E635"
+          color="var(--color-volt)"
           gradientId="volumeGradient"
           changeLabel={volumeChangeLabel}
         />
