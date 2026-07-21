@@ -152,6 +152,7 @@ def delete_food_log(
 @router.post("/calculate-calories")
 def calculate_calories(
     payload: CalorieCalcRequest,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     from app.services.calorie_calculator import calculate_from_text, calculate_from_image
@@ -159,7 +160,7 @@ def calculate_calories(
     if payload.type == "text":
         if not payload.query:
             raise HTTPException(status_code=400, detail="query is required for type=text")
-        items = calculate_from_text(payload.query)
+        items = calculate_from_text(payload.query, db)
     elif payload.type == "image":
         if not payload.image_base64:
             raise HTTPException(status_code=400, detail="image_base64 is required for type=image")

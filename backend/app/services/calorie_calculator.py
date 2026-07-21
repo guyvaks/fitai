@@ -2,17 +2,19 @@
 Calorie calculator service — estimates calories + macros for a food item
 given free text or a photo.
 
-Resolution order for text: the internal Hebrew food DB first (exact/substring
-match, source="internal_db"), Claude only as fallback (source="ai_estimate").
-Images always go to Claude Vision.
+Resolution order for text: food_master first (exact/substring match on
+canonical_name_he, source="internal_db"), Claude only as fallback
+(source="ai_estimate"). Images always go to Claude Vision.
 """
 import json
 
 import anthropic
 from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.data.foods import search_foods
+from app.models.fitness import FoodMaster
 
 MODEL = "claude-opus-4-8"
 
@@ -90,22 +92,28 @@ def _ask_claude(system: str, content) -> list[dict]:
     return items
 
 
-def calculate_from_text(query: str) -> list[dict]:
+def calculate_from_text(query: str, db: Session) -> list[dict]:
     query = query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="Query must not be empty")
 
     # Internal DB first — exact values, no AI cost/latency
-    matches = search_foods(query)
+    matches = (
+        db.query(FoodMaster)
+        .filter(FoodMaster.is_active.is_(True))
+        .filter(func.lower(FoodMaster.canonical_name_he).contains(query.lower()))
+        .order_by(FoodMaster.canonical_name_he)
+        .all()
+    )
     if matches:
-        best = min(matches, key=lambda f: len(f["name"]))
+        best = min(matches, key=lambda f: len(f.canonical_name_he))
         return [{
-            "name": best["name"],
+            "name": best.canonical_name_he,
             "estimated_quantity_g": 100,
-            "calories": best["calories"],
-            "protein_g": best["protein"],
-            "fat_g": best["fat"],
-            "carbs_g": best["carbs"],
+            "calories": best.calories_per_100g,
+            "protein_g": best.protein_per_100g,
+            "fat_g": best.fat_per_100g,
+            "carbs_g": best.carbs_per_100g,
             "source": "internal_db",
         }]
 
