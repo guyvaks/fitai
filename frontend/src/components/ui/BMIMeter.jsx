@@ -55,7 +55,7 @@ export default function BMIMeter({ bmi, category }) {
       </svg>
       <div className={`text-3xl font-extrabold -mt-2 tabular-nums ${categoryTextColor}`} dir="ltr">{bmi}</div>
       {category && <div className={`text-sm font-medium ${categoryTextColor}`}>{category}</div>}
-      <div dir="ltr" className="flex justify-between w-full max-w-[220px] mt-2 text-xs text-text-mid">
+      <div className="flex flex-row-reverse justify-between w-full max-w-[220px] mt-2 text-xs text-text-mid">
         <span>תת משקל</span>
         <span>תקין</span>
         <span>עודף</span>
