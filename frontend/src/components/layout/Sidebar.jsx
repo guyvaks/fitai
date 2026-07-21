@@ -6,6 +6,7 @@ import {
   Dumbbell,
   Play,
   TrendingUp,
+  Activity,
   Bot,
   Settings,
   LogOut,
@@ -21,6 +22,7 @@ const navItems = [
   { to: "/workouts", label: "אימונים", Icon: Dumbbell },
   { to: "/live-workout", label: "אימון חי", Icon: Play },
   { to: "/progress", label: "התקדמות", Icon: TrendingUp },
+  { to: "/metrics", label: "ניתוח מדדים", Icon: Activity },
   { to: "/ai-suggestion", label: "הצעות AI", Icon: Bot },
 ];
 

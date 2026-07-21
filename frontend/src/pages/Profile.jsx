@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
-import BMIMeter from "../components/ui/BMIMeter";
-import { Target, Lightbulb, Loader2, AlertTriangle, ArrowLeft, UserPlus } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowLeft, UserPlus } from "lucide-react";
 
 const ACTIVITY_OPTIONS = [
   { value: "sedentary", label: "מושבי", desc: "ללא פעילות גופנית" },
@@ -29,20 +28,6 @@ const EQUIPMENT_OPTIONS = [
   "שחייה",
 ];
 
-const GOAL_LABELS = {
-  weight_loss: "ירידה במשקל",
-  muscle_gain: "עלייה בשריר",
-  maintenance: "שמירה על משקל",
-  fitness_improvement: "שיפור כושר",
-};
-
-// Same macro split already used for daily targets in FoodLog.jsx (30% protein / 45% carbs / 25% fat)
-const MACRO_SPLIT = [
-  { key: "fat", label: "שומן", pct: 25, color: "var(--color-macro-fat)" },
-  { key: "carbs", label: "פחמימות", pct: 45, color: "var(--color-macro-carbs)" },
-  { key: "protein", label: "חלבון", pct: 30, color: "var(--color-macro-protein)" },
-];
-
 const defaultForm = {
   age: "",
   gender: "male",
@@ -58,32 +43,10 @@ const defaultForm = {
   meals_per_day: 5,
 };
 
-function MacroRing({ pct, color, size = 64 }) {
-  const r = (size - 8) / 2;
-  const circumference = 2 * Math.PI * r;
-  return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - pct / 100)}
-      />
-    </svg>
-  );
-}
-
 export default function Profile() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [form, setForm] = useState(defaultForm);
-  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
@@ -112,17 +75,6 @@ export default function Profile() {
           equipment: Array.isArray(data.equipment) ? data.equipment : [],
           meals_per_day: data.meals_per_day ?? 5,
         });
-        if (data.bmi) {
-          setMetrics({
-            bmi: data.bmi,
-            bmi_category: data.bmi_category,
-            bmr: data.bmr,
-            tdee: data.tdee,
-            target_calories: data.target_calories,
-            goal: data.goal,
-          });
-          setSaved(true);
-        }
       })
       .catch((err) => {
         // 404 just means the user hasn't saved a profile yet — a new user, not an error
@@ -161,6 +113,7 @@ export default function Profile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSaved(false);
     setLoading(true);
     try {
       const payload = {
@@ -171,15 +124,7 @@ export default function Profile() {
         target_weight_kg: form.target_weight_kg ? Number(form.target_weight_kg) : null,
         meals_per_day: Number(form.meals_per_day),
       };
-      const { data } = await api.post("/api/v1/users/profile", payload);
-      setMetrics({
-        bmi: data.bmi,
-        bmi_category: data.bmi_category,
-        bmr: data.bmr,
-        tdee: data.tdee,
-        target_calories: data.target_calories,
-        goal: data.goal,
-      });
+      await api.post("/api/v1/users/profile", payload);
       setSaved(true);
     } catch (err) {
       setError(err.response?.data?.detail || "שגיאה בשמירת הפרופיל");
@@ -237,68 +182,20 @@ export default function Profile() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-        {/* Metrics analysis (left side in RTL) */}
-        <div className="space-y-6 lg:order-2">
-          {saved && metrics ? (
-            <>
-              <div className="anim-rise anim-d1 card-glass p-5 space-y-4">
-                <h3 className="text-text-hi font-bold">ניתוח מדדים</h3>
-                <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/4 border border-line rounded-elem p-3 text-center">
-                    <div className="text-text-mid text-xs">TDEE</div>
-                    <div className="text-text-hi text-xl font-extrabold tabular-nums" dir="ltr">{metrics.tdee?.toLocaleString() ?? "—"}</div>
-                    <div className="text-text-mid text-xs">קלוריות</div>
-                  </div>
-                  <div className="bg-white/4 border border-line rounded-elem p-3 text-center">
-                    <div className="text-text-mid text-xs">BMR</div>
-                    <div className="text-text-hi text-xl font-extrabold tabular-nums" dir="ltr">{metrics.bmr?.toLocaleString() ?? "—"}</div>
-                    <div className="text-text-mid text-xs">קלוריות</div>
-                  </div>
-                </div>
-                <div className="bg-volt-soft border border-volt/20 rounded-elem p-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-text-mid text-xs">יעד קלוריות יומי</div>
-                    <div className="text-volt text-xl font-extrabold tabular-nums" dir="ltr">{metrics.target_calories?.toLocaleString() ?? "—"}</div>
-                    <div className="text-text-mid text-xs">קלוריות ליום</div>
-                  </div>
-                  <Target className="w-6 h-6 text-volt" />
-                </div>
-                <p className="text-text-mid text-xs leading-relaxed bg-cyan-soft border border-cyan/15 rounded-elem p-3">
-                  <span className="font-semibold text-cyan inline-flex items-center gap-1">
-                    <Lightbulb className="w-3 h-3" /> טיפ:{" "}
-                  </span>
-                  בהתבסס על ה-TDEE שלך, יעד של <span dir="ltr">{metrics.target_calories?.toLocaleString()}</span> קלוריות יאפשר לך {GOAL_LABELS[metrics.goal] || "התקדמות"} בקצב בריא.
-                </p>
-              </div>
-
-              <div className="anim-rise anim-d2 card-glass p-5">
-                <h3 className="text-text-hi font-bold mb-4">הרכב יעד תזונתי</h3>
-                <div className="flex justify-around">
-                  {MACRO_SPLIT.map((m) => (
-                    <div key={m.key} className="flex flex-col items-center gap-1">
-                      <div className="relative">
-                        <MacroRing pct={m.pct} color={m.color} />
-                        <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-text-hi" dir="ltr">
-                          {m.pct}%
-                        </div>
-                      </div>
-                      <span className="text-text-mid text-xs">{m.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="anim-rise anim-d1 card-glass p-5 text-center text-text-mid text-sm">
-              מלא את הפרטים ושמור כדי לראות ניתוח מדדים
-            </div>
-          )}
+      {saved && (
+        <div className="anim-rise card-glass p-4 flex items-center justify-between gap-3 border border-volt/25 bg-volt-soft">
+          <span className="text-volt text-sm font-medium">הפרטים נשמרו בהצלחה</span>
+          <button
+            onClick={() => navigate('/metrics')}
+            className="text-volt text-sm font-medium hover:underline inline-flex items-center gap-1"
+          >
+            לצפייה בניתוח המדדים
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
         </div>
+      )}
 
-        {/* Form (right side in RTL) */}
-        <form onSubmit={handleSubmit} className="anim-rise anim-d1 card-glass p-6 space-y-6 lg:order-1">
+      <form onSubmit={handleSubmit} className="anim-rise anim-d1 card-glass p-6 space-y-6">
           {/* Age + Gender */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
@@ -476,7 +373,6 @@ export default function Profile() {
             {loading ? "שומר..." : "שמור שינויים"}
           </button>
         </form>
-      </div>
 
       {/* CTA banner → workouts */}
       <button
