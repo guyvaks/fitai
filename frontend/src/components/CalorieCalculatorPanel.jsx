@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { nutritionAPI } from '../services/api'
 import { Type, Image as ImageIcon, Camera, Upload, Loader2, Sparkles, Plus, Check, X, RefreshCw } from 'lucide-react'
 
@@ -15,43 +15,6 @@ export default function CalorieCalculatorPanel({ onAddItem }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [results, setResults] = useState([])
-  const [cameraOpen, setCameraOpen] = useState(false)
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
-
-  useEffect(() => () => stopCamera(), [])
-
-  function stopCamera() {
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-    setCameraOpen(false)
-  }
-
-  async function openCamera() {
-    setError(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      streamRef.current = stream
-      setCameraOpen(true)
-      setTimeout(() => {
-        if (videoRef.current) videoRef.current.srcObject = stream
-      }, 0)
-    } catch {
-      setError('לא ניתן לגשת למצלמה — בדוק הרשאות דפדפן')
-    }
-  }
-
-  function capturePhoto() {
-    const video = videoRef.current
-    if (!video) return
-    const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    canvas.getContext('2d').drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-    setImage({ base64: dataUrl, mediaType: 'image/jpeg', previewUrl: dataUrl })
-    stopCamera()
-  }
 
   function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -171,19 +134,7 @@ export default function CalorieCalculatorPanel({ onAddItem }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {cameraOpen ? (
-            <div className="space-y-2">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-elem bg-black aspect-video object-cover" />
-              <div className="flex gap-2">
-                <button type="button" onClick={capturePhoto} className="btn-volt flex-1 py-2 text-sm inline-flex items-center justify-center gap-1.5">
-                  <Camera className="w-4 h-4" /> צלם
-                </button>
-                <button type="button" onClick={stopCamera} className="px-4 py-2 rounded-elem text-sm font-medium border border-line text-text-mid hover:text-text-hi hover:bg-white/6 transition">
-                  ביטול
-                </button>
-              </div>
-            </div>
-          ) : image ? (
+          {image ? (
             <div className="relative">
               <img src={image.previewUrl} alt="תצוגה מקדימה" className="w-full max-h-64 object-contain rounded-elem bg-white/4 border border-line" />
               <button
@@ -197,9 +148,10 @@ export default function CalorieCalculatorPanel({ onAddItem }) {
             </div>
           ) : (
             <div className="flex gap-2">
-              <button type="button" onClick={openCamera} className="flex-1 border border-line text-text-mid hover:text-volt hover:border-volt/40 rounded-elem py-6 text-sm font-medium transition flex flex-col items-center gap-1.5">
+              <label className="flex-1 border border-line text-text-mid hover:text-volt hover:border-volt/40 rounded-elem py-6 text-sm font-medium transition flex flex-col items-center gap-1.5 cursor-pointer">
                 <Camera className="w-5 h-5" /> צילום
-              </button>
+                <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
+              </label>
               <label className="flex-1 border border-line text-text-mid hover:text-volt hover:border-volt/40 rounded-elem py-6 text-sm font-medium transition flex flex-col items-center gap-1.5 cursor-pointer">
                 <Upload className="w-5 h-5" /> העלאת תמונה
                 <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
