@@ -7,7 +7,15 @@ app = FastAPI(title="FitAI API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "https://*.railway.app", "https://poetic-vitality-production-41ea.up.railway.app"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174"],
+    # Starlette's allow_origins does exact string matching only -- "https://*.railway.app"
+    # here previously was a silent no-op (never matched any real Origin header), which
+    # masked the fact that staging's frontend domain was never actually allowed. This
+    # regex is scoped to fitai's own two known Railway domains specifically, not all of
+    # railway.app / up.railway.app, since that suffix is shared by every Railway-hosted
+    # app on the platform -- with allow_credentials=True, a broader match would let any
+    # other Railway app make credentialed requests here.
+    allow_origin_regex=r"^https://(fitai-frontend-staging|poetic-vitality-production-41ea)\.up\.railway\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
