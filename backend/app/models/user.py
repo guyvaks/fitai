@@ -51,6 +51,7 @@ class UserProfile(Base):
     meals_config = Column(JSON)
     endurance_tracking_config = Column(JSON)
     strength_tracking_config = Column(JSON)
+    workout_preferences = Column(JSON)
     bmi = Column(Float)
     bmi_category = Column(String)
     bmr = Column(Float)

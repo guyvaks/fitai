@@ -121,6 +121,7 @@ class ExerciseLog(Base):
     set_number = Column(Integer)
     weight_kg = Column(Float)
     reps = Column(Integer)
+    set_type = Column(String, nullable=False, default="normal", server_default="normal")
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime(timezone=True))
 

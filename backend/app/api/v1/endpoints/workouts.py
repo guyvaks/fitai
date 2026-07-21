@@ -35,6 +35,7 @@ class SessionSetComplete(BaseModel):
     weight_kg: float
     reps: int
     exercise_name: Optional[str] = None
+    set_type: str = "normal"
 
 class ManualWorkoutSet(BaseModel):
     weight_kg: float = Field(0, ge=0)
@@ -180,7 +181,7 @@ def complete_set(
     # Update completed sets
     completed = dict(session.completed_sets or {})
     key = f"{data.exercise_index}_{data.set_index}"
-    completed[key] = {"weight_kg": data.weight_kg, "reps": data.reps, "completed": True}
+    completed[key] = {"weight_kg": data.weight_kg, "reps": data.reps, "completed": True, "set_type": data.set_type}
     session.completed_sets = completed
     session.current_exercise_index = data.exercise_index
     session.current_set_index = data.set_index + 1
@@ -193,29 +194,33 @@ def complete_set(
         set_number=data.set_index + 1,
         weight_kg=data.weight_kg,
         reps=data.reps,
+        set_type=data.set_type,
         completed=True,
         completed_at=datetime.datetime.now(datetime.timezone.utc)
     )
     db.add(log)
 
-    # Update exercise memory
-    memory = db.query(ExerciseMemory).filter(
-        ExerciseMemory.user_id == current_user.id,
-        ExerciseMemory.exercise_name == exercise_name
-    ).first()
-    if memory:
-        memory.last_weight_kg = data.weight_kg
-        memory.last_reps = data.reps
-        memory.last_used_at = datetime.datetime.now(datetime.timezone.utc)
-    else:
-        memory = ExerciseMemory(
-            user_id=current_user.id,
-            exercise_name=exercise_name,
-            last_weight_kg=data.weight_kg,
-            last_reps=data.reps,
-            last_used_at=datetime.datetime.now(datetime.timezone.utc)
-        )
-        db.add(memory)
+    # Update exercise memory -- skipped for failure sets, since a failed
+    # attempt's weight/reps isn't a meaningful "previous" reference for next
+    # time (typically lower than a real working set).
+    if data.set_type != "failure":
+        memory = db.query(ExerciseMemory).filter(
+            ExerciseMemory.user_id == current_user.id,
+            ExerciseMemory.exercise_name == exercise_name
+        ).first()
+        if memory:
+            memory.last_weight_kg = data.weight_kg
+            memory.last_reps = data.reps
+            memory.last_used_at = datetime.datetime.now(datetime.timezone.utc)
+        else:
+            memory = ExerciseMemory(
+                user_id=current_user.id,
+                exercise_name=exercise_name,
+                last_weight_kg=data.weight_kg,
+                last_reps=data.reps,
+                last_used_at=datetime.datetime.now(datetime.timezone.utc)
+            )
+            db.add(memory)
 
     db.commit()
     db.refresh(session)
