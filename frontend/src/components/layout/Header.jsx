@@ -2,6 +2,7 @@ import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../context/ThemeContext";
 import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
+import Avatar from "../Avatar";
 
 const pageTitles = {
   "/dashboard": "דשבורד",
@@ -21,15 +22,6 @@ export default function Header({ onToggleSidebar }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const title = pageTitles[location.pathname] || "FitAI";
-
-  const initials = user?.full_name
-    ? user.full_name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : "?";
 
   return (
     <header className="h-16 bg-surface/80 backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
@@ -73,9 +65,7 @@ export default function Header({ onToggleSidebar }) {
           title="הפרופיל שלי"
         >
           <span className="text-text-mid text-sm hover:text-text-hi transition-colors">{user?.full_name}</span>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-xs font-bold">
-            {initials}
-          </div>
+          <Avatar user={user} className="w-8 h-8 text-xs" />
         </NavLink>
 
         {/* Mobile: home button */}

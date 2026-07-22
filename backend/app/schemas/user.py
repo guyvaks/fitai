@@ -13,8 +13,14 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool = False
     created_at: datetime
+    avatar_updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class AvatarUpload(BaseModel):
+    image_base64: str
+    image_media_type: str = "image/jpeg"
 
 
 class ActivityLevel(str, Enum):

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+    avatar_data = Column(LargeBinary, nullable=True)
+    avatar_content_type = Column(String, nullable=True)
+    avatar_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     profile = relationship("UserProfile", back_populates="user", uselist=False)
     nutrition_plans = relationship("NutritionPlan", back_populates="user")
