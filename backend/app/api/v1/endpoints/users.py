@@ -1,18 +1,26 @@
+import base64
 import datetime
+import io
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.models.user import User, UserProfile
 from app.models.fitness import WeightLog
-from app.schemas.user import UserProfileCreate, UserProfileResponse, UserProfileUpdate
+from app.schemas.user import AvatarUpload, UserProfileCreate, UserProfileResponse, UserProfileUpdate
 from app.services.metrics import calculate_all_metrics
 
 router = APIRouter()
+
+AVATAR_SIZE = 256
+# Raw base64 text length cap (~8MB decoded), rejected before decoding to
+# avoid spending effort on absurdly large payloads.
+MAX_AVATAR_BASE64_CHARS = 11_000_000
 
 
 def _upsert_weight_log(db: Session, user_id, weight_kg: float) -> None:
@@ -141,3 +149,82 @@ def get_weight_history(current_user: User = Depends(get_current_user), db: Sessi
         {"date": str(e.date), "weight_kg": e.weight_kg, "body_fat_pct": e.body_fat_pct}
         for e in entries
     ]
+
+
+@router.post("/avatar")
+def upload_avatar(
+    payload: AvatarUpload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    image_base64 = payload.image_base64
+    if not image_base64:
+        raise HTTPException(status_code=400, detail="image_base64 is required")
+    # Tolerate data-URL input from the browser ("data:image/png;base64,...."),
+    # matching the same convention already used for the calorie-calculator
+    # image endpoint.
+    if image_base64.startswith("data:"):
+        _, _, image_base64 = image_base64.partition(",")
+
+    if len(image_base64) > MAX_AVATAR_BASE64_CHARS:
+        raise HTTPException(status_code=400, detail="Image too large")
+
+    try:
+        raw = base64.b64decode(image_base64, validate=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid base64 image data")
+
+    try:
+        image = Image.open(io.BytesIO(raw))
+        image.verify()
+        # verify() invalidates the file object for further use, so reopen.
+        image = Image.open(io.BytesIO(raw))
+        image = image.convert("RGB")
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="File is not a valid image")
+
+    # Center-crop to a square, then resize to the fixed avatar size.
+    width, height = image.size
+    side = min(width, height)
+    left = (width - side) // 2
+    top = (height - side) // 2
+    image = image.crop((left, top, left + side, top + side))
+    image = image.resize((AVATAR_SIZE, AVATAR_SIZE))
+
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=85)
+
+    current_user.avatar_data = buffer.getvalue()
+    current_user.avatar_content_type = "image/jpeg"
+    current_user.avatar_updated_at = datetime.datetime.now(datetime.timezone.utc)
+    db.commit()
+    db.refresh(current_user)
+
+    return {"avatar_updated_at": current_user.avatar_updated_at}
+
+
+@router.get("/avatar/{user_id}")
+def get_avatar(user_id: str, db: Session = Depends(get_db)):
+    try:
+        parsed_id = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+
+    user = db.query(User).filter(User.id == parsed_id).first()
+    if not user or not user.avatar_data:
+        raise HTTPException(status_code=404, detail="Avatar not found")
+
+    return Response(
+        content=user.avatar_data,
+        media_type=user.avatar_content_type or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+@router.delete("/avatar")
+def delete_avatar(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.avatar_data = None
+    current_user.avatar_content_type = None
+    current_user.avatar_updated_at = None
+    db.commit()
+    return {"detail": "Avatar removed"}

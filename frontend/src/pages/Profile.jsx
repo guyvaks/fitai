@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { usersAPI } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
-import { Loader2, AlertTriangle, ArrowLeft, UserPlus } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowLeft, UserPlus, Camera, Upload } from "lucide-react";
+import Avatar from "../components/Avatar";
 
 const ACTIVITY_OPTIONS = [
   { value: "sedentary", label: "מושבי", desc: "ללא פעילות גופנית" },
@@ -53,6 +54,48 @@ export default function Profile() {
   const [fetchingProfile, setFetchingProfile] = useState(true);
   const [profileError, setProfileError] = useState(false);
   const [isNewProfile, setIsNewProfile] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState(null);
+
+  const handlePickAvatar = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow picking the same file again later
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setAvatarError("הקובץ גדול מדי (מקסימום 8MB)");
+      return;
+    }
+    setAvatarError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarPreview({ base64: reader.result, previewUrl: reader.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!avatarPreview) return;
+    setAvatarSaving(true);
+    setAvatarError(null);
+    try {
+      const { data } = await usersAPI.uploadAvatar({ image_base64: avatarPreview.base64 });
+      const stored = JSON.parse(localStorage.getItem("fitai_user") || "null");
+      if (stored) {
+        localStorage.setItem(
+          "fitai_user",
+          JSON.stringify({ ...stored, avatar_updated_at: data.avatar_updated_at })
+        );
+      }
+      // useAuth() has no shared context between components (see Header/Sidebar),
+      // so a full reload is the simplest way to make the new avatar show up
+      // everywhere immediately rather than only in this page's own instance.
+      window.location.reload();
+    } catch (err) {
+      setAvatarError(err.response?.data?.detail || "שגיאה בשמירת התמונה");
+      setAvatarSaving(false);
+    }
+  };
 
   const loadProfile = () => {
     setFetchingProfile(true);
@@ -194,6 +237,52 @@ export default function Profile() {
           </button>
         </div>
       )}
+
+      <div className="anim-rise card-glass p-6 flex flex-col items-center gap-4">
+        {avatarPreview ? (
+          <img
+            src={avatarPreview.previewUrl}
+            alt="תצוגה מקדימה"
+            className="w-28 h-28 rounded-full object-cover border-2 border-volt/40"
+          />
+        ) : (
+          <Avatar user={user} className="w-28 h-28 text-3xl" />
+        )}
+
+        <div className="flex gap-2">
+          <label className="flex-1 border border-line text-text-mid hover:text-volt hover:border-volt/40 rounded-elem px-4 py-2 text-sm font-medium transition inline-flex items-center gap-1.5 cursor-pointer">
+            <Camera className="w-4 h-4" /> צילום
+            <input type="file" accept="image/*" capture="environment" onChange={handlePickAvatar} className="hidden" />
+          </label>
+          <label className="flex-1 border border-line text-text-mid hover:text-volt hover:border-volt/40 rounded-elem px-4 py-2 text-sm font-medium transition inline-flex items-center gap-1.5 cursor-pointer">
+            <Upload className="w-4 h-4" /> בחירת תמונה
+            <input type="file" accept="image/*" onChange={handlePickAvatar} className="hidden" />
+          </label>
+        </div>
+
+        {avatarError && <p className="text-coral text-sm">{avatarError}</p>}
+
+        {avatarPreview && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAvatarPreview(null)}
+              className="px-4 py-2 text-sm font-medium text-text-mid hover:text-text-hi transition"
+            >
+              ביטול
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAvatar}
+              disabled={avatarSaving}
+              className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
+            >
+              {avatarSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {avatarSaving ? "שומר..." : "שמור תמונה"}
+            </button>
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="anim-rise anim-d1 card-glass p-6 space-y-6">
           {/* Age + Gender */}

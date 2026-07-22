@@ -14,7 +14,9 @@ import {
   Crown,
   Calculator,
   User,
+  Users,
 } from "lucide-react";
+import Avatar from "../Avatar";
 
 const navItems = [
   { to: "/dashboard", label: "דשבורד", Icon: LayoutDashboard },
@@ -26,10 +28,11 @@ const navItems = [
   { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/metrics", label: "ניתוח מדדים", Icon: Activity },
   { to: "/ai-suggestion", label: "הצעות AI", Icon: Bot },
+  { to: "/settings", label: "הגדרות", Icon: Settings },
 ];
 
 const adminItems = [
-  { to: "/admin", label: "ניהול משתמשים", Icon: Settings },
+  { to: "/admin", label: "ניהול משתמשים", Icon: Users },
 ];
 
 function NavItem({ to, label, Icon, onClose }) {
@@ -58,15 +61,6 @@ export default function Sidebar({ onClose }) {
     localStorage.clear()
     window.location.href = '/login'
   }
-
-  const initials = user?.full_name
-    ? user.full_name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2)
-    : "?";
 
   return (
     <div className="flex flex-col h-full bg-surface/95 backdrop-blur-xl border-l border-line">
@@ -98,9 +92,7 @@ export default function Sidebar({ onClose }) {
       {/* User footer */}
       <div className="p-4 border-t border-line">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-volt to-cyan flex items-center justify-center text-ink text-sm font-bold flex-shrink-0">
-            {initials}
-          </div>
+          <Avatar user={user} className="w-9 h-9 text-sm" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
               <p className="text-text-hi text-sm font-medium truncate">

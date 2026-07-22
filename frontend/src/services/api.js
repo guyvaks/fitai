@@ -1,7 +1,9 @@
 import axios from "axios";
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  baseURL: API_BASE_URL,
   timeout: 15000,
 });
 
@@ -59,6 +61,8 @@ export const workoutsAPI = {
 
 export const usersAPI = {
   getWeightHistory: () => api.get('/api/v1/users/weight-history'),
+  uploadAvatar: (payload) => api.post('/api/v1/users/avatar', payload),
+  deleteAvatar: () => api.delete('/api/v1/users/avatar'),
 }
 
 export const foodsAPI = {

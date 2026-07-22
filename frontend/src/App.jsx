@@ -15,6 +15,7 @@ import LiveWorkout from "./pages/LiveWorkout";
 import AISuggestion from "./pages/AISuggestion";
 import Progress from "./pages/Progress";
 import Admin from "./pages/Admin";
+import Settings from "./pages/Settings";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -167,6 +168,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <Admin />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Settings />
               </Layout>
             </ProtectedRoute>
           }
