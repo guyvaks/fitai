@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, Date
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, Text, Date, text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 
@@ -109,6 +109,16 @@ class WorkoutSession(Base):
     user = relationship("User", back_populates="workout_sessions")
     workout_plan = relationship("WorkoutPlan", back_populates="sessions")
     exercise_logs = relationship("ExerciseLog", back_populates="session")
+
+    __table_args__ = (
+        Index(
+            "ix_workout_sessions_one_active_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            sqlite_where=text("status = 'active'"),
+        ),
+    )
 
 
 class ExerciseLog(Base):

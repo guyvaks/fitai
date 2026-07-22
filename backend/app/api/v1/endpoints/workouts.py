@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
@@ -145,7 +146,24 @@ def start_session(
         status="active"
     )
     db.add(session)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        # Postgres names the constraint in the message; SQLite instead names
+        # the table+column. Check both so this works under either dialect.
+        message = str(e.orig)
+        if "ix_workout_sessions_one_active_per_user" not in message and (
+            "workout_sessions.user_id" not in message
+        ):
+            raise
+        # Lost the race to another concurrent request for this user — its
+        # session is now the active one, so resume it instead of erroring.
+        existing = db.query(WorkoutSession).filter(
+            WorkoutSession.user_id == current_user.id,
+            WorkoutSession.status == "active"
+        ).first()
+        return existing
     db.refresh(session)
     return session
 
