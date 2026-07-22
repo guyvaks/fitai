@@ -1,11 +1,11 @@
-import { useLocation, useNavigate, NavLink } from "react-router-dom";
+import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { useTheme } from "../../context/ThemeContext";
 import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
 import Avatar from "../Avatar";
 
 const pageTitles = {
-  "/dashboard": "דשבורד",
+  "/dashboard": "ראשי",
   "/profile": "פרופיל",
   "/metrics": "ניתוח מדדים",
   "/nutrition": "תזונה",
@@ -34,6 +34,9 @@ export default function Header({ onToggleSidebar }) {
         >
           <Menu className="w-6 h-6" />
         </button>
+        <Link to="/profile" className="md:hidden" title="הפרופיל שלי">
+          <Avatar user={user} className="w-7 h-7 text-[10px]" />
+        </Link>
         <span className="md:hidden text-xl font-extrabold text-text-hi tracking-tight flex items-center gap-1.5">
           <span className="w-6 h-6 rounded-lg bg-volt flex items-center justify-center">
             <Zap className="w-3.5 h-3.5 text-ink" fill="currentColor" strokeWidth={0} />
