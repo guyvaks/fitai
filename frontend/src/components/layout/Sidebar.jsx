@@ -19,8 +19,8 @@ import {
 import Avatar from "../Avatar";
 
 const navItems = [
-  { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/dashboard", label: "ראשי", Icon: LayoutDashboard },
+  { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/nutrition", label: "תזונה", Icon: Salad },
   { to: "/calorie-calculator", label: "מחשבון קלוריות", Icon: Calculator },
   { to: "/workouts", label: "אימונים", Icon: Dumbbell },
