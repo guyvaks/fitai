@@ -243,10 +243,10 @@ export default function Profile() {
           <img
             src={avatarPreview.previewUrl}
             alt="תצוגה מקדימה"
-            className="w-28 h-28 rounded-full object-cover border-2 border-volt/40"
+            className="w-20 h-20 rounded-full object-cover border-2 border-volt/40"
           />
         ) : (
-          <Avatar user={user} className="w-28 h-28 text-3xl" />
+          <Avatar user={user} className="w-20 h-20 text-xl" />
         )}
 
         <div className="flex gap-2">

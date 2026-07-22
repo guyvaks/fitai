@@ -1,3 +1,7 @@
+import datetime
+import uuid
+
+from app.models.fitness import ExerciseMaster, WorkoutSession
 from tests.conftest import get_auth_headers
 
 MANUAL_PLAN_PAYLOAD = {
@@ -245,3 +249,159 @@ def test_get_personal_records_empty(client):
     response = client.get("/api/v1/workouts/personal-records", headers=headers)
     assert response.status_code == 200
     assert response.json() == []
+
+
+def _seed_exercise_master(db_session, name_he, muscle_group, name_en=None):
+    exercise = ExerciseMaster(
+        id=uuid.uuid4(),
+        canonical_name_he=name_he,
+        canonical_name_en=name_en,
+        category="test",
+        muscle_group_primary=muscle_group,
+        equipment="none",
+        aliases=[],
+        is_active=True,
+    )
+    db_session.add(exercise)
+    db_session.commit()
+    return exercise
+
+
+def _complete_a_set(client, headers, session_id, exercise_name, weight_kg=60, reps=10, exercise_index=0, set_index=0):
+    return client.patch(
+        f"/api/v1/workouts/sessions/{session_id}/set-complete",
+        headers=headers,
+        json={
+            "exercise_index": exercise_index,
+            "set_index": set_index,
+            "weight_kg": weight_kg,
+            "reps": reps,
+            "exercise_name": exercise_name,
+        },
+    )
+
+
+def test_sessions_history_empty(client):
+    headers = get_auth_headers(client)
+    response = client.get("/api/v1/workouts/sessions/history", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_sessions_history_excludes_active_sessions(client):
+    headers = get_auth_headers(client)
+    _create_plan_and_start_session(client, headers)  # still active, not completed
+    response = client.get("/api/v1/workouts/sessions/history", headers=headers)
+    assert response.json() == []
+
+
+def test_sessions_history_includes_completed_session_with_aggregates(client):
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press", weight_kg=60, reps=10, set_index=0)
+    _complete_a_set(client, headers, session["id"], "Bench Press", weight_kg=60, reps=8, set_index=1)
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get("/api/v1/workouts/sessions/history", headers=headers)
+    assert response.status_code == 200
+    history = response.json()
+    assert len(history) == 1
+    entry = history[0]
+    assert entry["id"] == session["id"]
+    assert entry["total_sets"] == 2
+    assert entry["total_volume_kg"] == 60 * 10 + 60 * 8
+    assert entry["duration_seconds"] is not None
+
+
+def test_session_detail_not_found_for_session_id_that_does_not_exist(client):
+    headers = get_auth_headers(client)
+    response = client.get(
+        "/api/v1/workouts/sessions/00000000-0000-0000-0000-000000000000/detail", headers=headers
+    )
+    assert response.status_code == 404
+
+
+def test_session_detail_not_found_for_other_users_session(client):
+    headers_a = get_auth_headers(client, email="a@example.com")
+    session = _create_plan_and_start_session(client, headers_a)
+
+    headers_b = get_auth_headers(client, email="b@example.com")
+    response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers_b)
+    assert response.status_code == 404
+
+
+def test_session_detail_computes_muscle_split(client, db_session):
+    _seed_exercise_master(db_session, "לחיצת חזה", "Chest", name_en="Bench Press")
+    _seed_exercise_master(db_session, "סקוואט", "Legs", name_en="Squat")
+
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press", set_index=0)
+    _complete_a_set(client, headers, session["id"], "Bench Press", set_index=1)
+    _complete_a_set(client, headers, session["id"], "Squat", exercise_index=1, set_index=0)
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_sets"] == 3
+    split_by_muscle = {row["muscle_group"]: row["percentage"] for row in data["muscle_split"]}
+    assert split_by_muscle["Chest"] == round(2 / 3 * 100, 1)
+    assert split_by_muscle["Legs"] == round(1 / 3 * 100, 1)
+
+
+def test_session_detail_unmapped_exercise_falls_back_to_other(client):
+    """A free-text exercise name (e.g. added via LiveWorkout's 'add exercise'
+    flow) that doesn't match any exercises_master row must be bucketed as
+    'אחר', not dropped or crash the request."""
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "תרגיל שהמצאתי")
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["muscle_split"] == [{"muscle_group": "אחר", "percentage": 100.0}]
+
+
+def test_session_detail_calories_none_without_profile(client):
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press")
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers)
+    assert response.json()["estimated_calories"] is None
+
+
+def test_session_detail_calories_computed_with_profile_weight(client, db_session):
+    headers = get_auth_headers(client)
+    client.post(
+        "/api/v1/users/profile",
+        headers=headers,
+        json={
+            "age": 30,
+            "gender": "male",
+            "height_cm": 180,
+            "weight_kg": 80,
+            "activity_level": "moderately_active",
+            "goal": "muscle_gain",
+            "meals_per_day": 4,
+        },
+    )
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press")
+
+    # A real workout has measurable duration; backdate started_at so the
+    # session doesn't round down to 0 seconds (which would legitimately
+    # yield no calorie estimate, same as a missing duration).
+    row = db_session.query(WorkoutSession).filter(WorkoutSession.id == uuid.UUID(session["id"])).first()
+    row.started_at = row.started_at - datetime.timedelta(minutes=45)
+    db_session.commit()
+
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers)
+    assert response.json()["estimated_calories"] is not None
+    assert response.json()["estimated_calories"] > 0
