@@ -57,6 +57,8 @@ export const workoutsAPI = {
   getPersonalRecords: () => api.get('/api/v1/workouts/personal-records'),
   getExerciseMemory: (name) => api.get(`/api/v1/workouts/exercise-memory/${encodeURIComponent(name)}`),
   getVolumeHistory: () => api.get('/api/v1/workouts/volume-history'),
+  getSessionsHistory: () => api.get('/api/v1/workouts/sessions/history'),
+  getSessionDetail: (sessionId) => api.get(`/api/v1/workouts/sessions/${sessionId}/detail`),
 }
 
 export const usersAPI = {

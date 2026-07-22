@@ -4,10 +4,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
-from app.models.user import User
+from app.models.user import User, UserProfile
 from app.models.fitness import (
     WorkoutPlan, WorkoutSession, ExerciseLog,
-    ExerciseMemory, PersonalRecord
+    ExerciseMemory, PersonalRecord, ExerciseMaster
 )
 from pydantic import BaseModel, Field
 from typing import Optional, List
@@ -323,3 +323,127 @@ def get_volume_history(db: Session = Depends(get_db), current_user: User = Depen
         }
         for r in rows
     ]
+
+
+# Single MET constant for resistance-training sessions -- not a per-exercise
+# table, just a reasonable moderate-to-vigorous estimate (typical range 3.5-6)
+# since there's no heart-rate/device data to base a real one on.
+_RESISTANCE_TRAINING_MET = 5.0
+
+
+def _session_duration_seconds(session: WorkoutSession) -> Optional[int]:
+    if session.started_at and session.completed_at:
+        return int((session.completed_at - session.started_at).total_seconds())
+    return None
+
+
+def _estimate_calories(weight_kg: Optional[float], duration_seconds: Optional[int]) -> Optional[float]:
+    """kcal ≈ (MET × 3.5 × weight_kg / 200) kcal/min × duration in minutes.
+    Returns None (never a guessed number) if either input is missing."""
+    if not weight_kg or not duration_seconds:
+        return None
+    kcal_per_minute = (_RESISTANCE_TRAINING_MET * 3.5 * weight_kg) / 200
+    return round(kcal_per_minute * (duration_seconds / 60))
+
+
+def _exercise_name_to_muscle_group(db: Session) -> dict:
+    """Lowercased exercise name/alias -> muscle_group_primary, for every
+    active canonical exercise. Names not found here (e.g. free-text
+    exercises added via LiveWorkout's "add exercise" flow) fall back to
+    'אחר' at the call site rather than being dropped."""
+    lookup = {}
+    exercises = db.query(ExerciseMaster).filter(ExerciseMaster.is_active.is_(True)).all()
+    for ex in exercises:
+        muscle = ex.muscle_group_primary or "אחר"
+        for name in (ex.canonical_name_he, ex.canonical_name_en, *(ex.aliases or [])):
+            if name:
+                lookup[str(name).strip().lower()] = muscle
+    return lookup
+
+
+@router.get("/sessions/history")
+def get_sessions_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    sessions = (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.status == "completed")
+        .order_by(WorkoutSession.completed_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    agg_by_session = {}
+    session_ids = [s.id for s in sessions]
+    if session_ids:
+        rows = (
+            db.query(
+                ExerciseLog.session_id,
+                func.sum(ExerciseLog.weight_kg * ExerciseLog.reps).label("volume_kg"),
+                func.count(ExerciseLog.id).label("total_sets"),
+            )
+            .filter(ExerciseLog.session_id.in_(session_ids), ExerciseLog.completed.is_(True))
+            .group_by(ExerciseLog.session_id)
+            .all()
+        )
+        agg_by_session = {r.session_id: r for r in rows}
+
+    result = []
+    for session in sessions:
+        agg = agg_by_session.get(session.id)
+        result.append({
+            "id": str(session.id),
+            "started_at": session.started_at,
+            "completed_at": session.completed_at,
+            "duration_seconds": _session_duration_seconds(session),
+            "total_volume_kg": round(float(agg.volume_kg or 0), 1) if agg else 0,
+            "total_sets": int(agg.total_sets) if agg else 0,
+        })
+    return result
+
+
+@router.get("/sessions/{session_id}/detail")
+def get_session_detail(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    session = db.query(WorkoutSession).filter(
+        WorkoutSession.id == uuid.UUID(session_id),
+        WorkoutSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    logs = db.query(ExerciseLog).filter(
+        ExerciseLog.session_id == session.id,
+        ExerciseLog.completed.is_(True),
+    ).all()
+
+    total_volume_kg = sum((log.weight_kg or 0) * (log.reps or 0) for log in logs)
+    total_sets = len(logs)
+    duration_seconds = _session_duration_seconds(session)
+
+    muscle_counts = {}
+    if logs:
+        name_to_muscle = _exercise_name_to_muscle_group(db)
+        for log in logs:
+            muscle = name_to_muscle.get((log.exercise_name or "").strip().lower(), "אחר")
+            muscle_counts[muscle] = muscle_counts.get(muscle, 0) + 1
+
+    muscle_split = [
+        {"muscle_group": muscle, "percentage": round(count / total_sets * 100, 1)}
+        for muscle, count in sorted(muscle_counts.items(), key=lambda kv: -kv[1])
+    ] if total_sets else []
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    weight_kg = profile.weight_kg if profile else None
+
+    return {
+        "id": str(session.id),
+        "started_at": session.started_at,
+        "completed_at": session.completed_at,
+        "duration_seconds": duration_seconds,
+        "total_volume_kg": round(total_volume_kg, 1),
+        "total_sets": total_sets,
+        "estimated_calories": _estimate_calories(weight_kg, duration_seconds),
+        "muscle_split": muscle_split,
+    }

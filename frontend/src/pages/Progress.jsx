@@ -4,7 +4,16 @@ import { workoutsAPI, usersAPI } from '../services/api'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { Trophy, Plus, Loader2 } from 'lucide-react'
+import { Trophy, Plus, Loader2, Dumbbell, Clock, Weight, ChevronLeft } from 'lucide-react'
+import WorkoutDetailModal from '../components/WorkoutDetailModal'
+
+function formatSessionDuration(seconds) {
+  if (seconds == null) return '—'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h > 0) return `${h}ש׳ ${m}ד׳`
+  return `${m} ד׳`
+}
 
 const PERIODS = ['שבוע', 'חודש', 'שנה']
 
@@ -143,6 +152,9 @@ export default function Progress() {
   const [loading, setLoading] = useState(true)
   const [weightHistory, setWeightHistory] = useState([])
   const [volumeHistory, setVolumeHistory] = useState([])
+  const [sessionsHistory, setSessionsHistory] = useState([])
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [openSessionId, setOpenSessionId] = useState(null)
 
   useEffect(() => {
     workoutsAPI.getPersonalRecords()
@@ -157,6 +169,11 @@ export default function Progress() {
     workoutsAPI.getVolumeHistory()
       .then(({ data }) => setVolumeHistory(data || []))
       .catch(() => setVolumeHistory([]))
+
+    workoutsAPI.getSessionsHistory()
+      .then(({ data }) => setSessionsHistory(data || []))
+      .catch(() => setSessionsHistory([]))
+      .finally(() => setSessionsLoading(false))
   }, [])
 
   const weightSeriesByPeriod = buildWeightSeriesByPeriod(weightHistory)
@@ -228,6 +245,46 @@ export default function Progress() {
           <p className="text-text-mid text-sm mt-2">אין שיאים עדיין — צא לאימון!</p>
         )}
       </div>
+
+      {/* Recent workouts */}
+      <div className="anim-rise anim-d3">
+        <h2 className="text-lg font-bold text-text-hi mb-3 flex items-center gap-2">
+          <Dumbbell className="w-5 h-5 text-volt" /> אימונים אחרונים
+        </h2>
+        {sessionsLoading ? (
+          <p className="text-text-mid text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...</p>
+        ) : sessionsHistory.length === 0 ? (
+          <p className="text-text-mid text-sm">עדיין אין אימונים שהושלמו</p>
+        ) : (
+          <div className="space-y-2">
+            {sessionsHistory.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setOpenSessionId(s.id)}
+                className="w-full card-glass card-hover p-4 flex items-center justify-between gap-3 text-right"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-text-hi font-medium text-sm">
+                    {s.completed_at
+                      ? new Date(s.completed_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : ''}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1 text-text-mid text-xs">
+                    <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {formatSessionDuration(s.duration_seconds)}</span>
+                    <span className="inline-flex items-center gap-1" dir="ltr"><Weight className="w-3 h-3" /> {s.total_volume_kg.toLocaleString()} ק״ג</span>
+                    <span>{s.total_sets} סטים</span>
+                  </div>
+                </div>
+                <ChevronLeft className="w-4 h-4 text-text-low shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {openSessionId && (
+        <WorkoutDetailModal sessionId={openSessionId} onClose={() => setOpenSessionId(null)} />
+      )}
     </div>
   )
 }
