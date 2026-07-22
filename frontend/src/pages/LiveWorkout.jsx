@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useWorkoutSession } from '../hooks/useWorkoutSession'
 import { workoutsAPI } from '../services/api'
+import api from '../services/api'
 import ExerciseSearch, { MUSCLE_GROUPS } from '../components/ExerciseSearch'
 import {
   Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft,
-  Clock, StickyNote, Plus, X, Search, Type,
+  Clock, StickyNote, Plus, X, Search, Type, Settings, Flame,
 } from 'lucide-react'
 
 const FREE_MUSCLE_GROUPS = MUSCLE_GROUPS.filter(g => g !== 'כל הקבוצות')
@@ -149,6 +150,22 @@ export default function LiveWorkout() {
   const [addExerciseMode, setAddExerciseMode] = useState('search')
   const [freeExName, setFreeExName] = useState('')
   const [freeExMuscleGroup, setFreeExMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
+  const [isFailureCurrent, setIsFailureCurrent] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [restTimerOverride, setRestTimerOverride] = useState('') // seconds, empty = use plan default
+  const [autoStartRest, setAutoStartRest] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
+
+  // Load saved workout preferences (rest timer override / auto-start), if any
+  useEffect(() => {
+    api.get('/api/v1/users/profile')
+      .then(({ data }) => {
+        const prefs = data?.workout_preferences
+        if (prefs?.rest_timer_seconds != null) setRestTimerOverride(String(prefs.rest_timer_seconds))
+        if (prefs?.auto_start_rest === false) setAutoStartRest(false)
+      })
+      .catch(() => {}) // no saved profile yet -- defaults are fine
+  }, [])
 
   // Init: start session & load exercises
   useEffect(() => {
@@ -191,6 +208,7 @@ export default function LiveWorkout() {
       setWeightInput(String((target ? target.weight_kg : ex.weight_kg) || ''))
       setRepsInput(String((target ? target.reps : ex.reps) || ''))
     }
+    setIsFailureCurrent(false)
   }, [currentExerciseIdx, currentSetIdx, exercises])
 
   // Elapsed workout duration, counting up from session start
@@ -228,14 +246,16 @@ export default function LiveWorkout() {
     const weight = parseFloat(weightInput) || 0
     const reps = parseInt(repsInput) || 0
     if (weight < 0 || reps < 0) return
-    const rest = currentExercise.rest_seconds || 90
+    const restOverride = parseInt(restTimerOverride)
+    const rest = Number.isFinite(restOverride) && restOverride > 0 ? restOverride : (currentExercise.rest_seconds || 90)
     setInitialRest(rest)
+    const setType = isFailureCurrent ? 'failure' : 'normal'
 
     const key = `${currentExerciseIdx}_${currentSetIdx}`
-    setCompletedKeys(prev => ({ ...prev, [key]: { weight_kg: weight, reps, completed: true } }))
+    setCompletedKeys(prev => ({ ...prev, [key]: { weight_kg: weight, reps, completed: true, set_type: setType } }))
 
     if (session) {
-      await completeSet(session.id, currentExerciseIdx, currentSetIdx, weight, reps, rest, currentExercise.name)
+      await completeSet(session.id, currentExerciseIdx, currentSetIdx, weight, reps, rest, currentExercise.name, setType, autoStartRest)
     }
 
     // Advance set index
@@ -318,6 +338,22 @@ export default function LiveWorkout() {
     addExerciseToSession({ name: freeExName.trim(), muscle_group: freeExMuscleGroup })
   }
 
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    try {
+      const seconds = parseInt(restTimerOverride)
+      await api.put('/api/v1/users/profile', {
+        workout_preferences: {
+          rest_timer_seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : null,
+          auto_start_rest: autoStartRest,
+        },
+      })
+      setShowSettings(false)
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 h-64 card-glass">
@@ -361,6 +397,13 @@ export default function LiveWorkout() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSettings(true)}
+            aria-label="הגדרות אימון"
+            className="bg-white/4 border border-line text-text-mid p-2 rounded-elem hover:text-text-hi hover:bg-white/8 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          >
+            <Settings className="w-4.5 h-4.5" />
+          </button>
           <button
             onClick={() => setShowDiscardConfirm(true)}
             className="bg-white/4 border border-line text-text-mid px-3 py-2 rounded-elem text-sm hover:text-coral hover:border-coral/30 transition-colors min-h-[44px]"
@@ -412,6 +455,20 @@ export default function LiveWorkout() {
             className="w-full bg-white/6 border border-line-strong rounded-elem pr-9 pl-3 py-2 text-text-hi text-sm focus:outline-none focus:border-volt/60"
           />
         </div>
+
+        {/* Mark the current set as a failure attempt — does not affect the
+            "previous" reference for next time, unlike a normal set */}
+        <button
+          type="button"
+          onClick={() => setIsFailureCurrent(v => !v)}
+          className={`w-full py-2 rounded-elem text-xs font-medium border transition inline-flex items-center justify-center gap-1.5 ${
+            isFailureCurrent
+              ? 'bg-coral-soft border-coral/40 text-coral'
+              : 'bg-white/4 border-line text-text-mid hover:text-text-hi'
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5" /> {isFailureCurrent ? 'סומן ככשל (F)' : 'סמן סט זה ככשל (F)'}
+        </button>
 
         {/* Sets table */}
         <div className="space-y-2">
@@ -467,7 +524,11 @@ export default function LiveWorkout() {
                   <span className="text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? completedData.reps : '-'}</span>
                 )}
                 <span className="flex justify-center">
-                  {done ? (
+                  {done && completedData.set_type === 'failure' ? (
+                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-coral text-ink text-[10px] font-extrabold anim-pop" title="כשל">
+                      F
+                    </span>
+                  ) : done ? (
                     <span key="done" className="w-6 h-6 rounded-full flex items-center justify-center bg-volt text-ink anim-pop">
                       <Check className="w-3.5 h-3.5" strokeWidth={3} />
                     </span>
@@ -645,6 +706,59 @@ export default function LiveWorkout() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* In-workout settings — rest timer defaults, not a general app settings screen */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowSettings(false)}>
+          <div
+            className="bg-surface-2 border border-line-strong rounded-card w-full max-w-sm p-5 space-y-4 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-text-hi font-bold flex items-center gap-2">
+                <Settings className="w-4.5 h-4.5" /> הגדרות אימון
+              </h3>
+              <button onClick={() => setShowSettings(false)} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-text-mid text-sm">זמן מנוחה ברירת מחדל (שניות)</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="לפי התוכנית (ברירת מחדל)"
+                value={restTimerOverride}
+                onChange={e => setRestTimerOverride(e.target.value)}
+                className="input-volt"
+                dir="ltr"
+              />
+              <p className="text-text-low text-xs">השאר ריק כדי להשתמש בזמן המנוחה שמוגדר לכל תרגיל בתוכנית</p>
+            </div>
+
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span className="text-text-mid text-sm">התחלה אוטומטית של טיימר מנוחה</span>
+              <button
+                type="button"
+                onClick={() => setAutoStartRest(v => !v)}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoStartRest ? 'bg-volt' : 'bg-white/15'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoStartRest ? 'right-0.5' : 'right-5.5'}`} />
+              </button>
+            </label>
+
+            <button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
+            >
+              {savingSettings && <Loader2 className="w-4 h-4 animate-spin" />}
+              {savingSettings ? 'שומר...' : 'שמור הגדרות'}
+            </button>
           </div>
         </div>
       )}

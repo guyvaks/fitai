@@ -153,6 +153,67 @@ def test_complete_set_falls_back_to_placeholder_when_name_missing(client):
     assert memory["exercise_name"] == "exercise_0"
 
 
+def test_complete_set_normal_updates_exercise_memory(client):
+    """Baseline: a normal (non-failure) set still updates ExerciseMemory as
+    before -- the failure-set skip added alongside this must not change the
+    default path."""
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+
+    response = client.patch(
+        f"/api/v1/workouts/sessions/{session['id']}/set-complete",
+        headers=headers,
+        json={"exercise_index": 0, "set_index": 0, "weight_kg": 60, "reps": 10, "exercise_name": "Squat"},
+    )
+    assert response.status_code == 200
+    assert response.json()["completed_sets"]["0_0"]["set_type"] == "normal"
+
+    memory = client.get("/api/v1/workouts/exercise-memory/Squat", headers=headers).json()
+    assert memory["last_weight_kg"] == 60
+    assert memory["last_reps"] == 10
+
+
+def test_complete_set_failure_does_not_update_exercise_memory(client):
+    """A failure set must not become the next session's 'previous' reference
+    -- ExerciseMemory should stay untouched (not created, not overwritten)."""
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+
+    response = client.patch(
+        f"/api/v1/workouts/sessions/{session['id']}/set-complete",
+        headers=headers,
+        json={"exercise_index": 0, "set_index": 0, "weight_kg": 40, "reps": 3, "exercise_name": "Squat", "set_type": "failure"},
+    )
+    assert response.status_code == 200
+    assert response.json()["completed_sets"]["0_0"]["set_type"] == "failure"
+
+    # No ExerciseMemory row should have been created at all for this exercise
+    memory = client.get("/api/v1/workouts/exercise-memory/Squat", headers=headers).json()
+    assert memory is None
+
+
+def test_complete_set_failure_after_normal_does_not_overwrite_previous(client):
+    """A normal set sets the 'previous' reference; a subsequent failure set on
+    the same exercise must not overwrite it."""
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+
+    client.patch(
+        f"/api/v1/workouts/sessions/{session['id']}/set-complete",
+        headers=headers,
+        json={"exercise_index": 0, "set_index": 0, "weight_kg": 60, "reps": 10, "exercise_name": "Squat"},
+    )
+    client.patch(
+        f"/api/v1/workouts/sessions/{session['id']}/set-complete",
+        headers=headers,
+        json={"exercise_index": 0, "set_index": 1, "weight_kg": 45, "reps": 4, "exercise_name": "Squat", "set_type": "failure"},
+    )
+
+    memory = client.get("/api/v1/workouts/exercise-memory/Squat", headers=headers).json()
+    assert memory["last_weight_kg"] == 60
+    assert memory["last_reps"] == 10
+
+
 def test_complete_session(client):
     headers = get_auth_headers(client)
     session = _create_plan_and_start_session(client, headers)

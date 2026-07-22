@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -77,6 +77,7 @@ class UserProfileResponse(BaseModel):
     tdee: Optional[float] = None
     target_calories: Optional[float] = None
     theme_preference: Optional[str] = None
+    workout_preferences: Optional[Dict[str, Any]] = None
 
     model_config = {"from_attributes": True}
 
@@ -96,3 +97,4 @@ class UserProfileUpdate(BaseModel):
     equipment: Optional[str] = None
     meals_per_day: Optional[int] = Field(None, ge=1, le=12)
     theme_preference: Optional[ThemePreference] = None
+    workout_preferences: Optional[Dict[str, Any]] = None
