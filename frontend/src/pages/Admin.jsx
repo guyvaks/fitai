@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
 import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X } from "lucide-react";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {

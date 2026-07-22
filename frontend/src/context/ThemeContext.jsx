@@ -1,36 +1,28 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import api from "../services/api";
+import { useAuth } from "./AuthContext";
 
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
+  const { profile } = useAuth();
   const [theme, setTheme] = useState(
     () => localStorage.getItem("fitai_theme") || "dark"
   );
 
-  // Several independent components (Header, Sidebar, Dashboard, ProtectedRoute)
-  // each call useAuth() on mount and each fires its own GET /users/profile —
-  // amplified further by React StrictMode's double-invoke in dev. Several of
-  // these can still be in flight when the user toggles theme; a late, stale
-  // response must not clobber a newer local toggle. `settledRef` latches
-  // closed on whichever comes first — the first genuine profile sync, or a
-  // user-initiated toggle — so only one of them ever gets to set the initial
-  // value, and no stale in-flight fetch can override it afterward.
+  // profile now comes from the single shared AuthProvider fetch, but it can
+  // still resolve after the user has already toggled theme manually.
+  // `settledRef` latches closed on whichever comes first — the profile sync
+  // or a user-initiated toggle — so a late profile fetch never clobbers a
+  // newer local toggle.
   const settledRef = useRef(false);
 
-  // useAuth() has no shared context — each caller (Login, Sidebar, ThemeProvider
-  // itself, etc.) gets independent state, so ThemeProvider can't read another
-  // instance's fetched `profile` reactively. useAuth's fetchProfile broadcasts
-  // this event whenever it resolves theme_preference; listen for it instead.
   useEffect(() => {
-    const sync = (event) => {
-      if (settledRef.current) return;
-      settledRef.current = true;
-      if (event.detail) setTheme(event.detail);
-    };
-    window.addEventListener("fitai-theme-sync", sync);
-    return () => window.removeEventListener("fitai-theme-sync", sync);
-  }, []);
+    if (settledRef.current) return;
+    if (!profile?.theme_preference) return;
+    settledRef.current = true;
+    setTheme(profile.theme_preference);
+  }, [profile]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -42,6 +34,10 @@ export function ThemeProvider({ children }) {
     const previous = theme;
     setTheme(newTheme); // optimistic
     try {
+      // TODO: this PUT doesn't update AuthContext's shared `profile` object —
+      // profile.theme_preference stays stale after a toggle. Harmless today
+      // (nothing re-reads it after mount), but if a future consumer reads
+      // profile.theme_preference directly, it'll see the pre-toggle value.
       await api.put("/api/v1/users/profile", { theme_preference: newTheme });
     } catch {
       setTheme(previous); // revert on failure

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
 import Avatar from "../Avatar";

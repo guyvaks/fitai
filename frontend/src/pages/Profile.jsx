@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { usersAPI } from "../services/api";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
 import { Loader2, AlertTriangle, ArrowLeft, UserPlus, Camera, Upload } from "lucide-react";
 import Avatar from "../components/Avatar";
 
@@ -46,7 +46,7 @@ const defaultForm = {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -80,17 +80,9 @@ export default function Profile() {
     setAvatarError(null);
     try {
       const { data } = await usersAPI.uploadAvatar({ image_base64: avatarPreview.base64 });
-      const stored = JSON.parse(localStorage.getItem("fitai_user") || "null");
-      if (stored) {
-        localStorage.setItem(
-          "fitai_user",
-          JSON.stringify({ ...stored, avatar_updated_at: data.avatar_updated_at })
-        );
-      }
-      // useAuth() has no shared context between components (see Header/Sidebar),
-      // so a full reload is the simplest way to make the new avatar show up
-      // everywhere immediately rather than only in this page's own instance.
-      window.location.reload();
+      updateUser({ avatar_updated_at: data.avatar_updated_at });
+      setAvatarPreview(null);
+      setAvatarSaving(false);
     } catch (err) {
       setAvatarError(err.response?.data?.detail || "שגיאה בשמירת התמונה");
       setAvatarSaving(false);

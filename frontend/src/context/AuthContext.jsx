@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api from "../services/api";
 
-export function useAuth() {
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -10,17 +12,6 @@ export function useAuth() {
     try {
       const { data } = await api.get("/api/v1/users/profile");
       setProfile(data);
-      if (data?.theme_preference) {
-        // useAuth() has no shared context — each caller gets independent state,
-        // so ThemeProvider (mounted once, separately) can't observe this
-        // instance's `profile` update directly. Broadcast the value via a
-        // custom event instead; ThemeProvider alone decides whether to accept
-        // it (it may be stale relative to a more recent user toggle) and is
-        // the only thing that writes localStorage["fitai_theme"].
-        window.dispatchEvent(
-          new CustomEvent("fitai-theme-sync", { detail: data.theme_preference })
-        );
-      }
     } catch {
       setProfile(null);
     }
@@ -75,14 +66,39 @@ export function useAuth() {
     setProfile(null);
   }, []);
 
-  return {
-    user,
-    profile,
-    loading,
-    isAuthenticated: !!user,
-    login,
-    register,
-    logout,
-    fetchProfile,
-  };
+  // Merges partial fields (e.g. avatar_updated_at after an upload) into the
+  // shared user object so every consumer re-renders with the new value
+  // immediately, without a full page reload.
+  const updateUser = useCallback((partial) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial };
+      localStorage.setItem("fitai_user", JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        fetchProfile,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }
