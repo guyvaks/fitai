@@ -30,6 +30,13 @@ import {
 
 const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
+function getGreeting(hour) {
+  if (hour >= 5 && hour < 12) return "בוקר טוב";
+  if (hour >= 12 && hour < 17) return "צהריים טובים";
+  if (hour >= 17 && hour < 21) return "ערב טוב";
+  return "לילה טוב";
+}
+
 function toIso(date) {
   return date.toISOString().split("T")[0];
 }
@@ -193,7 +200,7 @@ export default function Dashboard() {
       {/* Welcome */}
       <div className="anim-rise">
         <h2 className="text-3xl font-extrabold text-text-hi tracking-tight">
-          בוקר טוב, <span className="text-gradient-volt">{firstName}</span>
+          {getGreeting(today.getHours())}, <span className="text-gradient-volt">{firstName}</span>
         </h2>
         <p className="text-text-mid mt-1">{dateLabel}</p>
       </div>
