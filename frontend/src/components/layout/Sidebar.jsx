@@ -14,6 +14,7 @@ import {
   Crown,
   Calculator,
   User,
+  Users,
 } from "lucide-react";
 import Avatar from "../Avatar";
 
@@ -27,10 +28,11 @@ const navItems = [
   { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/metrics", label: "ניתוח מדדים", Icon: Activity },
   { to: "/ai-suggestion", label: "הצעות AI", Icon: Bot },
+  { to: "/settings", label: "הגדרות", Icon: Settings },
 ];
 
 const adminItems = [
-  { to: "/admin", label: "ניהול משתמשים", Icon: Settings },
+  { to: "/admin", label: "ניהול משתמשים", Icon: Users },
 ];
 
 function NavItem({ to, label, Icon, onClose }) {
