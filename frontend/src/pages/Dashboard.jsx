@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
 import { agentsAPI, nutritionAPI, workoutsAPI, usersAPI } from "../services/api";
 import {
   HeartPulse,

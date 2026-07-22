@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthContext";
 import BMIMeter from "../components/ui/BMIMeter";
 import { Target, Lightbulb, Loader2, AlertTriangle } from "lucide-react";
 

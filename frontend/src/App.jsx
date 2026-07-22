@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./hooks/useAuth";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login";
@@ -31,8 +31,9 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <BrowserRouter>
+    <AuthProvider>
+      <ThemeProvider>
+        <BrowserRouter>
         {/*
           Mobile-only frame: the whole app is constrained to a phone-width
           column centred on screen, with a darker backdrop outside so it reads
@@ -185,7 +186,8 @@ export default function App() {
       </Routes>
           </div>
         </div>
-      </BrowserRouter>
-    </ThemeProvider>
+        </BrowserRouter>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
