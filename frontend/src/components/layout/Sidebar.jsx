@@ -13,6 +13,7 @@ import {
   Zap,
   Crown,
   Calculator,
+  User,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { to: "/workouts", label: "אימונים", Icon: Dumbbell },
   { to: "/live-workout", label: "אימון חי", Icon: Play },
   { to: "/progress", label: "התקדמות", Icon: TrendingUp },
+  { to: "/profile", label: "פרופיל", Icon: User },
   { to: "/metrics", label: "ניתוח מדדים", Icon: Activity },
   { to: "/ai-suggestion", label: "הצעות AI", Icon: Bot },
 ];
