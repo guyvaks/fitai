@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
+import { PENDING_COUNT_CHANGED_EVENT } from "../../utils/pendingUpdates";
 import {
   LayoutDashboard,
   Salad,
@@ -65,12 +66,19 @@ export default function Sidebar({ onClose }) {
 
   useEffect(() => {
     if (!user?.is_admin) return;
-    Promise.all([
-      api.get("/api/v1/admin/exercises/pending"),
-      api.get("/api/v1/admin/food-master/pending"),
-    ])
-      .then(([ex, foods]) => setPendingCount(ex.data.length + foods.data.length))
-      .catch(() => {});
+
+    const fetchPendingCount = () => {
+      Promise.all([
+        api.get("/api/v1/admin/exercises/pending"),
+        api.get("/api/v1/admin/food-master/pending"),
+      ])
+        .then(([ex, foods]) => setPendingCount(ex.data.length + foods.data.length))
+        .catch(() => {});
+    };
+
+    fetchPendingCount();
+    window.addEventListener(PENDING_COUNT_CHANGED_EVENT, fetchPendingCount);
+    return () => window.removeEventListener(PENDING_COUNT_CHANGED_EVENT, fetchPendingCount);
   }, [user?.is_admin]);
 
   const handleLogout = () => {

@@ -5,6 +5,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { Menu, Home, Zap, Sun, Moon, Bell } from "lucide-react";
 import Avatar from "../Avatar";
 import api from "../../services/api";
+import { PENDING_COUNT_CHANGED_EVENT } from "../../utils/pendingUpdates";
 
 const pageTitles = {
   "/dashboard": "ראשי",
@@ -30,16 +31,23 @@ export default function Header({ onToggleSidebar }) {
 
   useEffect(() => {
     if (!user?.is_admin) return;
-    Promise.all([
-      api.get("/api/v1/admin/exercises/pending"),
-      api.get("/api/v1/admin/food-master/pending"),
-    ])
-      .then(([ex, foods]) => {
-        setPendingExerciseCount(ex.data.length);
-        setPendingFoodCount(foods.data.length);
-        setPendingCount(ex.data.length + foods.data.length);
-      })
-      .catch(() => {});
+
+    const fetchPendingCounts = () => {
+      Promise.all([
+        api.get("/api/v1/admin/exercises/pending"),
+        api.get("/api/v1/admin/food-master/pending"),
+      ])
+        .then(([ex, foods]) => {
+          setPendingExerciseCount(ex.data.length);
+          setPendingFoodCount(foods.data.length);
+          setPendingCount(ex.data.length + foods.data.length);
+        })
+        .catch(() => {});
+    };
+
+    fetchPendingCounts();
+    window.addEventListener(PENDING_COUNT_CHANGED_EVENT, fetchPendingCounts);
+    return () => window.removeEventListener(PENDING_COUNT_CHANGED_EVENT, fetchPendingCounts);
   }, [user?.is_admin]);
 
   const bellTarget = pendingFoodCount > 0
@@ -51,7 +59,7 @@ export default function Header({ onToggleSidebar }) {
   return (
     <header className="h-16 bg-surface/80 backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
       {/* Mobile hamburger + logo */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <button
           className="md:hidden text-text-mid hover:text-text-hi p-2 -mr-2 transition-colors"
           onClick={onToggleSidebar}
@@ -59,11 +67,11 @@ export default function Header({ onToggleSidebar }) {
         >
           <Menu className="w-6 h-6" />
         </button>
-        <Link to="/profile" className="md:hidden" title="הפרופיל שלי">
-          <Avatar user={user} className="w-7 h-7 text-[10px]" />
+        <Link to="/profile" className="md:hidden shrink-0" title="הפרופיל שלי">
+          <Avatar user={user} className="w-7 h-7 text-[10px] shrink-0" />
         </Link>
-        <span className="md:hidden text-xl font-extrabold text-text-hi tracking-tight flex items-center gap-1.5">
-          <span className="w-6 h-6 rounded-lg bg-volt flex items-center justify-center">
+        <span className="md:hidden text-xl font-extrabold text-text-hi tracking-tight flex items-center gap-1.5 shrink-0">
+          <span className="w-6 h-6 rounded-lg bg-volt flex items-center justify-center shrink-0">
             <Zap className="w-3.5 h-3.5 text-ink" fill="currentColor" strokeWidth={0} />
           </span>
           <span dir="ltr">Fit<span className="text-volt">AI</span></span>
@@ -71,13 +79,16 @@ export default function Header({ onToggleSidebar }) {
         <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
-      {/* Mobile: page title */}
-      <h1 className="md:hidden text-base font-bold text-text-hi flex items-center gap-1.5">
-        {title}
+      {/* Mobile: page title — flexible middle region: truncates instead of
+          squeezing the fixed-size icons/avatar on either side when a long
+          title (e.g. "ניהול משתמשים") plus a wide right cluster overflow the
+          430px mobile frame. */}
+      <h1 className="md:hidden flex-1 min-w-0 text-base font-bold text-text-hi flex items-center justify-center gap-1.5 truncate px-2">
+        <span className="truncate">{title}</span>
       </h1>
 
       {/* Right cluster */}
-      <div className="flex items-center gap-1 md:gap-3">
+      <div className="flex items-center gap-1 md:gap-3 shrink-0">
         {/* Theme toggle — always visible */}
         <button
           onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
