@@ -154,6 +154,8 @@ function PendingFoods() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const fetchPending = () => {
     setLoading(true);
@@ -165,11 +167,31 @@ function PendingFoods() {
 
   useEffect(() => { fetchPending(); }, []);
 
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      prev.size === foods.length ? new Set() : new Set(foods.map((f) => f.id))
+    );
+  };
+
   const handleApprove = async (food) => {
     setActionLoading(food.id);
     try {
       await api.post(`/api/v1/admin/food-master/${food.id}/approve`);
       setFoods((prev) => prev.filter((f) => f.id !== food.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(food.id);
+        return next;
+      });
     } catch {
       alert("שגיאה באישור המוצר");
     } finally {
@@ -183,10 +205,47 @@ function PendingFoods() {
     try {
       await api.delete(`/api/v1/admin/food-master/${food.id}/reject`);
       setFoods((prev) => prev.filter((f) => f.id !== food.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(food.id);
+        return next;
+      });
     } catch {
       alert("שגיאה בדחיית המוצר");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    setBulkBusy(true);
+    try {
+      const ids = [...selectedIds];
+      const { data } = await api.post("/api/v1/admin/food-master/bulk-approve", { ids });
+      const updated = new Set(data.updated_ids);
+      setFoods((prev) => prev.filter((f) => !updated.has(f.id)));
+      setSelectedIds(new Set());
+    } catch {
+      alert("שגיאה באישור המוצרים הנבחרים");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    const count = selectedIds.size;
+    if (!window.confirm(`לדחות (ולמחוק) ${count} מוצרים? פעולה זו אינה ניתנת לביטול.`)) return;
+    setBulkBusy(true);
+    try {
+      const ids = [...selectedIds];
+      const { data } = await api.delete("/api/v1/admin/food-master/bulk-reject", { data: { ids } });
+      const deleted = new Set(data.deleted_ids);
+      setFoods((prev) => prev.filter((f) => !deleted.has(f.id)));
+      setSelectedIds(new Set());
+    } catch {
+      alert("שגיאה בדחיית המוצרים הנבחרים");
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -206,22 +265,42 @@ function PendingFoods() {
   }
 
   return (
-    <div className="space-y-3 anim-rise anim-d1">
+    <div className="space-y-3 anim-rise anim-d1 pb-16">
+      {/* Select all */}
+      <label className="flex items-center gap-2 px-1 text-text-mid text-sm cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={selectedIds.size === foods.length}
+          onChange={toggleSelectAll}
+          className="w-4 h-4 accent-volt"
+        />
+        בחר הכל
+      </label>
+
       {foods.map((food) => {
         const busy = actionLoading === food.id;
         return (
           <div key={food.id} className="card-glass p-4">
-            <div className="mb-3">
-              <p className="text-text-hi font-medium">{food.canonical_name_he}</p>
-              {food.canonical_name_en && (
-                <p className="text-text-mid text-xs" dir="ltr">{food.canonical_name_en}</p>
-              )}
-              <p className="text-text-low text-xs mt-1">
-                {food.category} · <span dir="ltr">{food.calories_per_100g}</span> קק״ל ל-100 גר׳ · ח׳ <span dir="ltr">{food.protein_per_100g}g</span>
-              </p>
-              {food.created_by_email && (
-                <p className="text-text-low text-xs mt-1" dir="ltr">הוצע ע"י: {food.created_by_email}</p>
-              )}
+            <div className="flex items-start gap-3 mb-3">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(food.id)}
+                onChange={() => toggleSelected(food.id)}
+                className="w-4 h-4 mt-0.5 accent-volt flex-shrink-0"
+                aria-label={`בחר את ${food.canonical_name_he}`}
+              />
+              <div className="min-w-0">
+                <p className="text-text-hi font-medium">{food.canonical_name_he}</p>
+                {food.canonical_name_en && (
+                  <p className="text-text-mid text-xs" dir="ltr">{food.canonical_name_en}</p>
+                )}
+                <p className="text-text-low text-xs mt-1">
+                  {food.category} · <span dir="ltr">{food.calories_per_100g}</span> קק״ל ל-100 גר׳ · ח׳ <span dir="ltr">{food.protein_per_100g}g</span>
+                </p>
+                {food.created_by_email && (
+                  <p className="text-text-low text-xs mt-1" dir="ltr">הוצע ע"י: {food.created_by_email}</p>
+                )}
+              </div>
             </div>
             <div className="flex items-stretch gap-2">
               <button
@@ -242,6 +321,29 @@ function PendingFoods() {
           </div>
         );
       })}
+
+      {/* Bulk action bar — only when something is selected */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-surface-2/95 backdrop-blur-xl border-t border-line-strong p-3 flex items-center gap-2 anim-rise">
+          <span className="text-text-mid text-sm shrink-0">{selectedIds.size} נבחרו</span>
+          <div className="flex-1 flex items-stretch gap-2">
+            <button
+              onClick={handleBulkApprove}
+              disabled={bulkBusy}
+              className="flex-1 py-2 text-xs px-2 rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+            >
+              <Check className="w-3 h-3" /> אשר את הנבחרים
+            </button>
+            <button
+              onClick={handleBulkReject}
+              disabled={bulkBusy}
+              className="flex-1 py-2 text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+            >
+              {bulkBusy ? "..." : <>דחה את הנבחרים <X className="w-3 h-3" /></>}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

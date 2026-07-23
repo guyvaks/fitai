@@ -272,3 +272,100 @@ def test_suggest_food_sends_push_to_admins(client, db_session, monkeypatch):
         assert payload["title"] == "מוצר חדש ממתין לאישור"
         assert payload["body"] == SUGGESTION_PAYLOAD["canonical_name_he"]
         assert payload["url"] == "/admin?tab=foods"
+
+
+def test_bulk_approve_sets_is_active_on_all_provided_leaves_others(client, db_session):
+    a = _seed_food(db_session, "מוצר בולק א", is_active=False)
+    b = _seed_food(db_session, "מוצר בולק ב", is_active=False)
+    untouched = _seed_food(db_session, "מוצר לא נבחר", is_active=False)
+
+    headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    response = client.post(
+        "/api/v1/admin/food-master/bulk-approve",
+        headers=headers,
+        json={"ids": [str(a.id), str(b.id)]},
+    )
+    assert response.status_code == 200
+    assert set(response.json()["updated_ids"]) == {str(a.id), str(b.id)}
+
+    db_session.refresh(a)
+    db_session.refresh(b)
+    db_session.refresh(untouched)
+    assert a.is_active is True
+    assert b.is_active is True
+    assert untouched.is_active is False
+
+
+def test_bulk_approve_skips_nonexistent_id_but_succeeds_for_valid_ones(client, db_session):
+    a = _seed_food(db_session, "מוצר בולק ג", is_active=False)
+    missing_id = uuid.uuid4()
+
+    headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    response = client.post(
+        "/api/v1/admin/food-master/bulk-approve",
+        headers=headers,
+        json={"ids": [str(a.id), str(missing_id)]},
+    )
+    assert response.status_code == 200
+    assert response.json()["updated_ids"] == [str(a.id)]
+
+    db_session.refresh(a)
+    assert a.is_active is True
+
+
+def test_bulk_reject_deletes_all_provided_ids(client, db_session):
+    a = _seed_food(db_session, "מוצר לדחייה בולק א", is_active=False)
+    b = _seed_food(db_session, "מוצר לדחייה בולק ב", is_active=False)
+    untouched = _seed_food(db_session, "מוצר שלא נדחה", is_active=False)
+    a_id, b_id, untouched_id = a.id, b.id, untouched.id
+
+    headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    response = client.request(
+        "DELETE", "/api/v1/admin/food-master/bulk-reject", headers=headers,
+        json={"ids": [str(a_id), str(b_id)]},
+    )
+    assert response.status_code == 200
+    assert set(response.json()["deleted_ids"]) == {str(a_id), str(b_id)}
+
+    assert db_session.query(FoodMaster).filter(FoodMaster.id == a_id).first() is None
+    assert db_session.query(FoodMaster).filter(FoodMaster.id == b_id).first() is None
+    assert db_session.query(FoodMaster).filter(FoodMaster.id == untouched_id).first() is not None
+
+
+def test_bulk_approve_requires_admin_403(client, db_session):
+    a = _seed_food(db_session, "מוצר בולק ד", is_active=False)
+    headers = get_auth_headers(client)
+    response = client.post(
+        "/api/v1/admin/food-master/bulk-approve", headers=headers, json={"ids": [str(a.id)]}
+    )
+    assert response.status_code == 403
+
+
+def test_bulk_approve_requires_auth_401(client):
+    response = client.post(
+        "/api/v1/admin/food-master/bulk-approve", json={"ids": [str(uuid.uuid4())]}
+    )
+    assert response.status_code == 401
+
+
+def test_bulk_reject_requires_admin_403(client, db_session):
+    a = _seed_food(db_session, "מוצר בולק ה", is_active=False)
+    headers = get_auth_headers(client)
+    response = client.request(
+        "DELETE", "/api/v1/admin/food-master/bulk-reject", headers=headers,
+        json={"ids": [str(a.id)]},
+    )
+    assert response.status_code == 403
+
+
+def test_bulk_reject_requires_auth_401(client):
+    response = client.request(
+        "DELETE", "/api/v1/admin/food-master/bulk-reject", json={"ids": [str(uuid.uuid4())]}
+    )
+    assert response.status_code == 401

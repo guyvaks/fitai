@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -19,6 +20,10 @@ from app.models.fitness import (
 
 class ResetPasswordRequest(BaseModel):
     new_password: str
+
+
+class BulkFoodIdsRequest(BaseModel):
+    ids: List[str]
 
 router = APIRouter()
 
@@ -186,3 +191,43 @@ def reject_food(food_id: str, db: Session = Depends(get_db), _: User = Depends(r
     db.delete(food)
     db.commit()
     return {"ok": True}
+
+
+def _parse_valid_uuids(ids: List[str]) -> List[uuid.UUID]:
+    valid = []
+    for raw_id in ids:
+        try:
+            valid.append(uuid.UUID(raw_id))
+        except ValueError:
+            continue
+    return valid
+
+
+@router.post("/food-master/bulk-approve")
+def bulk_approve_foods(payload: BulkFoodIdsRequest, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    valid_ids = _parse_valid_uuids(payload.ids)
+    if not valid_ids:
+        return {"updated_ids": []}
+
+    matched = db.query(FoodMaster.id).filter(FoodMaster.id.in_(valid_ids)).all()
+    updated_ids = [str(row[0]) for row in matched]
+
+    db.query(FoodMaster).filter(FoodMaster.id.in_(valid_ids)).update(
+        {"is_active": True}, synchronize_session=False
+    )
+    db.commit()
+    return {"updated_ids": updated_ids}
+
+
+@router.delete("/food-master/bulk-reject")
+def bulk_reject_foods(payload: BulkFoodIdsRequest, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    valid_ids = _parse_valid_uuids(payload.ids)
+    if not valid_ids:
+        return {"deleted_ids": []}
+
+    matched = db.query(FoodMaster.id).filter(FoodMaster.id.in_(valid_ids)).all()
+    deleted_ids = [str(row[0]) for row in matched]
+
+    db.query(FoodMaster).filter(FoodMaster.id.in_(valid_ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted_ids": deleted_ids}
