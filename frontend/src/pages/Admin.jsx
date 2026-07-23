@@ -272,7 +272,10 @@ function PendingFoods() {
   }
 
   return (
-    <div className="space-y-3 anim-rise anim-d1 pb-16">
+    <div
+      className="space-y-3 anim-rise anim-d1"
+      style={{ paddingBottom: "calc(4rem + env(safe-area-inset-bottom))" }}
+    >
       {/* Select all */}
       <label className="flex items-center gap-2 px-1 text-text-mid text-sm cursor-pointer select-none">
         <input
@@ -331,7 +334,10 @@ function PendingFoods() {
 
       {/* Bulk action bar — only when something is selected */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-surface-2/95 backdrop-blur-xl border-t border-line-strong p-3 flex items-center gap-2 anim-rise">
+        <div
+          className="fixed bottom-0 inset-x-0 z-40 bg-surface-2/95 backdrop-blur-xl border-t border-line-strong px-3 pt-3 flex items-center gap-2 anim-rise"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           <span className="text-text-mid text-sm shrink-0">{selectedIds.size} נבחרו</span>
           <div className="flex-1 flex items-stretch gap-2">
             <button
