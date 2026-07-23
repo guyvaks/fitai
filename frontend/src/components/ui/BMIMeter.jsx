@@ -1,4 +1,4 @@
-export default function BMIMeter({ bmi, category }) {
+export default function BMIMeter({ bmi, category, showCaption = false }) {
   // Range: 10–40, mapped to a 180° semicircle (left = underweight, right = obese)
   const MIN = 10;
   const MAX = 40;
@@ -55,6 +55,7 @@ export default function BMIMeter({ bmi, category }) {
       </svg>
       <div className={`text-3xl font-extrabold -mt-2 tabular-nums ${categoryTextColor}`} dir="ltr">{bmi}</div>
       {category && <div className={`text-sm font-medium ${categoryTextColor}`}>{category}</div>}
+      {showCaption && <div className="text-text-mid text-xs mt-1">BMI (Body Mass Index)</div>}
       <div className="flex flex-row-reverse justify-between w-full max-w-[220px] mt-2 text-xs text-text-mid">
         <span>תת משקל</span>
         <span>תקין</span>
