@@ -78,6 +78,34 @@ export default function Header({ onToggleSidebar }) {
 
       {/* Right cluster */}
       <div className="flex items-center gap-1 md:gap-3">
+        {/* Theme toggle — always visible */}
+        <button
+          onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
+          className="text-text-mid hover:text-volt p-2 rounded-elem hover:bg-white/5 transition-colors"
+          title={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+          aria-label={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+        >
+          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+
+        {/* WhatsApp contact — visible to everyone, always in this slot so the
+            row doesn't reflow between admin/non-admin views; the admin-only
+            Bell (if present) is inserted directly after it, never before. */}
+        <a
+          href={`https://wa.me/972547779795?text=${encodeURIComponent("שלום, יש לי שאלה על FitAI")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-7 h-7 rounded-full flex items-center justify-center hover:brightness-110 active:scale-95 transition"
+          style={{ backgroundColor: "#25D366" }}
+          title="צור קשר בוואטסאפ"
+          aria-label="צור קשר בוואטסאפ"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="white" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+            <path d="M12.004 2C6.486 2 2.01 6.477 2.01 11.994c0 2.09.635 4.028 1.72 5.638L2 22l4.484-1.677a9.94 9.94 0 0 0 5.52 1.665h.001c5.517 0 9.994-4.476 9.994-9.994C21.999 6.477 17.522 2 12.004 2zm0 18.03a8.02 8.02 0 0 1-4.086-1.117l-.293-.174-3.023 1.13.99-2.947-.192-.303a8.014 8.014 0 0 1-1.24-4.625c0-4.418 3.594-8.013 8.013-8.013 4.418 0 8.013 3.595 8.013 8.013 0 4.419-3.595 8.036-8.182 8.036z" />
+          </svg>
+        </a>
+
         {/* Admin notification bell — pending exercises/foods, admin only */}
         {user?.is_admin && (
           <Link
@@ -92,16 +120,6 @@ export default function Header({ onToggleSidebar }) {
             )}
           </Link>
         )}
-
-        {/* Theme toggle — always visible */}
-        <button
-          onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
-          className="text-text-mid hover:text-volt p-2 rounded-elem hover:bg-white/5 transition-colors"
-          title={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
-          aria-label={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
-        >
-          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
 
         {/* Desktop: user info — links to profile */}
         <NavLink

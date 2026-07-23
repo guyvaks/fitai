@@ -16,7 +16,6 @@ import AISuggestion from "./pages/AISuggestion";
 import Progress from "./pages/Progress";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
-import WhatsAppButton from "./components/WhatsAppButton";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -185,7 +184,6 @@ export default function App() {
           }
         />
       </Routes>
-          <WhatsAppButton />
           </div>
         </div>
         </BrowserRouter>
