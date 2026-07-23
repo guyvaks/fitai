@@ -121,7 +121,7 @@ export default function Metrics() {
         <>
           <div className="anim-rise anim-d1 card-glass p-5 space-y-4">
             <h3 className="text-text-hi font-bold">ניתוח מדדים</h3>
-            <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} />
+            <BMIMeter bmi={metrics.bmi} category={metrics.bmi_category} showCaption />
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white/4 border border-line rounded-elem p-3 text-center">
                 <div className="text-text-mid text-xs">TDEE</div>
