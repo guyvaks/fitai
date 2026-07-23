@@ -74,9 +74,6 @@ export default function Header({ onToggleSidebar }) {
       {/* Mobile: page title */}
       <h1 className="md:hidden text-base font-bold text-text-hi flex items-center gap-1.5">
         {title}
-        {location.pathname === "/admin" && pendingCount > 0 && (
-          <span className="bg-coral text-white text-[10px] rounded-full px-1.5 py-0.5">{pendingCount}</span>
-        )}
       </h1>
 
       {/* Right cluster */}
