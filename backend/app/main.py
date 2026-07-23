@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.endpoints import auth, users, nutrition, agents, workouts, foods, exercises, admin, food_master
+from app.api.v1.endpoints import auth, users, nutrition, agents, workouts, foods, exercises, admin, food_master, push
 
 app = FastAPI(title="FitAI API", version="1.0.0")
 
@@ -30,6 +30,7 @@ app.include_router(foods.router, prefix="/api/v1/foods", tags=["foods"])
 app.include_router(exercises.router, prefix="/api/v1/exercises", tags=["exercises"])
 app.include_router(food_master.router, prefix="/api/v1/food-master", tags=["food-master"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(push.router, prefix="/api/v1/push", tags=["push"])
 
 
 @app.get("/health")

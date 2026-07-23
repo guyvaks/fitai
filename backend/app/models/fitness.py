@@ -291,5 +291,6 @@ class FoodMaster(Base):
     carbs_per_100g = Column(Float, nullable=False)
     fat_per_100g = Column(Float, nullable=False)
     fiber_per_100g = Column(Float, nullable=True)
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     aliases = Column(JSON, default=list)
     is_active = Column(Boolean, default=True, nullable=False)

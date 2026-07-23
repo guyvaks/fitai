@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
-import { Menu, Home, Zap, Sun, Moon } from "lucide-react";
+import { Menu, Home, Zap, Sun, Moon, Bell } from "lucide-react";
 import Avatar from "../Avatar";
+import api from "../../services/api";
 
 const pageTitles = {
   "/dashboard": "ראשי",
@@ -22,6 +24,29 @@ export default function Header({ onToggleSidebar }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const title = pageTitles[location.pathname] || "FitAI";
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingExerciseCount, setPendingExerciseCount] = useState(0);
+  const [pendingFoodCount, setPendingFoodCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    Promise.all([
+      api.get("/api/v1/admin/exercises/pending"),
+      api.get("/api/v1/admin/food-master/pending"),
+    ])
+      .then(([ex, foods]) => {
+        setPendingExerciseCount(ex.data.length);
+        setPendingFoodCount(foods.data.length);
+        setPendingCount(ex.data.length + foods.data.length);
+      })
+      .catch(() => {});
+  }, [user?.is_admin]);
+
+  const bellTarget = pendingFoodCount > 0
+    ? "/admin?tab=foods"
+    : pendingExerciseCount > 0
+      ? "/admin?tab=exercises"
+      : "/admin";
 
   return (
     <header className="h-16 bg-surface/80 backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">
@@ -47,10 +72,30 @@ export default function Header({ onToggleSidebar }) {
       </div>
 
       {/* Mobile: page title */}
-      <h1 className="md:hidden text-base font-bold text-text-hi">{title}</h1>
+      <h1 className="md:hidden text-base font-bold text-text-hi flex items-center gap-1.5">
+        {title}
+        {location.pathname === "/admin" && pendingCount > 0 && (
+          <span className="bg-coral text-white text-[10px] rounded-full px-1.5 py-0.5">{pendingCount}</span>
+        )}
+      </h1>
 
       {/* Right cluster */}
       <div className="flex items-center gap-1 md:gap-3">
+        {/* Admin notification bell — pending exercises/foods, admin only */}
+        {user?.is_admin && (
+          <Link
+            to={bellTarget}
+            className="relative text-text-mid hover:text-volt p-2 rounded-elem hover:bg-white/5 transition-colors"
+            title="ממתינים לאישור"
+            aria-label="ממתינים לאישור"
+          >
+            <Bell className="w-5 h-5" />
+            {pendingCount > 0 && (
+              <span className="absolute top-0.5 left-0.5 bg-coral text-white text-[10px] rounded-full px-1.5 py-0.5">{pendingCount}</span>
+            )}
+          </Link>
+        )}
+
         {/* Theme toggle — always visible */}
         <button
           onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}

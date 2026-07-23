@@ -10,6 +10,7 @@ from app.data.exercises import search_exercises
 from app.models.fitness import ExerciseMaster
 from app.models.user import User
 from app.schemas.exercises import ExerciseSuggestionCreate
+from app.services.push_notifications import send_push_to_admins
 
 router = APIRouter()
 
@@ -69,6 +70,13 @@ def suggest_exercise(
     db.add(exercise)
     db.commit()
     db.refresh(exercise)
+
+    send_push_to_admins(
+        title="תרגיל חדש ממתין לאישור",
+        body=exercise.canonical_name_he,
+        url="/admin?tab=exercises",
+        db=db,
+    )
 
     return {
         "id": str(exercise.id),

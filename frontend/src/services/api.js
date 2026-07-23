@@ -75,4 +75,9 @@ export const exercisesAPI = {
   search: (q, muscle_group = '') => api.get('/api/v1/exercises/search', { params: { q, muscle_group } }),
 }
 
+export const foodMasterAPI = {
+  checkSimilar: (nameHe) => api.get('/api/v1/food-master/check-similar', { params: { name_he: nameHe } }),
+  suggest: (payload) => api.post('/api/v1/food-master/suggest', payload),
+}
+
 export default api;
