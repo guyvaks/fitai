@@ -256,42 +256,6 @@ function PendingFoods() {
     }
   };
 
-  // Always-visible "act on everything" shortcuts — distinct from the
-  // selection-based bulk bar below: these act on the full current list in
-  // one click, without requiring the user to check "בחר הכל" first.
-  const handleApproveAll = async () => {
-    setBulkBusy(true);
-    try {
-      const ids = foods.map((f) => f.id);
-      const { data } = await api.post("/api/v1/admin/food-master/bulk-approve", { ids });
-      const updated = new Set(data.updated_ids);
-      setFoods((prev) => prev.filter((f) => !updated.has(f.id)));
-      setSelectedIds(new Set());
-      notifyPendingCountChanged();
-    } catch {
-      alert("שגיאה באישור כל המוצרים");
-    } finally {
-      setBulkBusy(false);
-    }
-  };
-
-  const handleRejectAll = async () => {
-    if (!window.confirm(`לדחות (ולמחוק) את כל ${foods.length} המוצרים הממתינים? פעולה זו אינה ניתנת לביטול.`)) return;
-    setBulkBusy(true);
-    try {
-      const ids = foods.map((f) => f.id);
-      const { data } = await api.delete("/api/v1/admin/food-master/bulk-reject", { data: { ids } });
-      const deleted = new Set(data.deleted_ids);
-      setFoods((prev) => prev.filter((f) => !deleted.has(f.id)));
-      setSelectedIds(new Set());
-      notifyPendingCountChanged();
-    } catch {
-      alert("שגיאה במחיקת כל המוצרים");
-    } finally {
-      setBulkBusy(false);
-    }
-  };
-
   if (loading) return (
     <div className="p-6 text-text-mid card-glass flex items-center gap-2 anim-rise anim-d1">
       <Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...
@@ -309,34 +273,16 @@ function PendingFoods() {
 
   return (
     <div className="space-y-3 anim-rise anim-d1 pb-16">
-      {/* Select all + always-visible act-on-everything shortcuts */}
-      <div className="flex items-center justify-between gap-2 px-1">
-        <label className="flex items-center gap-2 text-text-mid text-sm cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={selectedIds.size === foods.length}
-            onChange={toggleSelectAll}
-            className="w-4 h-4 accent-volt"
-          />
-          בחר הכל
-        </label>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleApproveAll}
-            disabled={bulkBusy}
-            className="py-1 px-2 text-xs rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
-          >
-            <Check className="w-3 h-3" /> אשר הכל
-          </button>
-          <button
-            onClick={handleRejectAll}
-            disabled={bulkBusy}
-            className="py-1 px-2 text-xs rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
-          >
-            מחק הכל <X className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+      {/* Select all */}
+      <label className="flex items-center gap-2 px-1 text-text-mid text-sm cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={selectedIds.size === foods.length}
+          onChange={toggleSelectAll}
+          className="w-4 h-4 accent-volt"
+        />
+        בחר הכל
+      </label>
 
       {foods.map((food) => {
         const busy = actionLoading === food.id;

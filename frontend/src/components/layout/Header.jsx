@@ -83,7 +83,7 @@ export default function Header({ onToggleSidebar }) {
           squeezing the fixed-size icons/avatar on either side when a long
           title (e.g. "ניהול משתמשים") plus a wide right cluster overflow the
           430px mobile frame. */}
-      <h1 className="md:hidden flex-1 min-w-0 text-base font-bold text-text-hi flex items-center justify-center gap-1.5 truncate px-2">
+      <h1 className="md:hidden flex-1 min-w-0 text-sm font-bold text-text-hi flex items-center justify-center gap-1.5 truncate px-2">
         <span className="truncate">{title}</span>
       </h1>
 
