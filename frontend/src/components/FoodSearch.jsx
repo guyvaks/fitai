@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { foodsAPI } from '../services/api'
 import { Loader2 } from 'lucide-react'
+import AddFoodModal from './AddFoodModal'
 
 const CATEGORY_COLOR = {
   'חלבונים':      'bg-cyan-soft text-cyan',
@@ -29,6 +30,7 @@ export default function FoodSearch({ onSelect }) {
   const [category, setCategory] = useState('כל הקטגוריות')
   const [allFoods, setAllFoods] = useState([])
   const [searching, setSearching] = useState(false)
+  const [showAddFood, setShowAddFood] = useState(false)
   const debounceRef = useRef(null)
 
   // Load all foods on mount
@@ -118,7 +120,16 @@ export default function FoodSearch({ onSelect }) {
       {/* Foods grid — grouped by category */}
       <div className="space-y-4 max-h-72 overflow-y-auto pl-1">
         {groupOrder.length === 0 && !searching && (
-          <p className="text-text-mid text-sm text-center py-3">לא נמצאו מוצרים</p>
+          <div className="text-center py-3 space-y-2">
+            <p className="text-text-mid text-sm">לא נמצאו מוצרים</p>
+            <button
+              type="button"
+              onClick={() => setShowAddFood(true)}
+              className="px-3 py-1.5 rounded-elem text-sm font-medium border border-volt/30 text-volt hover:bg-volt-soft transition"
+            >
+              מוצר לא נמצא? הוסף חדש
+            </button>
+          </div>
         )}
         {groupOrder.map(cat => (
           <div key={cat}>
@@ -144,6 +155,13 @@ export default function FoodSearch({ onSelect }) {
           </div>
         ))}
       </div>
+
+      <AddFoodModal
+        open={showAddFood}
+        onClose={() => setShowAddFood(false)}
+        initialNameHe={query}
+        onSelect={onSelect}
+      />
     </div>
   )
 }

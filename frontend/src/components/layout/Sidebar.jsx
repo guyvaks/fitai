@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 import {
   LayoutDashboard,
   Salad,
@@ -35,7 +37,7 @@ const adminItems = [
   { to: "/admin", label: "ניהול משתמשים", Icon: Users },
 ];
 
-function NavItem({ to, label, Icon, onClose }) {
+function NavItem({ to, label, Icon, onClose, badge }) {
   return (
     <NavLink
       to={to}
@@ -50,12 +52,26 @@ function NavItem({ to, label, Icon, onClose }) {
     >
       <Icon className="w-4.5 h-4.5" strokeWidth={2} />
       <span>{label}</span>
+      {badge > 0 && (
+        <span className="bg-coral text-white text-[10px] rounded-full px-1.5 py-0.5 ml-1">{badge}</span>
+      )}
     </NavLink>
   );
 }
 
 export default function Sidebar({ onClose }) {
   const { user } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!user?.is_admin) return;
+    Promise.all([
+      api.get("/api/v1/admin/exercises/pending"),
+      api.get("/api/v1/admin/food-master/pending"),
+    ])
+      .then(([ex, foods]) => setPendingCount(ex.data.length + foods.data.length))
+      .catch(() => {});
+  }, [user?.is_admin]);
 
   const handleLogout = () => {
     localStorage.clear()
@@ -83,7 +99,7 @@ export default function Sidebar({ onClose }) {
           <>
             <div className="pt-2 pb-1 px-4 text-xs text-text-low uppercase tracking-wider">ניהול</div>
             {adminItems.map((item) => (
-              <NavItem key={item.to} {...item} onClose={onClose} />
+              <NavItem key={item.to} {...item} onClose={onClose} badge={pendingCount} />
             ))}
           </>
         )}

@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     ENVIRONMENT: str = "development"
     ANTHROPIC_API_KEY: Optional[str] = None
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = ""
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds

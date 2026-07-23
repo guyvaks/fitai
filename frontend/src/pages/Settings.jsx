@@ -28,6 +28,106 @@ function SectionCard({ icon: Icon, title, children }) {
   );
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+function AdminPushNotifications() {
+  const [supported, setSupported] = useState(true);
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      setSupported(false);
+      return;
+    }
+    (async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        const existing = await registration?.pushManager?.getSubscription();
+        setSubscribed(!!existing);
+      } catch {
+        // no registration yet -- treat as not subscribed
+      }
+    })();
+  }, []);
+
+  const handleEnable = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setError("ההרשאה להתראות נדחתה");
+        return;
+      }
+
+      const { data } = await api.get("/api/v1/push/vapid-public-key");
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(data.public_key),
+      });
+
+      await api.post("/api/v1/push/subscribe", subscription.toJSON());
+      setSubscribed(true);
+    } catch {
+      setError("שגיאה בהפעלת התראות, נסה שוב");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisable = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const subscription = await registration?.pushManager?.getSubscription();
+      if (subscription) {
+        await api.delete("/api/v1/push/subscribe", { data: { endpoint: subscription.endpoint } });
+        await subscription.unsubscribe();
+      }
+      setSubscribed(false);
+    } catch {
+      setError("שגיאה בביטול ההתראות, נסה שוב");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SectionCard icon={Bell} title="התראות פוש (מנהל)">
+      {!supported ? (
+        <p className="text-text-mid text-sm">התראות פוש אינן נתמכות בדפדפן/מכשיר זה</p>
+      ) : (
+        <>
+          <p className="text-text-mid text-sm">קבל התראה כשמוצר או תרגיל חדש ממתין לאישור, גם כשהאפליקציה סגורה</p>
+          {error && <p className="text-coral text-xs">{error}</p>}
+          <button
+            type="button"
+            onClick={subscribed ? handleDisable : handleEnable}
+            disabled={loading}
+            className={`w-full py-2.5 text-sm rounded-elem font-medium transition inline-flex items-center justify-center gap-1.5 ${
+              subscribed
+                ? "border border-coral/30 text-coral hover:bg-coral-soft"
+                : "btn-volt"
+            }`}
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? "מעדכן..." : subscribed ? "כבה התראות" : "הפעל התראות"}
+          </button>
+        </>
+      )}
+    </SectionCard>
+  );
+}
+
 function ComingSoonCard({ icon: Icon, title, description }) {
   return (
     <div className="anim-rise card-glass p-5 flex items-center gap-4 opacity-60">
@@ -177,6 +277,8 @@ export default function Settings() {
           <LogOut className="w-4 h-4" /> התנתקות
         </button>
       </SectionCard>
+
+      {user?.is_admin && <AdminPushNotifications />}
 
       <ComingSoonCard icon={Bell} title="התראות" description="עדכונים על תוכניות ותזכורות אימון" />
       <ComingSoonCard icon={Download} title="ייצוא וגיבוי נתונים" description="הורדת כל הנתונים שלך כקובץ" />

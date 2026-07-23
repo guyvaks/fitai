@@ -143,8 +143,9 @@ def reject_exercise(exercise_id: str, db: Session = Depends(get_db), _: User = D
 
 @router.get("/food-master/pending")
 def list_pending_foods(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    foods = (
-        db.query(FoodMaster)
+    rows = (
+        db.query(FoodMaster, User.email)
+        .outerjoin(User, FoodMaster.created_by_user_id == User.id)
         .filter(FoodMaster.is_active.is_(False))
         .order_by(FoodMaster.canonical_name_he)
         .all()
@@ -160,8 +161,10 @@ def list_pending_foods(db: Session = Depends(get_db), _: User = Depends(require_
             "carbs_per_100g": f.carbs_per_100g,
             "fat_per_100g": f.fat_per_100g,
             "fiber_per_100g": f.fiber_per_100g,
+            "created_by_user_id": str(f.created_by_user_id) if f.created_by_user_id else None,
+            "created_by_email": email,
         }
-        for f in foods
+        for f, email in rows
     ]
 
 

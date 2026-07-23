@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X } from "lucide-react";
+import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X, Apple } from "lucide-react";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {
   const [password, setPassword] = useState("");
@@ -136,6 +136,103 @@ function PendingExercises() {
               </button>
               <button
                 onClick={() => handleReject(ex)}
+                disabled={busy}
+                className="flex-1 py-2 text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+              >
+                {busy ? "..." : <>דחה <X className="w-3 h-3" /></>}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PendingFoods() {
+  const [foods, setFoods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(null);
+
+  const fetchPending = () => {
+    setLoading(true);
+    api.get("/api/v1/admin/food-master/pending")
+      .then(({ data }) => setFoods(data))
+      .catch(() => setError("אין גישה או שגיאת שרת"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchPending(); }, []);
+
+  const handleApprove = async (food) => {
+    setActionLoading(food.id);
+    try {
+      await api.post(`/api/v1/admin/food-master/${food.id}/approve`);
+      setFoods((prev) => prev.filter((f) => f.id !== food.id));
+    } catch {
+      alert("שגיאה באישור המוצר");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (food) => {
+    if (!window.confirm(`לדחות (ולמחוק) את המוצר "${food.canonical_name_he}"?\nפעולה זו אינה ניתנת לביטול.`)) return;
+    setActionLoading(food.id);
+    try {
+      await api.delete(`/api/v1/admin/food-master/${food.id}/reject`);
+      setFoods((prev) => prev.filter((f) => f.id !== food.id));
+    } catch {
+      alert("שגיאה בדחיית המוצר");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) return (
+    <div className="p-6 text-text-mid card-glass flex items-center gap-2 anim-rise anim-d1">
+      <Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...
+    </div>
+  );
+  if (error) return <div className="p-6 text-coral card-glass anim-rise anim-d1" style={{ borderColor: "rgba(251,113,133,0.4)" }}>{error}</div>;
+
+  if (foods.length === 0) {
+    return (
+      <div className="p-6 text-text-mid card-glass text-center anim-rise anim-d1">
+        אין מוצרים הממתינים לאישור כרגע
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 anim-rise anim-d1">
+      {foods.map((food) => {
+        const busy = actionLoading === food.id;
+        return (
+          <div key={food.id} className="card-glass p-4">
+            <div className="mb-3">
+              <p className="text-text-hi font-medium">{food.canonical_name_he}</p>
+              {food.canonical_name_en && (
+                <p className="text-text-mid text-xs" dir="ltr">{food.canonical_name_en}</p>
+              )}
+              <p className="text-text-low text-xs mt-1">
+                {food.category} · <span dir="ltr">{food.calories_per_100g}</span> קק״ל ל-100 גר׳ · ח׳ <span dir="ltr">{food.protein_per_100g}g</span>
+              </p>
+              {food.created_by_email && (
+                <p className="text-text-low text-xs mt-1" dir="ltr">הוצע ע"י: {food.created_by_email}</p>
+              )}
+            </div>
+            <div className="flex items-stretch gap-2">
+              <button
+                onClick={() => handleApprove(food)}
+                disabled={busy}
+                className="flex-1 py-2 text-xs px-2 rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
+              >
+                <Check className="w-3 h-3" /> אשר
+              </button>
+              <button
+                onClick={() => handleReject(food)}
                 disabled={busy}
                 className="flex-1 py-2 text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1"
               >
@@ -313,13 +410,15 @@ function UsersTab() {
 const TABS = [
   { key: "users", label: "משתמשים", Icon: Users },
   { key: "exercises", label: "תרגילים ממתינים", Icon: Dumbbell },
+  { key: "foods", label: "מוצרים ממתינים", Icon: Apple },
 ];
 
 export default function Admin() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") === "exercises" ? "exercises" : "users";
+  const tabParam = searchParams.get("tab");
+  const activeTab = TABS.some((t) => t.key === tabParam) ? tabParam : "users";
   const setActiveTab = (tab) =>
-    setSearchParams(tab === "exercises" ? { tab: "exercises" } : {}, { replace: true });
+    setSearchParams(tab === "users" ? {} : { tab }, { replace: true });
 
   return (
     <div className="max-w-5xl mx-auto" dir="rtl">
@@ -348,7 +447,7 @@ export default function Admin() {
         })}
       </div>
 
-      {activeTab === "users" ? <UsersTab /> : <PendingExercises />}
+      {activeTab === "users" ? <UsersTab /> : activeTab === "exercises" ? <PendingExercises /> : <PendingFoods />}
     </div>
   );
 }
