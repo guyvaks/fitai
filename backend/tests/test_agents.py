@@ -380,3 +380,63 @@ def test_get_pending_suggestions_lifecycle(client, monkeypatch):
 def test_get_pending_suggestions_unauthenticated(client):
     response = client.get("/api/v1/agents/pending")
     assert response.status_code == 401
+
+
+def test_regenerate_workout_supersedes_previous_failed_pending_suggestion(client, monkeypatch):
+    """Regression for the 'no_plan_generated' regenerate flow: clicking
+    regenerate (calling POST /agents/workout again) after a failed generation
+    must not accumulate a second pending row alongside the first forever —
+    the old one is marked 'superseded' so GET /pending only ever surfaces the
+    latest attempt, and the failed one isn't left dangling in 'pending'."""
+    _patch_background_db(monkeypatch)
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    # First attempt fails (no_plan_generated shape)
+    monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_invalid_crew)
+    first_task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
+    first_suggestion_id = client.get(
+        f"/api/v1/agents/status/{first_task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    pending_after_first = client.get("/api/v1/agents/pending", headers=headers).json()
+    assert len(pending_after_first) == 1
+    assert pending_after_first[0]["id"] == first_suggestion_id
+
+    # Regenerate: second attempt succeeds
+    monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_workout_crew)
+    second_task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
+    second_suggestion_id = client.get(
+        f"/api/v1/agents/status/{second_task_id}", headers=headers
+    ).json()["suggestion_id"]
+    assert second_suggestion_id != first_suggestion_id
+
+    # Only the new suggestion is pending; the old failed one was superseded,
+    # not left dangling.
+    pending_after_second = client.get("/api/v1/agents/pending", headers=headers).json()
+    assert len(pending_after_second) == 1
+    assert pending_after_second[0]["id"] == second_suggestion_id
+    assert "workout_plan" in pending_after_second[0]["content"]
+
+
+def test_regenerate_does_not_supersede_a_different_suggestion_type(client, monkeypatch):
+    """The supersede is scoped to an exact suggestion_type match — a pending
+    'nutrition' suggestion must survive a 'workout' regenerate untouched."""
+    _patch_background_db(monkeypatch)
+    monkeypatch.setattr(crew_agents, "run_nutrition_crew", _fake_nutrition_crew)
+    monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_workout_crew)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    nutrition_task_id = client.post("/api/v1/agents/nutrition", headers=headers).json()["task_id"]
+    nutrition_suggestion_id = client.get(
+        f"/api/v1/agents/status/{nutrition_task_id}", headers=headers
+    ).json()["suggestion_id"]
+
+    client.post("/api/v1/agents/workout", headers=headers)
+
+    pending = client.get("/api/v1/agents/pending", headers=headers).json()
+    pending_ids = {p["id"] for p in pending}
+    assert len(pending) == 2
+    assert nutrition_suggestion_id in pending_ids

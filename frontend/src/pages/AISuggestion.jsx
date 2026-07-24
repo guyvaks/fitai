@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
-import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2, CheckCircle2 } from 'lucide-react'
+import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2, CheckCircle2, RefreshCw } from 'lucide-react'
+
+const REGENERATE_FN_BY_TYPE = {
+  workout: 'generateWorkout',
+  nutrition: 'generateNutrition',
+  both: 'generateFullPlan',
+}
+
+// Real generation is ~60-70s per attempt; the backend's own completeness/
+// judge retry (crew_agents.MAX_PLAN_ATTEMPTS) can run up to 3 full attempts
+// before giving up, so the poll budget must comfortably cover the worst
+// case, not just the common one.
+const REGENERATE_POLL_INTERVAL_MS = 5000
+const REGENERATE_POLL_MAX_ATTEMPTS = 48 // 48 * 5s = 240s
 
 const STATUS_BADGE = {
   pending: { label: 'ממתין לאישורך', color: 'bg-cyan-soft text-cyan border-cyan/30' },
@@ -239,6 +252,7 @@ export default function AISuggestion() {
   const [suggestion, setSuggestion] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [approved, setApproved] = useState(false)
   const [activeTab, setActiveTab] = useState(() =>
     // will be overridden after load, but start with nutrition
@@ -292,6 +306,52 @@ export default function AISuggestion() {
       setSuggestion(null)
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  // One-click retry for a failed/judge-rejected generation ("צור מחדש"):
+  // re-runs the same generate endpoint the suggestion originally came from,
+  // polls status until it reaches a terminal state, then refetches /pending
+  // in place — no navigation away, whether the new attempt succeeds or fails
+  // again with the same friendly no-content state. The backend supersedes
+  // the old failed suggestion the moment generation restarts (see
+  // _start_task in agents.py), so this never leaves a duplicate pending row.
+  const handleRegenerate = async () => {
+    if (!suggestion || regenerating) return
+    const fnName = REGENERATE_FN_BY_TYPE[suggestion.suggestion_type] || 'generateWorkout'
+    setRegenerating(true)
+    try {
+      const { data } = await agentsAPI[fnName]()
+      const taskId = data.task_id
+
+      let status = null
+      for (let i = 0; i < REGENERATE_POLL_MAX_ATTEMPTS; i++) {
+        await new Promise((resolve) => setTimeout(resolve, REGENERATE_POLL_INTERVAL_MS))
+        const res = await agentsAPI.getStatus(taskId)
+        status = res.data
+        if (status.status === 'ready' || status.status === 'error') break
+      }
+
+      if (!status || (status.status !== 'ready' && status.status !== 'error')) {
+        alert('היצירה לוקחת יותר זמן מהרגיל — רענן את הדף בעוד רגע כדי לבדוק את התוצאה')
+      }
+
+      // Refetch regardless of outcome — shows the new plan on success, or
+      // the same friendly no-content state (via hasNoContent) if it failed
+      // again. The old superseded suggestion never reappears here since
+      // GET /pending only returns status == "pending".
+      const pendingRes = await agentsAPI.getPending()
+      const item = pendingRes.data?.[0] || null
+      setSuggestion(item)
+      if (item?.content) {
+        const c = normaliseContent(item.content)
+        if (c.meal_plan) setActiveTab('nutrition')
+        else if (c.workout_plan) setActiveTab('workout')
+      }
+    } catch {
+      alert('שגיאה ביצירת התוכנית מחדש, נסה שוב')
+    } finally {
+      setRegenerating(false)
     }
   }
 
@@ -511,18 +571,28 @@ export default function AISuggestion() {
       {/* Action buttons — after full content review */}
       {suggestion.status === 'pending' && (
         <div className="flex gap-3 pt-2">
-          <button
-            onClick={handleApprove}
-            disabled={actionLoading || hasNoContent}
-            title={hasNoContent ? 'יצירת התוכנית נכשלה — אין תוכן תקין לאישור' : undefined}
-            className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
-          >
-            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            {actionLoading ? 'מעבד...' : 'אשר ואמץ את התכנית'}
-          </button>
+          {hasNoContent ? (
+            <button
+              onClick={handleRegenerate}
+              disabled={regenerating}
+              className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
+            >
+              {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {regenerating ? 'יוצר תוכנית חדשה...' : 'צור מחדש'}
+            </button>
+          ) : (
+            <button
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {actionLoading ? 'מעבד...' : 'אשר ואמץ את התכנית'}
+            </button>
+          )}
           <button
             onClick={handleReject}
-            disabled={actionLoading}
+            disabled={actionLoading || regenerating}
             className="flex-1 bg-coral-soft text-coral border border-coral/30 py-3 rounded-xl font-semibold text-sm hover:bg-coral/20 disabled:opacity-50 transition flex items-center justify-center gap-1.5"
           >
             <X className="w-4 h-4" /> דחה וצור חדש
