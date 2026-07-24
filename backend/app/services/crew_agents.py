@@ -467,12 +467,77 @@ def _kickoff_and_extract(crew) -> dict:
     return best or {"error": "no output"}
 
 
-def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str) -> dict:
-    """Run a fresh agent+task+crew up to MAX_PLAN_ATTEMPTS times, retrying whenever
-    the result doesn't contain a full 7-day plan under `plan_key`. Each attempt is
-    an independent LLM call (rebuilt from scratch) — the failure mode is a flaky
-    LLM formatting slip, not a deterministic one, so a fresh attempt is expected
-    to have a good chance of succeeding even when the prior one didn't."""
+# ─── Stage 2: semantic "judge" validation ──────────────────────────────────
+# Distinct from the structural completeness check above (_plan_key_with_
+# all_days / incomplete_plan_keys), which only verifies JSON *shape* — all 7
+# day keys present. A plan can pass that check and still be useless (every
+# day empty/"rest" with no real content, or exercises/meals that don't match
+# what the user asked for at all). This stage runs a second, cheap/fast LLM
+# call whose only job is a pass/fail verdict — not content generation — kept
+# on a small model with a short prompt so it adds only a few seconds to the
+# existing ~60-70s generation flow, not a second full generation pass.
+JUDGE_LLM_MODEL = "anthropic/claude-haiku-4-5"
+
+
+def _judge_plan(plan_key: str, plan_value: dict, profile: dict) -> tuple:
+    """Ask a cheap/fast model to sanity-check an already structurally-complete
+    plan: real content per day (not empty/placeholder), roughly matching the
+    user's stated goal/equipment. Returns (is_valid, reason).
+
+    Fails OPEN, not closed: any problem with the judge call itself (API
+    error, unparseable response) returns is_valid=True — a flaky judge call
+    must never become a new source of false rejections on top of the crew
+    generation flakiness this whole retry mechanism already exists for. Only
+    an actual judge-returned {"valid": false} counts as a rejection."""
+    kind = "תפריט תזונה שבועי" if plan_key == "meal_plan" else "תכנית אימונים שבועית"
+    try:
+        from crewai import LLM
+
+        llm = LLM(model=JUDGE_LLM_MODEL, max_tokens=150)
+        prompt = f"""אתה בודק QA גס בלבד — לא מבקר איכות. קיבלת {kind} בפורמט JSON עבור משתמש \
+עם מטרה "{profile.get('goal')}" וציוד "{profile.get('equipment', 'ללא ציוד')}".
+
+המטרה היחידה שלך היא לתפוס תוכניות **שבורות לגמרי**, לא לבקר תוכניות סבירות. \
+תסמן valid=false **רק** אם קורה אחד מאלה בפועל:
+- ימים ריקים לגמרי (מלבד ימי מנוחה מכוונים) או ערכי placeholder ברורים (למשל "foo", "xyz", "lorem ipsum", שם/מספר חסרי משמעות)
+- ערכים בלתי אפשריים (למשל 0 חזרות בתרגיל פעיל, מאות סטים, משקל שלילי)
+- כל הימים זהים לחלוטין מילה במילה (העתק-הדבק ברור, לא רק דמיון סביר)
+- שימוש בציוד שהמשתמש בבירור *אין* לו בכלל (למשל תרגיל מוט/ברבל כשצוין "ללא ציוד")
+
+**אל** תסמן valid=false על ניואנסים כמו: תרגיל אחד שיכול להתבצע גם בלי הציוד שצוין, \
+חלוקת קבוצות שרירים לא מושלמת, פירוט חסר, או כל דבר שהוא "אפשר היה טוב יותר" ולא "שבור בפועל". \
+ספק, תסמן valid=true.
+
+תוכנית:
+{json.dumps(plan_value, ensure_ascii=False)[:4000]}
+
+החזר אך ורק JSON בפורמט: {{"valid": true/false, "reason": "הסבר קצר במשפט אחד"}}"""
+
+        raw = llm.call(prompt)
+        parsed = _extract_json(str(raw))
+        if isinstance(parsed, dict) and "valid" in parsed:
+            return bool(parsed["valid"]), str(parsed.get("reason", ""))
+        return True, "judge response unparseable — failing open"
+    except Exception as e:
+        return True, f"judge call failed — failing open ({e})"
+
+
+def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str, profile: dict) -> dict:
+    """Run a fresh agent+task+crew up to MAX_PLAN_ATTEMPTS times, retrying
+    whenever the result either (a) doesn't contain a full 7-day plan under
+    `plan_key` (structural check), or (b) does, but the judge (semantic check,
+    see above) rejects it as not actually sane content. Each attempt is an
+    independent LLM call (rebuilt from scratch) — the failure mode is a flaky
+    LLM formatting slip, not a deterministic one, so a fresh attempt is
+    expected to have a good chance of succeeding even when the prior one
+    didn't.
+
+    On final exhaustion after a judge rejection, the returned dict is
+    replaced with the same {"error": ...} shape as a total structural
+    failure (rather than returning the judge-rejected plan content) — so a
+    plan that's structurally complete but semantically garbage is treated
+    identically to "no output" at the approve boundary (incomplete_plan_keys
+    returns NO_PLAN_GENERATED for both), not silently saved."""
     last_result = {"error": "no output"}
     for attempt in range(1, MAX_PLAN_ATTEMPTS + 1):
         agent, task = build_agent_and_task()
@@ -480,9 +545,19 @@ def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str) -> dic
         last_result = _kickoff_and_extract(crew)
 
         if _plan_key_with_all_days(last_result) == plan_key:
-            if attempt > 1:
-                print(f"[crew_agents] {label}: got a complete 7-day plan on attempt {attempt}/{MAX_PLAN_ATTEMPTS}")
-            return last_result
+            valid, reason = _judge_plan(plan_key, last_result[plan_key], profile)
+            if valid:
+                if attempt > 1:
+                    print(f"[crew_agents] {label}: got a complete, judge-approved 7-day plan on attempt {attempt}/{MAX_PLAN_ATTEMPTS}")
+                return last_result
+
+            print(
+                f"[crew_agents] WARNING: {label} attempt {attempt}/{MAX_PLAN_ATTEMPTS} passed the structural "
+                f"7-day check but FAILED judge validation ({reason})"
+                + (" — retrying" if attempt < MAX_PLAN_ATTEMPTS else " — giving up, treating as no output")
+            )
+            last_result = {"error": "no output", "judge_rejected": True, "judge_reason": reason}
+            continue
 
         found_days = None
         plan_val = last_result.get(plan_key)
@@ -498,21 +573,23 @@ def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str) -> dic
 
 
 async def run_nutrition_crew(profile: dict, memory: dict) -> dict:
-    """Run only the nutrition agent, retrying on an incomplete (not-7-day) plan."""
+    """Run only the nutrition agent, retrying on an incomplete (not-7-day) plan
+    or a judge-rejected one (see _judge_plan)."""
     def build():
         agent = get_nutrition_agent()
         return agent, build_nutrition_task(agent, profile, memory)
 
-    return _run_crew_with_retry(build, "meal_plan", "nutrition crew")
+    return _run_crew_with_retry(build, "meal_plan", "nutrition crew", profile)
 
 
 async def run_workout_crew(profile: dict, memory: dict) -> dict:
-    """Run only the workout agent, retrying on an incomplete (not-7-day) plan."""
+    """Run only the workout agent, retrying on an incomplete (not-7-day) plan
+    or a judge-rejected one (see _judge_plan)."""
     def build():
         agent = get_workout_agent()
         return agent, build_workout_task(agent, profile, memory)
 
-    result = _run_crew_with_retry(build, "workout_plan", "workout crew")
+    result = _run_crew_with_retry(build, "workout_plan", "workout crew", profile)
     validate_workout_exercises(result)
     return result
 

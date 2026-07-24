@@ -55,3 +55,23 @@ def client(db_session):
     fastapi_app.dependency_overrides[get_db] = override_get_db
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "e2e: real end-to-end test that calls the live Anthropic API "
+        "(slow, not free) — excluded by default, run explicitly with `pytest -m e2e`",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """`e2e`-marked tests (see test_e2e_workout_generation.py) never run as
+    part of the normal suite — they're slow and make real, billed API calls,
+    unlike every other test here. Only an explicit `-m e2e` opts in."""
+    if "e2e" in (config.getoption("-m") or ""):
+        return
+    skip_e2e = pytest.mark.skip(reason="e2e test — calls the live Anthropic API, run explicitly with `pytest -m e2e`")
+    for item in items:
+        if "e2e" in item.keywords:
+            item.add_marker(skip_e2e)
