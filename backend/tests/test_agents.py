@@ -165,7 +165,13 @@ def test_approve_suggestion_success_activates_nutrition_plan(client, monkeypatch
     assert sorted(plan_response.json()["plan_data"]["meal_plan"].keys()) == sorted(DAYS)
 
 
-def test_approve_suggestion_with_invalid_content_returns_400(client, monkeypatch):
+def test_approve_suggestion_with_no_plan_generated_returns_422(client, monkeypatch):
+    """A total generation failure (neither meal_plan nor workout_plan present
+    at all — the {"error": "no output"} shape _kickoff_and_extract falls back
+    to) must be rejected as a distinct, identifiable error type (422 +
+    error_type: "no_plan_generated"), not the same generic 400 used for a
+    partial plan or other validation failures — so the frontend can show a
+    specific "try again" message instead of a generic alert."""
     _patch_background_db(monkeypatch)
     monkeypatch.setattr(crew_agents, "run_nutrition_crew", _fake_invalid_crew)
 
@@ -176,7 +182,9 @@ def test_approve_suggestion_with_invalid_content_returns_400(client, monkeypatch
     suggestion_id = client.get(f"/api/v1/agents/status/{task_id}", headers=headers).json()["suggestion_id"]
 
     approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
-    assert approve_response.status_code == 400
+    assert approve_response.status_code == 422
+    detail = approve_response.json()["detail"]
+    assert detail["error_type"] == "no_plan_generated"
 
 
 def test_approve_suggestion_with_retry_exhausted_partial_plan_is_rejected(client, monkeypatch):

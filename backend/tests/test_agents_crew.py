@@ -50,6 +50,30 @@ def test_plan_key_with_all_days_rejects_partial_week():
     assert crew_agents._plan_key_with_all_days(partial) is None
 
 
+def test_incomplete_plan_keys_flags_no_plan_generated_when_no_plan_key_present():
+    """Total generation failure — neither meal_plan nor workout_plan at all
+    (e.g. the {"error": "no output"} fallback) — must be distinguished from a
+    partial plan via the NO_PLAN_GENERATED sentinel."""
+    assert crew_agents.incomplete_plan_keys({"error": "no output"}) == [crew_agents.NO_PLAN_GENERATED]
+
+
+def test_incomplete_plan_keys_flags_no_plan_generated_for_non_dict_content():
+    assert crew_agents.incomplete_plan_keys("not a dict") == [crew_agents.NO_PLAN_GENERATED]
+    assert crew_agents.incomplete_plan_keys(None) == [crew_agents.NO_PLAN_GENERATED]
+
+
+def test_incomplete_plan_keys_still_flags_partial_plan_by_name():
+    """Existing behaviour must be unchanged: a plan key that IS present but
+    incomplete is flagged by its own name, not the no-plan sentinel."""
+    partial = json.loads(partial_week_json(num_days=1))
+    assert crew_agents.incomplete_plan_keys(partial) == ["meal_plan"]
+
+
+def test_incomplete_plan_keys_empty_for_complete_plan():
+    full = json.loads(full_week_json())
+    assert crew_agents.incomplete_plan_keys(full) == []
+
+
 def test_run_crew_with_retry_succeeds_on_first_attempt(monkeypatch):
     monkeypatch.setattr(
         crew_agents, "Crew", make_fake_crew_class(lambda: FakeCrewResult(full_week_json()))

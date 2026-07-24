@@ -38,6 +38,14 @@ def _plan_key_with_all_days(d: dict) -> Optional[str]:
     return None
 
 
+# Sentinel returned by incomplete_plan_keys() when neither meal_plan nor
+# workout_plan is present at all (total generation failure, e.g. the
+# {"error": "no output"} fallback in _kickoff_and_extract) — distinct from a
+# partial plan (a real key present but missing some days) so callers can
+# surface a different, more accurate message for each case.
+NO_PLAN_GENERATED = "no_plan_generated"
+
+
 def incomplete_plan_keys(content: dict) -> list:
     """Which of 'meal_plan'/'workout_plan' are present in content but not a
     complete 7-day dict. Used at the approve-suggestion boundary to catch a
@@ -46,9 +54,12 @@ def incomplete_plan_keys(content: dict) -> list:
     result instead of raising, so callers that persist the result must check
     completeness themselves. Checks every key present independently, so a
     merged run_full_crew result with one complete plan and one partial one
-    still gets flagged."""
-    if not isinstance(content, dict):
-        return []
+    still gets flagged.
+
+    Returns [NO_PLAN_GENERATED] (and only that) when neither plan key is
+    present at all — a total generation failure, not a partial one."""
+    if not isinstance(content, dict) or not any(key in content for key in _PLAN_DAY_KEYS):
+        return [NO_PLAN_GENERATED]
     incomplete = []
     for key in _PLAN_DAY_KEYS:
         if key not in content:
