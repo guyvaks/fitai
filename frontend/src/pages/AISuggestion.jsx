@@ -273,7 +273,11 @@ export default function AISuggestion() {
       setApproved(true)
       setTimeout(() => navigate(dest), 1500)
     } catch (e) {
-      alert(e.response?.data?.detail || 'שגיאה באישור')
+      const detail = e.response?.data?.detail
+      const message = detail && typeof detail === 'object' && detail.error_type === 'no_plan_generated'
+        ? 'יצירת התוכנית נכשלה, נסה ליצור מחדש'
+        : (typeof detail === 'string' && detail) || 'שגיאה באישור'
+      alert(message)
       setActionLoading(false)
     }
   }
@@ -421,14 +425,13 @@ export default function AISuggestion() {
         )}
       </div>
 
-      {/* No content warning */}
+      {/* No content warning — covers both the {"error": ...} shape from a
+          total crew-generation failure and any other content missing both
+          plan keys. Friendly message only; no raw error/keys shown to the
+          user (see handleApprove/hasNoContent below). */}
       {hasNoContent && (
         <div className="bg-amber-soft border border-amber/30 rounded-card p-4 space-y-2">
-          <p className="text-amber text-sm font-semibold inline-flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> לא נמצא תוכן מובנה</p>
-          <p className="text-amber/80 text-xs">מפתחות: {Object.keys(suggestion.content || {}).join(', ') || 'ריק'}</p>
-          {suggestion.content?.error && (
-            <p className="text-coral text-xs">שגיאה: {suggestion.content.error}</p>
-          )}
+          <p className="text-amber text-sm font-semibold inline-flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> יצירת התוכנית נכשלה, נסה ליצור מחדש</p>
         </div>
       )}
 
@@ -510,7 +513,8 @@ export default function AISuggestion() {
         <div className="flex gap-3 pt-2">
           <button
             onClick={handleApprove}
-            disabled={actionLoading}
+            disabled={actionLoading || hasNoContent}
+            title={hasNoContent ? 'יצירת התוכנית נכשלה — אין תוכן תקין לאישור' : undefined}
             className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
           >
             {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}

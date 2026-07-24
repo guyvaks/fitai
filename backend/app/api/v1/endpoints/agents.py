@@ -185,9 +185,21 @@ def approve_suggestion(
 
     content = _normalise_content(suggestion.content)
 
-    from app.services.crew_agents import incomplete_plan_keys
+    from app.services.crew_agents import incomplete_plan_keys, NO_PLAN_GENERATED
 
     incomplete = incomplete_plan_keys(content)
+    if incomplete == [NO_PLAN_GENERATED]:
+        # Total generation failure (neither meal_plan nor workout_plan present
+        # at all) — a distinct, identifiable error type from a partial plan,
+        # so the frontend can show a specific "try again" message instead of
+        # lumping it in with the generic validation-error alert.
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_type": NO_PLAN_GENERATED,
+                "message": "יצירת התוכנית נכשלה, נסה ליצור מחדש",
+            },
+        )
     if incomplete:
         raise HTTPException(
             status_code=400,
