@@ -3,8 +3,11 @@ app.services.crew_agents. All LLM calls are mocked via Crew.kickoff — no real
 Anthropic API requests happen here (cost, latency, non-determinism)."""
 import asyncio
 import json
+import uuid
 
+from app.models.fitness import ExerciseMaster
 from app.services import crew_agents
+from tests.conftest import TestingSessionLocal
 
 DAYS = ("sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
 
@@ -278,3 +281,81 @@ def test_extract_json_prefers_candidate_with_all_days():
 def test_extract_json_handles_unparseable_text():
     extracted = crew_agents._extract_json("not json at all")
     assert extracted["error"] == "Could not parse JSON"
+
+
+# ─── Hebrew/English equipment vocabulary mismatch (regression) ────────────
+# UserProfile.equipment stores the Hebrew label the user actually clicked in
+# Profile.jsx's fixed EQUIPMENT_OPTIONS checkboxes; exercises_master.equipment
+# uses an unrelated English vocabulary (barbell/dumbbell/machine/...).
+# Without translation, _filter_exercises_by_equipment() never matched a
+# Hebrew value against its English equivalent and silently fell back to
+# bodyweight-only exercises for every user with real (Hebrew) equipment.
+
+def test_parse_equipment_translates_dumbbells_hebrew_to_english_token():
+    assert crew_agents._parse_equipment('["משקולות"]') == {"dumbbell"}
+
+
+def test_parse_equipment_translates_bar_plus_dumbbells_to_both_english_tokens():
+    assert crew_agents._parse_equipment('["מוט + משקולות"]') == {"barbell", "dumbbell"}
+
+
+def test_parse_equipment_translates_trx_case_insensitively():
+    assert crew_agents._parse_equipment('["TRX"]') == {"suspension_band"}
+    assert crew_agents._parse_equipment('["trx"]') == {"suspension_band"}
+
+
+def test_parse_equipment_combines_multiple_hebrew_values():
+    assert crew_agents._parse_equipment(
+        '["משקולות", "מוט + משקולות", "שחייה"]'
+    ) == {"dumbbell", "barbell", "שחייה"}
+
+
+def test_parse_equipment_leaves_unmapped_hebrew_values_as_is():
+    """"אופניים"/"שחייה" (bike/swimming) have no corresponding token in
+    exercises_master's strength-equipment vocabulary — left untranslated is
+    a no-op (matches nothing, same as before this fix), not a regression."""
+    assert crew_agents._parse_equipment('["אופניים"]') == {"אופניים"}
+    assert crew_agents._parse_equipment('["שחייה"]') == {"שחייה"}
+
+
+def test_parse_equipment_no_equipment_returns_empty_set():
+    assert crew_agents._parse_equipment(None) == set()
+    assert crew_agents._parse_equipment('[]') == set()
+
+
+def test_filter_exercises_by_hebrew_equipment_matches_english_tagged_exercises(monkeypatch, db_session):
+    """End-to-end for the actual bug: a real ExerciseMaster row tagged with
+    the English 'dumbbell' token must be reachable by a user whose profile
+    equipment is the Hebrew "משקולות" — this is exactly what silently failed
+    (fell back to bodyweight-only) before the translation fix."""
+    monkeypatch.setattr(crew_agents, "SessionLocal", TestingSessionLocal)
+
+    def _seed(name_he, equipment):
+        ex = ExerciseMaster(
+            id=uuid.uuid4(),
+            canonical_name_he=name_he,
+            canonical_name_en=name_he,
+            category="test",
+            muscle_group_primary="Test",
+            equipment=equipment,
+            aliases=[],
+            is_active=True,
+        )
+        db_session.add(ex)
+
+    _seed("שכיבות סמיכה", "none")
+    _seed("לחיצת חזה עם משקולות", "dumbbell")
+    _seed("סקוואט עם מוט", "barbell")
+    _seed("לחיצת רגליים במכונה", "machine")
+    db_session.commit()
+
+    equipment = crew_agents._parse_equipment('["משקולות"]')
+    allowed = crew_agents._filter_exercises_by_equipment(
+        crew_agents.get_canonical_exercises(), equipment
+    )
+    allowed_names = {ex["name_he"] for ex in allowed}
+
+    assert "לחיצת חזה עם משקולות" in allowed_names  # dumbbell — the actual bug
+    assert "שכיבות סמיכה" in allowed_names  # none/bodyweight — always allowed
+    assert "סקוואט עם מוט" not in allowed_names  # barbell — user didn't list it
+    assert "לחיצת רגליים במכונה" not in allowed_names  # machine — user didn't list it
