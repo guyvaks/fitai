@@ -107,10 +107,30 @@ def _run_in_background(task_id: str, crew_fn_name: str, profile_dict: dict, memo
 
 
 def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: User, crew_fn_name: str, suggestion_type: str) -> dict:
-    """Shared logic: validate profile, create task_id, enqueue background job."""
+    """Shared logic: validate profile, create task_id, enqueue background job.
+
+    Before starting, supersede any existing *pending* suggestion(s) of this
+    same suggestion_type for this user (exact type match only — "workout" vs
+    "workout", not "workout" vs "both"). Without this, calling the same
+    generate endpoint again (e.g. the frontend's "צור מחדש" regenerate button
+    after a failed/judge-rejected generation, or simply clicking generate
+    twice) would accumulate duplicate pending rows forever — GET /pending
+    happens to still surface the newest one first (ordered by created_at
+    desc), but every older failed attempt would sit unresolved in "pending"
+    status indefinitely instead of being explicitly superseded."""
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="נא להשלים את הפרופיל תחילה")
+
+    # Only supersede once we know a new generation is actually going to start
+    # — an incomplete-profile request above must not touch any existing
+    # suggestion.
+    db.query(AISuggestion).filter(
+        AISuggestion.user_id == current_user.id,
+        AISuggestion.suggestion_type == suggestion_type,
+        AISuggestion.status == "pending",
+    ).update({"status": "superseded"})
+    db.commit()
 
     memory_row = db.query(UserMemory).filter(UserMemory.user_id == current_user.id).first()
     memory = memory_row.memory_data if memory_row else {}
