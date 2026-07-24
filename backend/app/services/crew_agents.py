@@ -215,6 +215,7 @@ _HEBREW_EQUIPMENT_TRANSLATIONS = {
     "משקולות": {"dumbbell"},
     "מוט + משקולות": {"barbell", "dumbbell"},
     "trx": {"suspension_band"},  # frontend's own label is the Latin brand name "TRX"
+    "מכשירי חדר כושר": {"machine"},
 }
 
 

@@ -304,6 +304,10 @@ def test_parse_equipment_translates_trx_case_insensitively():
     assert crew_agents._parse_equipment('["trx"]') == {"suspension_band"}
 
 
+def test_parse_equipment_translates_gym_machines_to_machine_token():
+    assert crew_agents._parse_equipment('["מכשירי חדר כושר"]') == {"machine"}
+
+
 def test_parse_equipment_combines_multiple_hebrew_values():
     assert crew_agents._parse_equipment(
         '["משקולות", "מוט + משקולות", "שחייה"]'
@@ -359,3 +363,65 @@ def test_filter_exercises_by_hebrew_equipment_matches_english_tagged_exercises(m
     assert "שכיבות סמיכה" in allowed_names  # none/bodyweight — always allowed
     assert "סקוואט עם מוט" not in allowed_names  # barbell — user didn't list it
     assert "לחיצת רגליים במכונה" not in allowed_names  # machine — user didn't list it
+
+
+def test_filter_exercises_by_gym_machines_equipment_opts_in_to_machine_exercises(monkeypatch, db_session):
+    """Follow-up to the Hebrew equipment mapping fix: exercises_master's
+    largest single category ("machine", 136/388 exercises) had no
+    corresponding Profile.jsx checkbox at all, so no user could ever reach
+    it. Confirms the new "מכשירי חדר כושר" option (a) unlocks machine-tagged
+    exercises when selected, and (b) is a pure opt-in — a profile that
+    doesn't have it set (the default for every existing user, no migration)
+    must NOT gain access to machine exercises, i.e. no retroactive
+    behavior change for users who haven't touched their profile since this
+    was added."""
+    monkeypatch.setattr(crew_agents, "SessionLocal", TestingSessionLocal)
+
+    def _seed(name_he, equipment):
+        ex = ExerciseMaster(
+            id=uuid.uuid4(),
+            canonical_name_he=name_he,
+            canonical_name_en=name_he,
+            category="test",
+            muscle_group_primary="Test",
+            equipment=equipment,
+            aliases=[],
+            is_active=True,
+        )
+        db_session.add(ex)
+
+    _seed("שכיבות סמיכה", "none")
+    _seed("לחיצת רגליים במכונה", "machine")
+    db_session.commit()
+
+    exercises = crew_agents.get_canonical_exercises()
+
+    # Opted in: machine exercises now reachable.
+    equipment_with_machines = crew_agents._parse_equipment('["מכשירי חדר כושר"]')
+    allowed_with_machines = {
+        ex["name_he"] for ex in crew_agents._filter_exercises_by_equipment(exercises, equipment_with_machines)
+    }
+    assert "לחיצת רגליים במכונה" in allowed_with_machines
+    assert "שכיבות סמיכה" in allowed_with_machines  # bodyweight always allowed too
+
+    # Not opted in (e.g. existing user with equipment=None/unset, or any
+    # profile that simply didn't pick this new option): machine exercises
+    # must NOT appear — no retroactive assumption of gym access.
+    equipment_without_machines = crew_agents._parse_equipment('["משקולות"]')
+    allowed_without_machines = {
+        ex["name_he"] for ex in crew_agents._filter_exercises_by_equipment(exercises, equipment_without_machines)
+    }
+    assert "לחיצת רגליים במכונה" not in allowed_without_machines
+
+    # Existing user with no equipment set at all (None) — the actual default
+    # for every profile that predates this change. This is pre-existing,
+    # unrelated behavior this fix does not touch: _filter_exercises_by_
+    # equipment's documented "no equipment listed -> don't restrict" rule
+    # already returned the full unfiltered list (including machine) before
+    # this change, and still does — confirming this specific case's result
+    # is identical, not newly "unlocked" by adding the checkbox.
+    equipment_unset = crew_agents._parse_equipment(None)
+    allowed_unset = {
+        ex["name_he"] for ex in crew_agents._filter_exercises_by_equipment(exercises, equipment_unset)
+    }
+    assert allowed_unset == {"שכיבות סמיכה", "לחיצת רגליים במכונה"}  # unchanged: "no restriction" fallback, pre-existing
