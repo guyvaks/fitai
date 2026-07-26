@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from typing import Dict
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
@@ -118,6 +118,12 @@ def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: Us
     happens to still surface the newest one first (ordered by created_at
     desc), but every older failed attempt would sit unresolved in "pending"
     status indefinitely instead of being explicitly superseded."""
+    if not current_user.ai_access_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="הגישה לתכונת ה-AI טרם אושרה עבורך. פנה למנהל המערכת.",
+        )
+
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=400, detail="נא להשלים את הפרופיל תחילה")

@@ -266,8 +266,8 @@ def test_existing_pre_migration_users_are_not_locked_out(client, db_session):
 
     user_id = uuid.uuid4()
     db_session.execute(text(
-        "INSERT INTO users (id, email, hashed_password, full_name, is_active, is_admin, is_verified) "
-        "VALUES (:id, :email, :hashed_password, :full_name, 1, 0, 1)"
+        "INSERT INTO users (id, email, hashed_password, full_name, is_active, is_admin, is_verified, ai_access_approved) "
+        "VALUES (:id, :email, :hashed_password, :full_name, 1, 0, 1, 1)"
     ), {
         "id": str(user_id),
         "email": "pre-existing-user@example.com",
