@@ -71,8 +71,14 @@ export default function Sidebar({ onClose }) {
       Promise.all([
         api.get("/api/v1/admin/exercises/pending"),
         api.get("/api/v1/admin/food-master/pending"),
+        // No dedicated "pending AI access" endpoint -- GET /users already
+        // returns ai_access_approved for everyone, so count client-side.
+        api.get("/api/v1/admin/users"),
       ])
-        .then(([ex, foods]) => setPendingCount(ex.data.length + foods.data.length))
+        .then(([ex, foods, users]) => {
+          const aiAccessCount = users.data.filter((u) => !u.ai_access_approved).length;
+          setPendingCount(ex.data.length + foods.data.length + aiAccessCount);
+        })
         .catch(() => {});
     };
 

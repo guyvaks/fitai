@@ -467,6 +467,7 @@ function UsersTab() {
     try {
       const { data } = await api.patch(`/api/v1/admin/users/${u.id}/toggle-ai-access`);
       setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, ai_access_approved: data.ai_access_approved } : x));
+      notifyPendingCountChanged();
     } catch {
       alert("שגיאה בעדכון גישת ה-AI");
     } finally {

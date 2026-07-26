@@ -32,6 +32,20 @@ def test_register_creates_unverified_user_and_sends_code(mock_send, client, db_s
     assert mock_send.call_args[0][0]["to"] == ["verify-test@example.com"]
 
 
+@patch("app.api.v1.endpoints.auth.send_push_to_admins")
+def test_register_notifies_admins_of_pending_ai_access(mock_push, client, db_session):
+    response = _register(client, email="push-notify-test@example.com")
+    assert response.status_code == 201
+
+    user = db_session.query(User).filter(User.email == "push-notify-test@example.com").first()
+    assert user.ai_access_approved is False
+
+    assert mock_push.called
+    _, kwargs = mock_push.call_args
+    assert kwargs["body"] == "push-notify-test@example.com"
+    assert "users" in kwargs["url"]
+
+
 @patch("app.services.email.settings.RESEND_API_KEY", "test-key")
 @patch("app.services.email.settings.RESEND_SANDBOX_OVERRIDE_EMAIL", "owner@example.com")
 @patch("app.services.email.resend.Emails.send")
