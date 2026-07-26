@@ -10,6 +10,7 @@ def _register(client, email="verify-test@example.com", password="SecurePass123")
         "email": email,
         "password": password,
         "full_name": "Verify Test User",
+        "consent_given": True,
     })
 
 

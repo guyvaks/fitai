@@ -17,7 +17,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.config import settings
-from app.models.user import EmailVerificationCode, PasswordResetToken, User
+from app.models.user import ConsentRecord, EmailVerificationCode, PasswordResetToken, User
 from app.schemas.auth import (
     ForgotPasswordRequest,
     ResendVerificationRequest,
@@ -36,6 +36,11 @@ GENERIC_FORGOT_PASSWORD_MESSAGE = "אם קיים חשבון עם כתובת זו
 GENERIC_RESET_PASSWORD_ERROR = "קישור האיפוס אינו תקין או שפג תוקפו"
 GENERIC_RESEND_VERIFICATION_MESSAGE = "אם קיים חשבון לא מאומת עם כתובת זו, נשלח אליו קוד אימות חדש"
 GENERIC_VERIFY_EMAIL_ERROR = "הקוד שגוי או שפג תוקפו"
+# Keep this in sync with the "עודכן לאחרונה" date shown on the privacy policy
+# page (frontend/src/pages/PrivacyPolicy.jsx) -- bump both together whenever
+# the policy's substance changes, so a consent record stays a meaningful
+# answer to "which version did this user actually agree to."
+PRIVACY_POLICY_VERSION = "2026-07-26"
 
 
 def _issue_verification_code(db: Session, user: User) -> str:
@@ -81,6 +86,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour")
 def register(request: Request, background_tasks: BackgroundTasks, user_data: UserRegister, db: Session = Depends(get_db)):
+    if not user_data.consent_given:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="יש לאשר את מדיניות הפרטיות כדי להירשם",
+        )
+
     existing = db.query(User).filter(User.email == user_data.email).first()
     if existing:
         raise HTTPException(
@@ -92,6 +103,12 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # The durable record of consent -- independent of whatever checkbox/copy
+    # the frontend happens to render today, this is what answers "did this
+    # user agree, and to what" later.
+    db.add(ConsentRecord(user_id=user.id, policy_version=PRIVACY_POLICY_VERSION))
+    db.commit()
 
     raw_code = _issue_verification_code(db, user)
     background_tasks.add_task(send_verification_email, user.email, raw_code)

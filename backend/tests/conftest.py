@@ -24,6 +24,7 @@ def get_auth_headers(client, email="test@example.com"):
         "email": email,
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     # New signups are unverified by default (email-verification feature) and
     # login now rejects unverified accounts -- this helper is used by nearly

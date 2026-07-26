@@ -3,6 +3,7 @@ def test_register_success(client):
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     assert response.status_code == 201
     data = response.json()
@@ -15,6 +16,7 @@ def test_login_success(client, db_session):
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     # New signups are unverified by default; this test is about login's
     # success path with correct credentials, not the verification gate
@@ -38,6 +40,7 @@ def test_login_wrong_password(client):
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     response = client.post("/api/v1/auth/login", json={
         "email": "test@example.com",
@@ -62,6 +65,7 @@ def test_login_wrong_password_and_unknown_email_return_identical_response(client
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     wrong_password_resp = client.post("/api/v1/auth/login", json={
         "email": "test@example.com",
@@ -90,6 +94,7 @@ def test_login_unknown_email_path_not_faster_than_wrong_password_path(client):
         "email": "timing-test@example.com",
         "password": "SecurePass123",
         "full_name": "Timing Test User",
+        "consent_given": True,
     })
 
     def timed_login(email):
@@ -120,10 +125,12 @@ def test_register_duplicate_email(client):
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
+        "consent_given": True,
     })
     response = client.post("/api/v1/auth/register", json={
         "email": "test@example.com",
         "password": "AnotherPass456",
         "full_name": "Another User",
+        "consent_given": True,
     })
     assert response.status_code == 400

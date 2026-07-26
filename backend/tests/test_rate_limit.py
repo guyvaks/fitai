@@ -3,6 +3,7 @@ def test_login_sixth_attempt_in_a_minute_is_rate_limited(client):
         "email": "rate-limit-test@example.com",
         "password": "SecurePass123",
         "full_name": "Rate Limit Test User",
+        "consent_given": True,
     })
 
     # 5 wrong-password attempts should all be answered normally (401, not 429)
@@ -58,6 +59,7 @@ def test_normal_login_usage_does_not_trip_rate_limit(client, db_session):
         "email": "normal-user@example.com",
         "password": "SecurePass123",
         "full_name": "Normal User",
+        "consent_given": True,
     })
     from app.models.user import User
     db_session.query(User).filter(User.email == "normal-user@example.com").update({"is_verified": True})
@@ -79,5 +81,6 @@ def test_register_rate_limit_does_not_trip_on_a_handful_of_signups(client):
             "email": f"signup-{i}@example.com",
             "password": "SecurePass123",
             "full_name": "Signup User",
+            "consent_given": True,
         })
         assert resp.status_code == 201
