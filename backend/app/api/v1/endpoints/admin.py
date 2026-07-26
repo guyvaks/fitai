@@ -1,8 +1,8 @@
 import uuid
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
@@ -21,6 +21,14 @@ from app.models.fitness import (
 
 class ResetPasswordRequest(BaseModel):
     new_password: str
+
+
+class DailyAiLimitRequest(BaseModel):
+    # None (or omitting the field entirely, since it has a default) means
+    # "unlimited" -- the same meaning as the column's own NULL. Reject
+    # negative numbers; 0 is allowed (a legitimate, if unusual, "fully
+    # blocked but still access-approved" state).
+    daily_limit: Optional[int] = Field(default=None, ge=0)
 
 
 class BulkFoodIdsRequest(BaseModel):
@@ -46,6 +54,7 @@ def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
             "is_active": u.is_active,
             "is_admin": u.is_admin,
             "ai_access_approved": u.ai_access_approved,
+            "daily_ai_generation_limit": u.daily_ai_generation_limit,
             "created_at": u.created_at,
         }
         for u in users
@@ -109,6 +118,25 @@ def toggle_ai_access(user_id: str, db: Session = Depends(get_db), _: User = Depe
     user.ai_access_approved = not user.ai_access_approved
     db.commit()
     return {"id": str(user.id), "ai_access_approved": user.ai_access_approved}
+
+
+@router.patch("/users/{user_id}/daily-ai-limit")
+def set_daily_ai_limit(
+    user_id: str,
+    body: DailyAiLimitRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    try:
+        parsed_id = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user = db.query(User).filter(User.id == parsed_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.daily_ai_generation_limit = body.daily_limit
+    db.commit()
+    return {"id": str(user.id), "daily_ai_generation_limit": user.daily_ai_generation_limit}
 
 
 @router.patch("/users/{user_id}/reset-password")

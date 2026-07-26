@@ -55,3 +55,53 @@ def test_list_users_includes_ai_access_field(client, db_session):
     response = client.get("/api/v1/admin/users", headers=headers)
     assert response.status_code == 200
     assert all("ai_access_approved" in u for u in response.json())
+    assert all("daily_ai_generation_limit" in u for u in response.json())
+
+
+def test_set_daily_ai_limit_requires_admin(client, db_session):
+    headers = get_auth_headers(client)
+    other_headers = get_auth_headers(client, email="other2@example.com")
+    other = db_session.query(User).filter(User.email == "other2@example.com").first()
+
+    response = client.patch(
+        f"/api/v1/admin/users/{other.id}/daily-ai-limit", headers=headers, json={"daily_limit": 5}
+    )
+    assert response.status_code == 403
+
+
+def test_set_daily_ai_limit_sets_and_clears(client, db_session):
+    headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    target_headers = get_auth_headers(client, email="limit-target@example.com")
+    target = db_session.query(User).filter(User.email == "limit-target@example.com").first()
+    assert target.daily_ai_generation_limit is None
+
+    response = client.patch(
+        f"/api/v1/admin/users/{target.id}/daily-ai-limit", headers=headers, json={"daily_limit": 3}
+    )
+    assert response.status_code == 200
+    assert response.json()["daily_ai_generation_limit"] == 3
+
+    db_session.refresh(target)
+    assert target.daily_ai_generation_limit == 3
+
+    # Clearing back to unlimited via explicit null.
+    response = client.patch(
+        f"/api/v1/admin/users/{target.id}/daily-ai-limit", headers=headers, json={"daily_limit": None}
+    )
+    assert response.status_code == 200
+    assert response.json()["daily_ai_generation_limit"] is None
+
+
+def test_set_daily_ai_limit_rejects_negative(client, db_session):
+    headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    target_headers = get_auth_headers(client, email="negative-limit@example.com")
+    target = db_session.query(User).filter(User.email == "negative-limit@example.com").first()
+
+    response = client.patch(
+        f"/api/v1/admin/users/{target.id}/daily-ai-limit", headers=headers, json={"daily_limit": -1}
+    )
+    assert response.status_code == 422

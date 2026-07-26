@@ -348,8 +348,8 @@ export default function AISuggestion() {
         if (c.meal_plan) setActiveTab('nutrition')
         else if (c.workout_plan) setActiveTab('workout')
       }
-    } catch {
-      alert('שגיאה ביצירת התוכנית מחדש, נסה שוב')
+    } catch (e) {
+      alert(e.response?.data?.detail || 'שגיאה ביצירת התוכנית מחדש, נסה שוב')
     } finally {
       setRegenerating(false)
     }
