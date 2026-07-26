@@ -28,6 +28,7 @@ export default function Header({ onToggleSidebar }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingExerciseCount, setPendingExerciseCount] = useState(0);
   const [pendingFoodCount, setPendingFoodCount] = useState(0);
+  const [pendingAiAccessCount, setPendingAiAccessCount] = useState(0);
 
   useEffect(() => {
     if (!user?.is_admin) return;
@@ -36,11 +37,17 @@ export default function Header({ onToggleSidebar }) {
       Promise.all([
         api.get("/api/v1/admin/exercises/pending"),
         api.get("/api/v1/admin/food-master/pending"),
+        // No dedicated "pending AI access" endpoint exists -- GET /users
+        // already returns ai_access_approved for everyone, so counting
+        // client-side avoids adding a new backend endpoint for this.
+        api.get("/api/v1/admin/users"),
       ])
-        .then(([ex, foods]) => {
+        .then(([ex, foods, users]) => {
+          const aiAccessCount = users.data.filter((u) => !u.ai_access_approved).length;
           setPendingExerciseCount(ex.data.length);
           setPendingFoodCount(foods.data.length);
-          setPendingCount(ex.data.length + foods.data.length);
+          setPendingAiAccessCount(aiAccessCount);
+          setPendingCount(ex.data.length + foods.data.length + aiAccessCount);
         })
         .catch(() => {});
     };
@@ -54,7 +61,9 @@ export default function Header({ onToggleSidebar }) {
     ? "/admin?tab=foods"
     : pendingExerciseCount > 0
       ? "/admin?tab=exercises"
-      : "/admin";
+      : pendingAiAccessCount > 0
+        ? "/admin?tab=users"
+        : "/admin";
 
   return (
     <header className="h-16 bg-surface/80 backdrop-blur-xl border-b border-line flex items-center justify-between px-4 md:px-6 sticky top-0 z-10">

@@ -137,8 +137,17 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
+  // Every genuine user edit goes through this (not the initial loadProfile
+  // fetch) so the submit button re-locks after a successful save until the
+  // user actually changes something again -- see handleSubmit/the submit
+  // button's disabled condition below.
+  const updateForm = (updater) => {
+    setForm(updater);
+    setSaved(false);
+  };
+
   const handleEquipmentToggle = (item) => {
-    setForm((prev) => ({
+    updateForm((prev) => ({
       ...prev,
       equipment: prev.equipment.includes(item)
         ? prev.equipment.filter((e) => e !== item)
@@ -288,7 +297,7 @@ export default function Profile() {
                 max="120"
                 required
                 value={form.age}
-                onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+                onChange={(e) => updateForm((p) => ({ ...p, age: e.target.value }))}
                 className="input-volt"
               />
             </div>
@@ -296,7 +305,7 @@ export default function Profile() {
               <label className="text-text-mid text-sm">מין</label>
               <select
                 value={form.gender}
-                onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value }))}
+                onChange={(e) => updateForm((p) => ({ ...p, gender: e.target.value }))}
                 className="input-volt"
               >
                 <option value="male">זכר</option>
@@ -315,7 +324,7 @@ export default function Profile() {
                 max="250"
                 required
                 value={form.height_cm}
-                onChange={(e) => setForm((p) => ({ ...p, height_cm: e.target.value }))}
+                onChange={(e) => updateForm((p) => ({ ...p, height_cm: e.target.value }))}
                 className="input-volt"
               />
             </div>
@@ -328,7 +337,7 @@ export default function Profile() {
                 step="0.1"
                 required
                 value={form.weight_kg}
-                onChange={(e) => setForm((p) => ({ ...p, weight_kg: e.target.value }))}
+                onChange={(e) => updateForm((p) => ({ ...p, weight_kg: e.target.value }))}
                 className="input-volt"
               />
             </div>
@@ -340,7 +349,7 @@ export default function Profile() {
                 max="300"
                 step="0.1"
                 value={form.target_weight_kg}
-                onChange={(e) => setForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
+                onChange={(e) => updateForm((p) => ({ ...p, target_weight_kg: e.target.value }))}
                 className="input-volt"
               />
             </div>
@@ -351,7 +360,7 @@ export default function Profile() {
             <label className="text-text-mid text-sm">מטרה</label>
             <select
               value={form.goal}
-              onChange={(e) => setForm((p) => ({ ...p, goal: e.target.value }))}
+              onChange={(e) => updateForm((p) => ({ ...p, goal: e.target.value }))}
               required
               className="input-volt"
             >
@@ -367,7 +376,7 @@ export default function Profile() {
             <label className="text-text-mid text-sm">רמת פעילות</label>
             <select
               value={form.activity_level}
-              onChange={(e) => setForm((p) => ({ ...p, activity_level: e.target.value }))}
+              onChange={(e) => updateForm((p) => ({ ...p, activity_level: e.target.value }))}
               required
               className="input-volt"
             >
@@ -407,7 +416,7 @@ export default function Profile() {
                 <button
                   key={n}
                   type="button"
-                  onClick={() => setForm((p) => ({ ...p, meals_per_day: n }))}
+                  onClick={() => updateForm((p) => ({ ...p, meals_per_day: n }))}
                   className={`flex-1 py-2 rounded-elem border text-sm font-medium transition-colors tabular-nums ${
                     form.meals_per_day === n
                       ? "bg-volt-soft border-volt/40 text-volt"
@@ -432,7 +441,7 @@ export default function Profile() {
                 <textarea
                   rows={2}
                   value={form[key]}
-                  onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
+                  onChange={(e) => updateForm((p) => ({ ...p, [key]: e.target.value }))}
                   className="input-volt resize-none placeholder:italic"
                   placeholder={`הכנס ${label}...`}
                 />
@@ -448,7 +457,7 @@ export default function Profile() {
 
           <button
             type="submit"
-            disabled={loading || !form.activity_level || !form.goal}
+            disabled={loading || saved || !form.activity_level || !form.goal}
             className="btn-volt w-full py-3 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}

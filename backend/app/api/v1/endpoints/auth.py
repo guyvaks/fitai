@@ -29,6 +29,7 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserResponse
 from app.services.email import send_password_reset_email, send_verification_email
+from app.services.push_notifications import send_push_to_admins
 
 RESET_TOKEN_TTL_MINUTES = 30
 VERIFICATION_CODE_TTL_MINUTES = 15
@@ -110,8 +111,27 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
     db.add(ConsentRecord(user_id=user.id, policy_version=PRIVACY_POLICY_VERSION))
     db.commit()
 
+    # New signups start ai_access_approved=False (see the User model), so
+    # every registration needs an admin to look at it -- same
+    # best-effort/synchronous pattern as the food/exercise pending-approval
+    # notifications (see push_notifications.py's own docstring for why this
+    # must never affect the caller).
+    # user_data.email (the raw request field), not user.email -- touching an
+    # attribute on the freshly-committed `user` ORM object here would force
+    # an early refresh of it (SQLAlchemy expires objects after every commit),
+    # which in the test suite's shared long-lived session can leave a stale
+    # cached copy of `user` sitting in the identity map for a later request
+    # in the same test (e.g. get_auth_headers's subsequent login) to pick up
+    # instead of querying fresh. Both fields hold the identical string.
+    send_push_to_admins(
+        title="משתמש חדש ממתין לאישור גישת AI",
+        body=user_data.email,
+        url="/admin?tab=users",
+        db=db,
+    )
+
     raw_code = _issue_verification_code(db, user)
-    background_tasks.add_task(send_verification_email, user.email, raw_code)
+    background_tasks.add_task(send_verification_email, user_data.email, raw_code)
 
     # Still returns a token for API-shape/backward-compat reasons (existing
     # tests assert on it), but the frontend deliberately does NOT use it to
@@ -121,7 +141,7 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
     # session. The only paths to a real session are login (blocked below
     # until verified) and a successful /verify-email.
     access_token = create_access_token(
-        data={"sub": user.email},
+        data={"sub": user_data.email},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token)
