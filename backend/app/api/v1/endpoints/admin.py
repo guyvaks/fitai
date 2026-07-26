@@ -102,19 +102,6 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
     return {"ok": True}
 
 
-@router.patch("/users/{user_id}/toggle-admin")
-def toggle_admin(user_id: str, db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
-    if str(current_admin.id) == user_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change your own admin status")
-    parsed_id = _parse_user_id_or_404(user_id)
-    user = db.query(User).filter(User.id == parsed_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    user.is_admin = not user.is_admin
-    db.commit()
-    return {"id": str(user.id), "is_admin": user.is_admin}
-
-
 @router.patch("/users/{user_id}/toggle-ai-access")
 def toggle_ai_access(user_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     parsed_id = _parse_user_id_or_404(user_id)

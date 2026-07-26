@@ -446,20 +446,6 @@ function UsersTab() {
     }
   };
 
-  const handleToggleAdmin = async (u) => {
-    const action = u.is_admin ? "הסרת" : "הענקת";
-    if (!window.confirm(`${action} הרשאות אדמין למשתמש "${u.full_name}"?`)) return;
-    setActionLoading(u.id);
-    try {
-      const { data } = await api.patch(`/api/v1/admin/users/${u.id}/toggle-admin`);
-      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, is_admin: data.is_admin } : x));
-    } catch {
-      alert("שגיאה בעדכון הרשאות");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const handleToggleAiAccess = async (u) => {
     const action = u.ai_access_approved ? "ביטול" : "אישור";
     if (!window.confirm(`${action} הגישה לתכונת ה-AI עבור "${u.full_name}"?`)) return;
@@ -490,13 +476,6 @@ function UsersTab() {
         className={`text-xs px-2 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
       >
         <KeyRound className="w-3 h-3" /> סיסמה
-      </button>
-      <button
-        onClick={() => handleToggleAdmin(u)}
-        disabled={busy || isMe}
-        className={`text-xs px-2 rounded-lg border border-amber/30 text-amber hover:bg-amber-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
-      >
-        {u.is_admin ? "הסר" : "אדמין"} <Crown className="w-3 h-3" />
       </button>
       <button
         onClick={() => handleToggleAiAccess(u)}
