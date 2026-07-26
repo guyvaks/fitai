@@ -15,6 +15,12 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
+# Used to run a real bcrypt comparison on the login path when no user matches
+# the given email, so that path isn't measurably faster than a real wrong-password
+# check -- that timing gap would otherwise leak whether an email is registered.
+DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"not-a-real-password", bcrypt.gensalt()).decode("utf-8")
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     if expires_delta:

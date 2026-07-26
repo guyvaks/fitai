@@ -19,12 +19,7 @@ export default function Login() {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
-      const msg = err.response?.data?.detail;
-      if (msg === "Incorrect email or password") {
-        setError("אימייל או סיסמה שגויים");
-      } else {
-        setError("שגיאה בהתחברות. נסה שוב.");
-      }
+      setError(err.response?.data?.detail || "שגיאה בהתחברות. נסה שוב.");
     } finally {
       setLoading(false);
     }

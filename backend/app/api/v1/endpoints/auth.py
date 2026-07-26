@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import (
+    DUMMY_PASSWORD_HASH,
     create_access_token,
     decode_token,
     get_password_hash,
@@ -58,10 +59,23 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
-    if not user or not verify_password(user_data.password, user.hashed_password):
+    if user:
+        password_valid = verify_password(user_data.password, user.hashed_password)
+    else:
+        # Always run a real bcrypt comparison, even when no account matches,
+        # so this path takes about as long as a genuine wrong-password check
+        # (see DUMMY_PASSWORD_HASH) -- otherwise the faster response time
+        # alone would reveal that the email isn't registered.
+        verify_password(user_data.password, DUMMY_PASSWORD_HASH)
+        password_valid = False
+
+    if not user or not password_valid:
+        # Deliberately identical status code and message for "no such
+        # account" and "wrong password" -- distinguishing them lets an
+        # attacker enumerate registered emails via the login endpoint.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="אימייל או סיסמה שגויים",
         )
     access_token = create_access_token(
         data={"sub": user.email},
