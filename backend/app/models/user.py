@@ -76,3 +76,18 @@ class PushSubscription(Base):
     p256dh = Column(String, nullable=False)
     auth = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Only the SHA-256 hash of the raw token is stored -- the raw token lives
+    # solely in the emailed link, so a DB read (backup, leak, admin query)
+    # can never yield a usable reset token, mirroring how passwords
+    # themselves are never stored in cleartext.
+    token_hash = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)

@@ -65,7 +65,12 @@ export default function Login() {
               />
             </div>
             <div>
-              <label className="block text-text-mid text-sm mb-1.5">סיסמה</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-text-mid text-sm">סיסמה</label>
+                <Link to="/forgot-password" className="text-volt hover:underline text-sm font-medium">
+                  שכחתי סיסמה
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}

@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -39,3 +41,27 @@ def decode_token(token: str) -> Optional[str]:
         return email
     except JWTError:
         return None
+
+
+def generate_password_reset_token() -> str:
+    """A random, opaque, single-use token for the forgot-password link.
+
+    Not a JWT: a JWT signed with SECRET_KEY would be independently verifiable
+    (and thus impossible to invalidate early or mark "already used") without
+    also tracking used ones in the DB anyway -- a random token looked up
+    against a DB row gets single-use and expiry for free from the same table.
+    """
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(raw_token: str) -> str:
+    """SHA-256 of the raw token, for at-rest storage.
+
+    Deliberately not bcrypt: bcrypt's per-hash random salt means the same
+    input hashes differently every time, so it can't be used for an equality
+    lookup (`WHERE token_hash = ?`) -- and it doesn't need to be slow like a
+    password hash, since the token itself is already a high-entropy random
+    value (unguessable by brute force) rather than a low-entropy user-chosen
+    secret.
+    """
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()

@@ -1,0 +1,171 @@
+from unittest.mock import patch
+
+from app.core.security import hash_reset_token
+from app.models.user import PasswordResetToken, User
+
+
+def _register(client, email="reset-test@example.com", password="SecurePass123"):
+    client.post("/api/v1/auth/register", json={
+        "email": email,
+        "password": password,
+        "full_name": "Reset Test User",
+    })
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.resend.Emails.send")
+def test_forgot_password_known_email_sends_email_and_creates_token(mock_send, client, db_session):
+    _register(client)
+
+    resp = client.post("/api/v1/auth/forgot-password", json={"email": "reset-test@example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "אם קיים חשבון עם כתובת זו, נשלח אליו קישור לאיפוס סיסמה"
+
+    # BackgroundTasks run synchronously under TestClient before the response
+    # is returned to the caller, so the mocked send is already recorded here.
+    assert mock_send.called
+    call_kwargs = mock_send.call_args[0][0]
+    assert call_kwargs["to"] == ["reset-test@example.com"]
+
+    token_row = db_session.query(PasswordResetToken).join(
+        User, PasswordResetToken.user_id == User.id
+    ).filter(User.email == "reset-test@example.com").first()
+    assert token_row is not None
+    assert token_row.used_at is None
+
+
+@patch("app.services.email.resend.Emails.send")
+def test_forgot_password_unknown_email_returns_identical_generic_response(mock_send, client):
+    resp = client.post("/api/v1/auth/forgot-password", json={"email": "nobody-at-all@example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "אם קיים חשבון עם כתובת זו, נשלח אליו קישור לאיפוס סיסמה"
+    # No account -> no email attempted at all
+    assert not mock_send.called
+
+
+@patch("app.services.email.resend.Emails.send")
+def test_forgot_password_known_and_unknown_email_return_identical_response(mock_send, client):
+    _register(client, email="known@example.com")
+
+    known_resp = client.post("/api/v1/auth/forgot-password", json={"email": "known@example.com"})
+    unknown_resp = client.post("/api/v1/auth/forgot-password", json={"email": "unknown@example.com"})
+
+    assert known_resp.status_code == unknown_resp.status_code == 200
+    assert known_resp.json() == unknown_resp.json()
+
+
+def test_reset_password_with_valid_token_updates_password_and_allows_login(client, db_session):
+    _register(client, email="resetflow@example.com", password="OldPassword123")
+
+    raw_token = "test-raw-token-abc123"
+    user = db_session.query(User).filter(User.email == "resetflow@example.com").first()
+    from datetime import datetime, timedelta, timezone
+    db_session.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_reset_token(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    ))
+    db_session.commit()
+
+    resp = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "NewPassword456",
+    })
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "הסיסמה עודכנה בהצלחה"
+
+    # Old password no longer works, new one does
+    old_login = client.post("/api/v1/auth/login", json={
+        "email": "resetflow@example.com",
+        "password": "OldPassword123",
+    })
+    assert old_login.status_code == 401
+
+    new_login = client.post("/api/v1/auth/login", json={
+        "email": "resetflow@example.com",
+        "password": "NewPassword456",
+    })
+    assert new_login.status_code == 200
+
+
+def test_reset_password_token_is_single_use(client, db_session):
+    _register(client, email="singleuse@example.com", password="OldPassword123")
+    user = db_session.query(User).filter(User.email == "singleuse@example.com").first()
+
+    raw_token = "single-use-token-xyz"
+    from datetime import datetime, timedelta, timezone
+    db_session.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_reset_token(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    ))
+    db_session.commit()
+
+    first = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "FirstNewPassword1",
+    })
+    assert first.status_code == 200
+
+    second = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "SecondNewPassword2",
+    })
+    assert second.status_code == 400
+    assert second.json()["detail"] == "קישור האיפוס אינו תקין או שפג תוקפו"
+
+
+def test_reset_password_expired_token_is_rejected(client, db_session):
+    _register(client, email="expired@example.com", password="OldPassword123")
+    user = db_session.query(User).filter(User.email == "expired@example.com").first()
+
+    raw_token = "expired-token-123"
+    from datetime import datetime, timedelta, timezone
+    db_session.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_reset_token(raw_token),
+        expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),  # already expired
+    ))
+    db_session.commit()
+
+    resp = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "NewPassword456",
+    })
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "קישור האיפוס אינו תקין או שפג תוקפו"
+
+
+def test_reset_password_unknown_token_is_rejected(client):
+    resp = client.post("/api/v1/auth/reset-password", json={
+        "token": "this-token-was-never-issued",
+        "new_password": "NewPassword456",
+    })
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "קישור האיפוס אינו תקין או שפג תוקפו"
+
+
+def test_forgot_password_rate_limit_fourth_attempt_in_an_hour_is_limited(client):
+    for _ in range(3):
+        resp = client.post("/api/v1/auth/forgot-password", json={"email": "someone@example.com"})
+        assert resp.status_code == 200
+
+    limited = client.post("/api/v1/auth/forgot-password", json={"email": "someone@example.com"})
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "יותר מדי ניסיונות, נסה שוב מאוחר יותר"
+
+
+def test_reset_password_rate_limit_sixth_attempt_in_an_hour_is_limited(client):
+    for _ in range(5):
+        resp = client.post("/api/v1/auth/reset-password", json={
+            "token": "whatever-invalid-token",
+            "new_password": "NewPassword456",
+        })
+        assert resp.status_code == 400
+
+    limited = client.post("/api/v1/auth/reset-password", json={
+        "token": "whatever-invalid-token",
+        "new_password": "NewPassword456",
+    })
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "יותר מדי ניסיונות, נסה שוב מאוחר יותר"

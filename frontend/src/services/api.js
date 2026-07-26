@@ -27,6 +27,11 @@ api.interceptors.response.use(
   }
 );
 
+export const authAPI = {
+  forgotPassword: (email) => api.post('/api/v1/auth/forgot-password', { email }),
+  resetPassword: (token, new_password) => api.post('/api/v1/auth/reset-password', { token, new_password }),
+}
+
 export const nutritionAPI = {
   getPlan: () => api.get('/api/v1/nutrition/plan'),
   createManualPlan: (week) => api.post('/api/v1/nutrition/plan/manual', { week }),
