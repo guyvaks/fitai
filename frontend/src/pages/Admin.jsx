@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X, Apple, Sparkles } from "lucide-react";
+import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X, Apple, Sparkles, RefreshCw } from "lucide-react";
 import { notifyPendingCountChanged } from "../utils/pendingUpdates";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {
@@ -418,20 +418,45 @@ function UsersTab() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [limitTarget, setLimitTarget] = useState(null);
 
-  const fetchUsers = () => {
-    setLoading(true);
+  // isInitial drives the full-page loading state (first mount only) --
+  // every later refetch (manual button, tab-refocus) uses `refreshing`
+  // instead, so the existing list stays visible while it updates instead
+  // of flashing back to a spinner.
+  const fetchUsers = (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    else setRefreshing(true);
     api.get("/api/v1/admin/users")
       .then(({ data }) => setUsers(data))
       .catch(() => setError("אין גישה או שגיאת שרת"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (isInitial) setLoading(false);
+        else setRefreshing(false);
+      });
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers(true);
+
+    // New users registering elsewhere (or admin actions from another tab)
+    // won't show up otherwise -- this only fetched once on mount before,
+    // which repeatedly looked like missing users until the admin manually
+    // reloaded the page. Refetch silently whenever this tab regains focus.
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchUsers();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+    };
+  }, []);
 
   const handleDelete = async (u) => {
     if (!window.confirm(`למחוק את המשתמש "${u.full_name}" (${u.email})?\nפעולה זו אינה ניתנת לביטול.`)) return;
@@ -503,6 +528,17 @@ function UsersTab() {
 
   return (
     <>
+      <div className="flex justify-end mb-3 anim-rise">
+        <button
+          onClick={() => fetchUsers()}
+          disabled={refreshing}
+          className="text-xs px-3 py-1.5 rounded-lg border border-line text-text-mid hover:text-text-hi hover:border-volt/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "מרענן..." : "רענן"}
+        </button>
+      </div>
+
       {/* Mobile: card list (actions always visible) */}
       <div className="md:hidden space-y-3 anim-rise anim-d1">
         {users.map((u) => {
