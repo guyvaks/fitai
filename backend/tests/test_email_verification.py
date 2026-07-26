@@ -32,6 +32,19 @@ def test_register_creates_unverified_user_and_sends_code(mock_send, client, db_s
     assert mock_send.call_args[0][0]["to"] == ["verify-test@example.com"]
 
 
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.settings.RESEND_SANDBOX_OVERRIDE_EMAIL", "owner@example.com")
+@patch("app.services.email.resend.Emails.send")
+def test_register_redirects_to_override_email_when_configured(mock_send, client, db_session):
+    _register(client, email="real-user@example.com")
+
+    assert mock_send.called
+    sent = mock_send.call_args[0][0]
+    assert sent["to"] == ["owner@example.com"]
+    assert "real-user@example.com" in sent["subject"]
+    assert "real-user@example.com" in sent["html"]
+
+
 def test_login_rejected_for_unverified_user_with_correct_password(client):
     _register(client, email="unverified@example.com", password="SecurePass123")
 

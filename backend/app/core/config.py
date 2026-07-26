@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     # verified (Resend dashboard -> Domains -> add DNS records). Once a real
     # domain is verified, override via env to an address on it.
     RESEND_FROM_EMAIL: str = "FitAI <onboarding@resend.dev>"
+    # Temporary workaround while RESEND_FROM_EMAIL is still the shared sandbox
+    # sender above: if set, all user-facing emails are redirected to this
+    # address instead of the real recipient (whose email is included in the
+    # subject/body), since the sandbox sender can only deliver to the Resend
+    # account owner. Unset once a verified domain replaces RESEND_FROM_EMAIL.
+    RESEND_SANDBOX_OVERRIDE_EMAIL: Optional[str] = None
     # Base URL used to build the password-reset link sent by email -- must be
     # the deployed frontend origin in staging/production (set via env), not
     # this localhost default.
