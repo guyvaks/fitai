@@ -175,8 +175,14 @@ export default function LiveWorkout() {
         // Try to get plan exercises
         try {
           const { data: plan } = await workoutsAPI.getPlan()
-          if (plan?.plan_data?.[day]?.exercises) {
-            setExercises(normalizeExercises(plan.plan_data[day].exercises))
+          // A day added/edited via the manual builder is stored as a flat
+          // top-level key and can coexist with an older AI-approved plan's
+          // `workout_plan` wrapper for the same day (manual-merge behavior in
+          // POST /workouts/plan/manual) — the flat, manually-edited version
+          // must win over the wrapped one.
+          const dayPlan = plan?.plan_data?.[day] ?? plan?.plan_data?.workout_plan?.[day]
+          if (dayPlan?.exercises) {
+            setExercises(normalizeExercises(dayPlan.exercises))
           } else {
             setExercises(demoExercises)
           }

@@ -193,11 +193,39 @@ def get_canonical_exercises():
         db.close()
 
 
+# The frontend's UserProfile.equipment checkboxes (Profile.jsx's
+# EQUIPMENT_OPTIONS) are a small, closed, exhaustively-known set of Hebrew
+# display values — the user's stored choice is literally that Hebrew string.
+# exercises_master.equipment uses a completely separate English vocabulary
+# (barbell/dumbbell/machine/...). Without this translation, a Hebrew
+# "משקולות" never matches the English "dumbbell" it actually means, so
+# _filter_exercises_by_equipment() silently falls back to bodyweight/"none"
+# exercises only for every user with Hebrew equipment values — not an edge
+# case, this hits any Hebrew-speaking user who picked real equipment.
+#
+# "ללא ציוד" needs no entry: it's already in _FREE_EQUIPMENT below, so it
+# already contributes nothing to the *restriction* set (correctly — picking
+# "no equipment" should not narrow the pool at all).
+#
+# "אופניים" (bike) / "שחייה" (swimming) are deliberately NOT mapped: there is
+# no corresponding token anywhere in exercises_master's strength-equipment
+# vocabulary — cardio equipment doesn't gate any exercise row today. Leaving
+# them untranslated is a no-op (same as current behaviour), not a regression.
+_HEBREW_EQUIPMENT_TRANSLATIONS = {
+    "משקולות": {"dumbbell"},
+    "מוט + משקולות": {"barbell", "dumbbell"},
+    "trx": {"suspension_band"},  # frontend's own label is the Latin brand name "TRX"
+    "מכשירי חדר כושר": {"machine"},
+}
+
+
 def _parse_equipment(raw) -> set:
-    """Normalise the profile's equipment value into a lowercase token set.
-    In the crew flow `profile['equipment']` comes straight off the ORM column,
-    so it is usually a JSON-encoded string (e.g. '["dumbbells"]'); tolerate a
-    plain string or an already-decoded list too."""
+    """Normalise the profile's equipment value into a lowercase token set,
+    translating known Hebrew UI values to the English tokens
+    exercises_master actually uses (see _HEBREW_EQUIPMENT_TRANSLATIONS).
+    In the crew flow `profile['equipment']` comes straight off the ORM
+    column, so it is usually a JSON-encoded string (e.g. '["משקולות"]');
+    tolerate a plain string or an already-decoded list too."""
     if not raw:
         return set()
     if isinstance(raw, str):
@@ -209,7 +237,19 @@ def _parse_equipment(raw) -> set:
         decoded = raw
     if isinstance(decoded, str):
         decoded = [decoded]
-    return {str(item).strip().lower() for item in decoded if str(item).strip()}
+
+    tokens = set()
+    for item in decoded:
+        item = str(item).strip()
+        if not item:
+            continue
+        lowered = item.lower()
+        translated = _HEBREW_EQUIPMENT_TRANSLATIONS.get(item) or _HEBREW_EQUIPMENT_TRANSLATIONS.get(lowered)
+        if translated is not None:
+            tokens |= translated
+        else:
+            tokens.add(lowered)
+    return tokens
 
 
 # Equipment values that never require owned gear, so they stay available no
