@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str = ""
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = ""
+    RESEND_API_KEY: Optional[str] = None
+    # Resend's shared, unverified sender -- works with zero setup but can only
+    # deliver to the Resend account's own owner email until a domain is
+    # verified (Resend dashboard -> Domains -> add DNS records). Once a real
+    # domain is verified, override via env to an address on it.
+    RESEND_FROM_EMAIL: str = "FitAI <onboarding@resend.dev>"
+    # Base URL used to build the password-reset link sent by email -- must be
+    # the deployed frontend origin in staging/production (set via env), not
+    # this localhost default.
+    FRONTEND_URL: str = "http://localhost:5173"
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds
