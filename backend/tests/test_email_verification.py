@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from app.core.security import hash_secret
 from app.models.user import EmailVerificationCode, User
+from tests.conftest import get_auth_headers
 
 
 def _register(client, email="verify-test@example.com", password="SecurePass123"):
@@ -44,6 +45,48 @@ def test_register_notifies_admins_of_pending_ai_access(mock_push, client, db_ses
     _, kwargs = mock_push.call_args
     assert kwargs["body"] == "push-notify-test@example.com"
     assert "users" in kwargs["url"]
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.resend.Emails.send")
+def test_register_emails_admins_of_pending_ai_access(mock_send, client, db_session):
+    get_auth_headers(client, email="ai-access-admin@example.com")
+    admin = db_session.query(User).filter(User.email == "ai-access-admin@example.com").first()
+    admin.is_admin = True
+    db_session.commit()
+    mock_send.reset_mock()  # clear the admin's own verification-code send
+
+    response = _register(client, email="ai-access-new-user@example.com")
+    assert response.status_code == 201
+
+    # Two sends happen for this registration: the admin-notification email
+    # (synchronous) and the new user's own verification-code email
+    # (backgrounded, but TestClient runs it before client.post() returns) --
+    # find the admin one specifically rather than assuming call order.
+    admin_calls = [
+        call.args[0] for call in mock_send.call_args_list
+        if call.args[0]["to"] == ["ai-access-admin@example.com"]
+    ]
+    assert len(admin_calls) == 1
+    call_kwargs = admin_calls[0]
+    assert "ai-access-new-user@example.com" in call_kwargs["html"]
+    assert "tab=users" in call_kwargs["html"]
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.resend.Emails.send", side_effect=Exception("Resend is down"))
+def test_register_succeeds_even_if_admin_email_send_fails(mock_send, client, db_session):
+    get_auth_headers(client, email="ai-access-admin2@example.com")
+    admin = db_session.query(User).filter(User.email == "ai-access-admin2@example.com").first()
+    admin.is_admin = True
+    db_session.commit()
+
+    response = _register(client, email="ai-access-new-user2@example.com")
+    assert response.status_code == 201
+
+    user = db_session.query(User).filter(User.email == "ai-access-new-user2@example.com").first()
+    assert user is not None
+    assert user.ai_access_approved is False
 
 
 @patch("app.services.email.settings.RESEND_API_KEY", "test-key")

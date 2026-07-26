@@ -10,6 +10,7 @@ response is already sent.
 import logging
 
 import resend
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 
@@ -88,3 +89,53 @@ def send_verification_email(to_email: str, code: str) -> None:
         })
     except Exception:
         logger.exception("Failed to send verification email via Resend")
+
+
+def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
+    """Email fallback alongside send_push_to_admins() (push_notifications.py)
+    for the same event -- a new signup landing in the unapproved
+    ai_access_approved state. Push has proven unreliable in practice (no
+    server-side errors, but delivery to the device isn't guaranteed), so
+    admins get a second, independent channel for the same notification.
+
+    Queries admins directly (User.is_admin) rather than a configured admin
+    email, matching send_push_to_admins()'s own approach -- there's no
+    existing "admin email" setting in this codebase to reuse.
+    """
+    if not settings.RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured -- skipping pending AI access admin email send")
+        return
+
+    from app.models.user import User
+
+    admin_emails = [
+        row.email for row in db.query(User.email).filter(User.is_admin.is_(True)).all()
+    ]
+    if not admin_emails:
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    admin_link = f"{settings.FRONTEND_URL}/admin?tab=users"
+    subject_base = "משתמש חדש ממתין לאישור גישת AI"
+
+    html_base = f"""
+    <div dir="rtl" style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        {{banner}}
+        <h2>משתמש חדש ממתין לאישור</h2>
+        <p>המשתמש <strong>{new_user_email}</strong> נרשם ל-FitAI וממתין לאישור גישה לתכונת ה-AI.</p>
+        <p><a href="{admin_link}">לפאנל הניהול</a></p>
+    </div>
+    """
+
+    for admin_email in admin_emails:
+        actual_to, subject, banner = _resolve_recipient_and_subject(admin_email, subject_base)
+        try:
+            resend.Emails.send({
+                "from": settings.RESEND_FROM_EMAIL,
+                "to": [actual_to],
+                "subject": subject,
+                "html": html_base.format(banner=banner),
+            })
+        except Exception:
+            logger.exception("Failed to send pending-AI-access admin email to %s", admin_email)

@@ -28,7 +28,11 @@ from app.schemas.auth import (
     VerifyEmailRequest,
 )
 from app.schemas.user import UserResponse
-from app.services.email import send_password_reset_email, send_verification_email
+from app.services.email import (
+    send_password_reset_email,
+    send_pending_ai_access_email,
+    send_verification_email,
+)
 from app.services.push_notifications import send_push_to_admins
 
 RESET_TOKEN_TTL_MINUTES = 30
@@ -129,6 +133,12 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
         url="/admin?tab=users",
         db=db,
     )
+    # Email fallback for the same event -- push has proven unreliable in
+    # practice (server sends clean, delivery to the device isn't
+    # guaranteed). Independent of the push call above: each is
+    # best-effort and swallows its own exceptions, so one failing has no
+    # effect on the other or on registration itself.
+    send_pending_ai_access_email(db, user_data.email)
 
     raw_code = _issue_verification_code(db, user)
     background_tasks.add_task(send_verification_email, user_data.email, raw_code)
