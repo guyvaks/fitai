@@ -21,6 +21,11 @@ class User(Base):
     full_name = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    # Python-side default=False applies to every new row the ORM inserts (new
+    # signups, going forward). The migration's server_default=true is only
+    # for rows that predate this column -- existing users are grandfathered
+    # in as already-verified rather than retroactively locked out.
+    is_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
@@ -88,6 +93,22 @@ class PasswordResetToken(Base):
     # can never yield a usable reset token, mirroring how passwords
     # themselves are never stored in cleartext.
     token_hash = Column(String, nullable=False, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class EmailVerificationCode(Base):
+    __tablename__ = "email_verification_codes"
+
+    # One row per user (unique user_id, not a history table like
+    # password_reset_tokens) -- a verification code is looked up by
+    # (email, code) together rather than by a globally-unique opaque token,
+    # so there's exactly one "current" code per user to check against;
+    # register/resend both upsert this row instead of accumulating history.
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    code_hash = Column(String, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)

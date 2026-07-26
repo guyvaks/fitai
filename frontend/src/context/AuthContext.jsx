@@ -27,10 +27,14 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, [fetchProfile]);
 
-  const login = useCallback(
-    async (email, password) => {
-      const res = await api.post("/api/v1/auth/login", { email, password });
-      const { access_token } = res.data;
+  // Shared by login() and the post-verify-email flow (VerifyEmail.jsx) --
+  // both end with "we have a fresh access_token, establish the session from
+  // it." Registration deliberately does NOT go through this: an unverified
+  // account must not have a working client-side session (see Register.jsx),
+  // only login (blocked server-side until verified) and a successful
+  // /verify-email produce a session.
+  const establishSession = useCallback(
+    async (access_token) => {
       localStorage.setItem("fitai_token", access_token);
       const meRes = await api.get("/api/v1/auth/me");
       localStorage.setItem("fitai_user", JSON.stringify(meRes.data));
@@ -41,22 +45,17 @@ export function AuthProvider({ children }) {
     [fetchProfile]
   );
 
-  const register = useCallback(
-    async (email, password, fullName) => {
-      const res = await api.post("/api/v1/auth/register", {
-        email,
-        password,
-        full_name: fullName,
-      });
-      const { access_token } = res.data;
-      localStorage.setItem("fitai_token", access_token);
-      const meRes = await api.get("/api/v1/auth/me");
-      localStorage.setItem("fitai_user", JSON.stringify(meRes.data));
-      setUser(meRes.data);
-      await fetchProfile();
-      return meRes.data;
+  const login = useCallback(
+    async (email, password) => {
+      const res = await api.post("/api/v1/auth/login", { email, password });
+      return establishSession(res.data.access_token);
     },
-    [fetchProfile]
+    [establishSession]
+  );
+
+  const loginWithToken = useCallback(
+    (access_token) => establishSession(access_token),
+    [establishSession]
   );
 
   const logout = useCallback(() => {
@@ -86,7 +85,7 @@ export function AuthProvider({ children }) {
         loading,
         isAuthenticated: !!user,
         login,
-        register,
+        loginWithToken,
         logout,
         fetchProfile,
         updateUser,

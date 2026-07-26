@@ -28,3 +28,12 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordConfirm(BaseModel):
     token: str
     new_password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
