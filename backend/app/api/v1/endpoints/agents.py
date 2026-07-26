@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Dict
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
 from sqlalchemy.orm import Session
@@ -106,6 +107,49 @@ def _run_in_background(task_id: str, crew_fn_name: str, profile_dict: dict, memo
         task_store[task_id] = {"status": "error", "error": str(e)}
 
 
+def _start_of_today_utc() -> datetime:
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _check_daily_ai_limit(db: Session, current_user: User) -> None:
+    """Raise 429 if this user has an opt-in daily cap (daily_ai_generation_limit
+    is NULL for everyone by default -- unlimited) and has already reached it.
+
+    Counts AISuggestion rows created today (UTC midnight boundary, matching
+    every other timestamp in this codebase -- there's no existing
+    Israel-timezone convention to follow instead), regardless of
+    suggestion_type or later status (pending/superseded/approved/rejected) --
+    each of the three generate endpoints creates exactly one row per
+    successful run via _run_in_background, so this count is exactly "how many
+    generations actually completed today", not requests attempted. A failed
+    generation (crew_fn raised) never reaches db.add(), so it doesn't count
+    against the quota -- consistent with this being a usage cap, not a
+    request-rate cap.
+
+    Known limitation: since the count only reflects *completed* background
+    tasks, several requests fired in quick succession before any of them
+    finish could all pass this check -- there's no atomic reservation. Same
+    class of best-effort tradeoff as the existing in-memory task_store.
+    """
+    if current_user.daily_ai_generation_limit is None:
+        return
+
+    used_today = db.query(AISuggestion).filter(
+        AISuggestion.user_id == current_user.id,
+        AISuggestion.created_at >= _start_of_today_utc(),
+    ).count()
+
+    if used_today >= current_user.daily_ai_generation_limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"הגעת למגבלת היצירות היומית שלך ({current_user.daily_ai_generation_limit}). "
+                "המגבלה מתאפסת בחצות (UTC)."
+            ),
+        )
+
+
 def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: User, crew_fn_name: str, suggestion_type: str) -> dict:
     """Shared logic: validate profile, create task_id, enqueue background job.
 
@@ -123,6 +167,8 @@ def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: Us
             status_code=status.HTTP_403_FORBIDDEN,
             detail="הגישה לתכונת ה-AI טרם אושרה עבורך. פנה למנהל המערכת.",
         )
+
+    _check_daily_ai_limit(db, current_user)
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     if not profile:

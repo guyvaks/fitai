@@ -56,6 +56,65 @@ function ResetPasswordModal({ user, onClose, onSuccess }) {
   );
 }
 
+function DailyLimitModal({ user, onClose, onSuccess }) {
+  const [value, setValue] = useState(user.daily_ai_generation_limit ?? "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = String(value).trim();
+    if (trimmed !== "" && (!/^\d+$/.test(trimmed))) {
+      setError("הזן מספר שלם וחיובי, או השאר ריק ללא הגבלה");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const daily_limit = trimmed === "" ? null : parseInt(trimmed, 10);
+      const { data } = await api.patch(`/api/v1/admin/users/${user.id}/daily-ai-limit`, { daily_limit });
+      onSuccess(data.daily_ai_generation_limit);
+      onClose();
+    } catch {
+      setError("שגיאה בעדכון המגבלה");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-surface-2 border border-line-strong rounded-card p-6 w-full max-w-sm mx-4 shadow-2xl anim-rise" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-text-hi font-bold text-lg mb-1 flex items-center gap-2"><Sparkles className="w-5 h-5 text-volt" /> מגבלת יצירות AI יומית</h2>
+        <p className="text-text-mid text-sm mb-4">{user.full_name} (<span dir="ltr">{user.email}</span>)</p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="ללא הגבלה"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+            className="input-volt"
+            dir="ltr"
+          />
+          <p className="text-text-low text-xs">השאר ריק להסרת ההגבלה (ללא הגבלה)</p>
+          {error && <p className="text-coral text-xs">{error}</p>}
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-text-mid hover:text-text-hi transition-colors">
+              בטל
+            </button>
+            <button type="submit" disabled={loading} className="btn-volt px-4 py-2 text-sm flex items-center gap-1.5">
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {loading ? "מעדכן..." : "שמור"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function PendingExercises() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -362,6 +421,7 @@ function UsersTab() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
+  const [limitTarget, setLimitTarget] = useState(null);
 
   const fetchUsers = () => {
     setLoading(true);
@@ -445,6 +505,13 @@ function UsersTab() {
         {u.ai_access_approved ? "בטל AI" : "אשר AI"} <Sparkles className="w-3 h-3" />
       </button>
       <button
+        onClick={() => setLimitTarget(u)}
+        disabled={busy}
+        className={`text-xs px-2 rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
+      >
+        מגבלה יומית <Sparkles className="w-3 h-3" />
+      </button>
+      <button
         onClick={() => handleDelete(u)}
         disabled={busy || isMe}
         className={`text-xs px-2 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
@@ -483,6 +550,9 @@ function UsersTab() {
                   <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${u.ai_access_approved ? "bg-volt-soft text-volt" : "bg-white/5 text-text-low"}`}>
                     <Sparkles className="w-3 h-3" /> {u.ai_access_approved ? "AI מאושר" : "AI לא מאושר"}
                   </span>
+                  <span className="text-text-low text-xs">
+                    {u.daily_ai_generation_limit == null ? "ללא הגבלה" : `מגבלה: ${u.daily_ai_generation_limit}/יום`}
+                  </span>
                 </div>
               </div>
               <ActionButtons u={u} isMe={isMe} busy={busy} horizontal />
@@ -501,6 +571,7 @@ function UsersTab() {
               <th className="px-4 py-3 text-right">הצטרף</th>
               <th className="px-4 py-3 text-center">אדמין</th>
               <th className="px-4 py-3 text-center">AI</th>
+              <th className="px-4 py-3 text-center">מגבלה יומית</th>
               <th className="px-4 py-3 text-center">פעולות</th>
             </tr>
           </thead>
@@ -524,6 +595,9 @@ function UsersTab() {
                   <td className="px-4 py-3 text-center">
                     {u.ai_access_approved ? <Sparkles className="w-4 h-4 text-volt inline" /> : <span className="text-text-low">—</span>}
                   </td>
+                  <td className="px-4 py-3 text-center text-text-mid">
+                    {u.daily_ai_generation_limit == null ? "ללא הגבלה" : `${u.daily_ai_generation_limit}/יום`}
+                  </td>
                   <td className="px-4 py-3">
                     <ActionButtons u={u} isMe={isMe} busy={busy} />
                   </td>
@@ -540,6 +614,16 @@ function UsersTab() {
           user={resetTarget}
           onClose={() => setResetTarget(null)}
           onSuccess={() => alert(`סיסמה עודכנה בהצלחה עבור ${resetTarget.full_name}`)}
+        />
+      )}
+
+      {limitTarget && (
+        <DailyLimitModal
+          user={limitTarget}
+          onClose={() => setLimitTarget(null)}
+          onSuccess={(newLimit) => {
+            setUsers((prev) => prev.map((x) => x.id === limitTarget.id ? { ...x, daily_ai_generation_limit: newLimit } : x));
+          }}
         />
       )}
     </>

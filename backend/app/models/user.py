@@ -33,6 +33,12 @@ class User(Base):
     # out. Approval/revocation is admin-only (see admin.py) and one-time per
     # user, not per AI generation call.
     ai_access_approved = Column(Boolean, default=False, nullable=False)
+    # NULL = unlimited (the default for everyone -- opt-in restriction, not a
+    # blanket limit). A set integer caps how many AI generations
+    # (nutrition/workout/full-plan combined) that user may run per UTC day.
+    # Nullable, so no server_default/grandfathering concern like the two
+    # booleans above -- existing rows simply get NULL for free.
+    daily_ai_generation_limit = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
