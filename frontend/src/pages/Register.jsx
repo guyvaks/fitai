@@ -8,6 +8,7 @@ export default function Register() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consentGiven, setConsentGiven] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +20,7 @@ export default function Register() {
       // Deliberately not logging the user in here -- the account isn't
       // verified yet, so there's no session to establish until they enter
       // the code we just emailed them.
-      await authAPI.register(email, password, fullName);
+      await authAPI.register(email, password, fullName, consentGiven);
       navigate("/verify-email", { state: { email } });
     } catch (err) {
       const msg = err.response?.data?.detail;
@@ -95,10 +96,28 @@ export default function Register() {
               />
             </div>
 
+            <label className="flex items-start gap-2.5 text-text-mid text-sm py-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentGiven}
+                onChange={(e) => setConsentGiven(e.target.checked)}
+                required
+                className="mt-0.5 w-4 h-4 accent-volt shrink-0"
+              />
+              <span>
+                קראתי ואני מסכים/ה ל
+                <Link to="/privacy-policy" target="_blank" className="text-volt hover:underline font-medium">
+                  מדיניות הפרטיות
+                </Link>
+                , כולל איסוף ועיבוד נתוני בריאות (משקל, מדדי גוף, יומן אכילה ותמונות התקדמות) לצורך
+                מתן שירותי מעקב כושר ותזונה.
+              </span>
+            </label>
+
             <button
               type="submit"
-              disabled={loading}
-              className="btn-volt w-full py-3 mt-2 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+              disabled={loading || !consentGiven}
+              className="btn-volt w-full py-3 mt-2 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? "נרשם..." : "הצטרף עכשיו"}

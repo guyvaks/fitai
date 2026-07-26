@@ -268,6 +268,13 @@ export default function Settings() {
             <span className="inline-flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> ניתוח מדדים</span>
             <ChevronLeft className="w-4 h-4" />
           </NavLink>
+          <NavLink
+            to="/privacy-policy"
+            className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
+          >
+            מדיניות פרטיות
+            <ChevronLeft className="w-4 h-4" />
+          </NavLink>
         </div>
         <button
           type="button"

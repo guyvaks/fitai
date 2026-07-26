@@ -5,6 +5,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    consent_given: bool
 
 
 class UserLogin(BaseModel):

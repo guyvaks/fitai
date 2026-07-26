@@ -112,3 +112,18 @@ class EmailVerificationCode(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ConsentRecord(Base):
+    __tablename__ = "consent_records"
+
+    # What makes consent "documented" rather than just a UI checkbox state --
+    # a durable, timestamped record of which privacy policy version a user
+    # actually agreed to, independent of whatever the frontend currently
+    # renders. One row per registration (a history table, not upserted --
+    # if the policy is ever re-consented-to after a material change, that's
+    # a new row, not an overwrite of this one).
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    policy_version = Column(String, nullable=False)
+    consented_at = Column(DateTime(timezone=True), default=utcnow)

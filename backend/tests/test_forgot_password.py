@@ -9,6 +9,7 @@ def _register(client, email="reset-test@example.com", password="SecurePass123"):
         "email": email,
         "password": password,
         "full_name": "Reset Test User",
+        "consent_given": True,
     })
 
 
