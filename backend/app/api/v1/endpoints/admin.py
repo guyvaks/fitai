@@ -1,12 +1,13 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
+from app.core.rate_limit import limiter
 from app.core.security import get_password_hash
 from app.models.user import User, UserProfile
 from app.models.fitness import (
@@ -96,7 +97,8 @@ def toggle_admin(user_id: str, db: Session = Depends(get_db), current_admin: Use
 
 
 @router.patch("/users/{user_id}/reset-password")
-def reset_password(user_id: str, body: ResetPasswordRequest, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+@limiter.limit("20/hour")
+def reset_password(request: Request, user_id: str, body: ResetPasswordRequest, db: Session = Depends(get_db), _: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

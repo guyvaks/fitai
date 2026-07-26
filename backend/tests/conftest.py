@@ -53,6 +53,13 @@ def client(db_session):
             pass
 
     fastapi_app.dependency_overrides[get_db] = override_get_db
+    # slowapi's limiter state is process-global and persists across tests
+    # (and across requests within a test) unless cleared -- without this,
+    # tests that hit /auth/login or /auth/register more than a few times
+    # (get_auth_headers, retry logic, etc.) would start tripping the real
+    # rate limit and failing with 429s that have nothing to do with what
+    # they're testing.
+    fastapi_app.state.limiter.reset()
     yield TestClient(fastapi_app)
     fastapi_app.dependency_overrides.clear()
 
