@@ -153,6 +153,16 @@ def reset_password_confirm(request: Request, body: ResetPasswordConfirm, db: Ses
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=GENERIC_RESET_PASSWORD_ERROR)
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
+
+    if verify_password(body.new_password, user.hashed_password):
+        # Token stays unused -- this isn't an invalid/expired/reused link,
+        # just a rejected choice of password, so the user can retry the same
+        # link with a different one instead of having to request a new email.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית",
+        )
+
     user.hashed_password = get_password_hash(body.new_password)
     reset_token.used_at = now
     db.commit()
