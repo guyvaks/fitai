@@ -45,6 +45,7 @@ def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
             "full_name": u.full_name,
             "is_active": u.is_active,
             "is_admin": u.is_admin,
+            "ai_access_approved": u.ai_access_approved,
             "created_at": u.created_at,
         }
         for u in users
@@ -94,6 +95,20 @@ def toggle_admin(user_id: str, db: Session = Depends(get_db), current_admin: Use
     user.is_admin = not user.is_admin
     db.commit()
     return {"id": str(user.id), "is_admin": user.is_admin}
+
+
+@router.patch("/users/{user_id}/toggle-ai-access")
+def toggle_ai_access(user_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    try:
+        parsed_id = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user = db.query(User).filter(User.id == parsed_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    user.ai_access_approved = not user.ai_access_approved
+    db.commit()
+    return {"id": str(user.id), "ai_access_approved": user.ai_access_approved}
 
 
 @router.patch("/users/{user_id}/reset-password")

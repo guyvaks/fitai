@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X, Apple } from "lucide-react";
+import { KeyRound, Crown, Trash2, Loader2, Users, Dumbbell, Check, X, Apple, Sparkles } from "lucide-react";
 import { notifyPendingCountChanged } from "../utils/pendingUpdates";
 
 function ResetPasswordModal({ user, onClose, onSuccess }) {
@@ -406,6 +406,20 @@ function UsersTab() {
     }
   };
 
+  const handleToggleAiAccess = async (u) => {
+    const action = u.ai_access_approved ? "ביטול" : "אישור";
+    if (!window.confirm(`${action} הגישה לתכונת ה-AI עבור "${u.full_name}"?`)) return;
+    setActionLoading(u.id);
+    try {
+      const { data } = await api.patch(`/api/v1/admin/users/${u.id}/toggle-ai-access`);
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, ai_access_approved: data.ai_access_approved } : x));
+    } catch {
+      alert("שגיאה בעדכון גישת ה-AI");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) return (
     <div className="p-6 text-text-mid card-glass flex items-center gap-2">
       <Loader2 className="w-4 h-4 animate-spin text-volt" /> טוען...
@@ -428,6 +442,13 @@ function UsersTab() {
         className={`text-xs px-2 rounded-lg border border-amber/30 text-amber hover:bg-amber-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
       >
         {u.is_admin ? "הסר" : "אדמין"} <Crown className="w-3 h-3" />
+      </button>
+      <button
+        onClick={() => handleToggleAiAccess(u)}
+        disabled={busy}
+        className={`text-xs px-2 rounded-lg border border-volt/30 text-volt hover:bg-volt-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1 ${horizontal ? "flex-1 py-2" : "py-1"}`}
+      >
+        {u.ai_access_approved ? "בטל AI" : "אשר AI"} <Sparkles className="w-3 h-3" />
       </button>
       <button
         onClick={() => handleDelete(u)}
@@ -459,11 +480,16 @@ function UsersTab() {
                     {new Date(u.created_at).toLocaleDateString("he-IL")}
                   </p>
                 </div>
-                {u.is_admin && (
-                  <span className="flex-shrink-0 inline-flex items-center gap-1 bg-amber-soft text-amber text-xs px-2 py-0.5 rounded-full font-medium">
-                    <Crown className="w-3 h-3" /> אדמין
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  {u.is_admin && (
+                    <span className="inline-flex items-center gap-1 bg-amber-soft text-amber text-xs px-2 py-0.5 rounded-full font-medium">
+                      <Crown className="w-3 h-3" /> אדמין
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${u.ai_access_approved ? "bg-volt-soft text-volt" : "bg-white/5 text-text-low"}`}>
+                    <Sparkles className="w-3 h-3" /> {u.ai_access_approved ? "AI מאושר" : "AI לא מאושר"}
                   </span>
-                )}
+                </div>
               </div>
               <ActionButtons u={u} isMe={isMe} busy={busy} horizontal />
             </div>
@@ -480,6 +506,7 @@ function UsersTab() {
               <th className="px-4 py-3 text-right">אימייל</th>
               <th className="px-4 py-3 text-right">הצטרף</th>
               <th className="px-4 py-3 text-center">אדמין</th>
+              <th className="px-4 py-3 text-center">AI</th>
               <th className="px-4 py-3 text-center">פעולות</th>
             </tr>
           </thead>
@@ -499,6 +526,9 @@ function UsersTab() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {u.is_admin ? <Crown className="w-4 h-4 text-amber inline" /> : <span className="text-text-low">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {u.ai_access_approved ? <Sparkles className="w-4 h-4 text-volt inline" /> : <span className="text-text-low">—</span>}
                   </td>
                   <td className="px-4 py-3">
                     <ActionButtons u={u} isMe={isMe} busy={busy} />

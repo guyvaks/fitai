@@ -26,15 +26,20 @@ def get_auth_headers(client, email="test@example.com"):
         "full_name": "Test User",
         "consent_given": True,
     })
-    # New signups are unverified by default (email-verification feature) and
-    # login now rejects unverified accounts -- this helper is used by nearly
-    # every other test file purely to get an authenticated session, not to
-    # exercise the verification flow itself, so mark verified directly via a
-    # fresh session on the same shared (StaticPool) in-memory DB rather than
-    # making every caller go through /verify-email.
+    # New signups are unverified and AI-access-unapproved by default
+    # (email-verification and admin-gated-AI-access features) and login now
+    # rejects unverified accounts -- this helper is used by nearly every
+    # other test file purely to get an authenticated session, not to
+    # exercise the verification/approval flows themselves, so mark both
+    # directly via a fresh session on the same shared (StaticPool) in-memory
+    # DB rather than making every caller go through /verify-email or an
+    # admin approval call.
     direct_session = TestingSessionLocal()
     try:
-        direct_session.query(User).filter(User.email == email).update({"is_verified": True})
+        direct_session.query(User).filter(User.email == email).update({
+            "is_verified": True,
+            "ai_access_approved": True,
+        })
         direct_session.commit()
     finally:
         direct_session.close()

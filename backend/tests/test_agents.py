@@ -58,6 +58,26 @@ def test_generate_nutrition_no_profile(client):
     assert response.status_code == 400
 
 
+def test_generate_blocked_for_unapproved_ai_access(client):
+    email = "ai-unapproved@example.com"
+    headers = get_auth_headers(client, email=email)
+    _create_profile(client, headers)
+
+    # get_auth_headers grandfathers ai_access_approved=True for test
+    # convenience -- revoke it directly here to exercise the actual gate.
+    direct_session = TestingSessionLocal()
+    try:
+        from app.models.user import User
+        direct_session.query(User).filter(User.email == email).update({"ai_access_approved": False})
+        direct_session.commit()
+    finally:
+        direct_session.close()
+
+    for path in ("/api/v1/agents/nutrition", "/api/v1/agents/workout", "/api/v1/agents/full-plan"):
+        response = client.post(path, headers=headers)
+        assert response.status_code == 403, path
+
+
 def test_generate_workout_unauthenticated(client):
     response = client.post("/api/v1/agents/workout")
     assert response.status_code == 401

@@ -26,6 +26,13 @@ class User(Base):
     # for rows that predate this column -- existing users are grandfathered
     # in as already-verified rather than retroactively locked out.
     is_verified = Column(Boolean, default=False, nullable=False)
+    # Same grandfathering pattern as is_verified above: Python-side
+    # default=False gates every new signup going forward, while the
+    # migration's server_default=true grandfathers in existing users so this
+    # new gate on an existing core feature doesn't retroactively lock anyone
+    # out. Approval/revocation is admin-only (see admin.py) and one-time per
+    # user, not per AI generation call.
+    ai_access_approved = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
