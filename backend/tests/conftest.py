@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app as fastapi_app
 from app.core.database import Base, get_db
-import app.models.user  # noqa: F401
+from app.models.user import User
 import app.models.fitness  # noqa: F401
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -25,6 +25,19 @@ def get_auth_headers(client, email="test@example.com"):
         "password": "SecurePass123",
         "full_name": "Test User",
     })
+    # New signups are unverified by default (email-verification feature) and
+    # login now rejects unverified accounts -- this helper is used by nearly
+    # every other test file purely to get an authenticated session, not to
+    # exercise the verification flow itself, so mark verified directly via a
+    # fresh session on the same shared (StaticPool) in-memory DB rather than
+    # making every caller go through /verify-email.
+    direct_session = TestingSessionLocal()
+    try:
+        direct_session.query(User).filter(User.email == email).update({"is_verified": True})
+        direct_session.commit()
+    finally:
+        direct_session.close()
+
     response = client.post("/api/v1/auth/login", json={
         "email": email,
         "password": "SecurePass123",

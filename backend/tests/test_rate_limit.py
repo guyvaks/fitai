@@ -51,7 +51,7 @@ def test_login_rate_limit_is_per_ip_not_global(client):
     assert other_ip.status_code == 401
 
 
-def test_normal_login_usage_does_not_trip_rate_limit(client):
+def test_normal_login_usage_does_not_trip_rate_limit(client, db_session):
     # A real user registering once and logging in twice (e.g. after a typo)
     # is well under the 5/minute limit and must not be false-positived.
     client.post("/api/v1/auth/register", json={
@@ -59,6 +59,10 @@ def test_normal_login_usage_does_not_trip_rate_limit(client):
         "password": "SecurePass123",
         "full_name": "Normal User",
     })
+    from app.models.user import User
+    db_session.query(User).filter(User.email == "normal-user@example.com").update({"is_verified": True})
+    db_session.commit()
+
     for _ in range(2):
         resp = client.post("/api/v1/auth/login", json={
             "email": "normal-user@example.com",

@@ -9,17 +9,28 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
     setLoading(true);
     try {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.detail || "שגיאה בהתחברות. נסה שוב.");
+      const detail = err.response?.data?.detail;
+      // The unverified-email case is a structured {error_type, message}
+      // object (distinct from the plain-string wrong-credentials error) so
+      // it can be routed to the verify screen instead of just displayed.
+      if (detail && typeof detail === "object" && detail.error_type === "EMAIL_NOT_VERIFIED") {
+        setError(detail.message);
+        setNeedsVerification(true);
+      } else {
+        setError(detail || "שגיאה בהתחברות. נסה שוב.");
+      }
     } finally {
       setLoading(false);
     }
@@ -48,6 +59,15 @@ export default function Login() {
           {error && (
             <div className="mb-4 p-3 bg-coral-soft border border-coral/30 rounded-elem text-coral text-sm">
               {error}
+              {needsVerification && (
+                <>
+                  {" "}
+                  <Link to="/verify-email" state={{ email }} className="underline font-medium">
+                    לאימות המייל
+                  </Link>
+                  .
+                </>
+              )}
             </div>
           )}
 

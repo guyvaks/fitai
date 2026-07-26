@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
 import { Zap, Loader2 } from "lucide-react";
+import { authAPI } from "../services/api";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,8 +16,11 @@ export default function Register() {
     setError("");
     setLoading(true);
     try {
-      await register(email, password, fullName);
-      navigate("/dashboard");
+      // Deliberately not logging the user in here -- the account isn't
+      // verified yet, so there's no session to establish until they enter
+      // the code we just emailed them.
+      await authAPI.register(email, password, fullName);
+      navigate("/verify-email", { state: { email } });
     } catch (err) {
       const msg = err.response?.data?.detail;
       if (msg === "Email already registered") {

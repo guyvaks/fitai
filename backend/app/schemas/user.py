@@ -12,6 +12,7 @@ class UserResponse(BaseModel):
     full_name: str
     is_active: bool
     is_admin: bool = False
+    is_verified: bool = False
     created_at: datetime
     avatar_updated_at: Optional[datetime] = None
 

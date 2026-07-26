@@ -10,12 +10,19 @@ def test_register_success(client):
     assert data["token_type"] == "bearer"
 
 
-def test_login_success(client):
+def test_login_success(client, db_session):
     client.post("/api/v1/auth/register", json={
         "email": "test@example.com",
         "password": "SecurePass123",
         "full_name": "Test User",
     })
+    # New signups are unverified by default; this test is about login's
+    # success path with correct credentials, not the verification gate
+    # itself (covered separately in test_email_verification.py).
+    from app.models.user import User
+    db_session.query(User).filter(User.email == "test@example.com").update({"is_verified": True})
+    db_session.commit()
+
     response = client.post("/api/v1/auth/login", json={
         "email": "test@example.com",
         "password": "SecurePass123",

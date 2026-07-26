@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.core.security import hash_reset_token
+from app.core.security import hash_secret
 from app.models.user import PasswordResetToken, User
 
 
@@ -59,10 +59,11 @@ def test_reset_password_with_valid_token_updates_password_and_allows_login(clien
 
     raw_token = "test-raw-token-abc123"
     user = db_session.query(User).filter(User.email == "resetflow@example.com").first()
+    user.is_verified = True  # unrelated to this test -- just so the later login check succeeds
     from datetime import datetime, timedelta, timezone
     db_session.add(PasswordResetToken(
         user_id=user.id,
-        token_hash=hash_reset_token(raw_token),
+        token_hash=hash_secret(raw_token),
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
     ))
     db_session.commit()
@@ -88,6 +89,54 @@ def test_reset_password_with_valid_token_updates_password_and_allows_login(clien
     assert new_login.status_code == 200
 
 
+def test_reset_password_rejects_same_password_as_current(client, db_session):
+    _register(client, email="samepass@example.com", password="CurrentPassword123")
+    user = db_session.query(User).filter(User.email == "samepass@example.com").first()
+    user.is_verified = True  # unrelated to this test -- just so the later login check succeeds
+
+    from datetime import datetime, timedelta, timezone
+    raw_token = "same-password-token-1"
+    db_session.add(PasswordResetToken(
+        user_id=user.id,
+        token_hash=hash_secret(raw_token),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    ))
+    db_session.commit()
+
+    resp = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "CurrentPassword123",
+    })
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית"
+
+    # The token must not be consumed by a rejected same-password attempt --
+    # the user should be able to retry the same link with a different password.
+    token_row = db_session.query(PasswordResetToken).filter(
+        PasswordResetToken.token_hash == hash_secret(raw_token)
+    ).first()
+    assert token_row.used_at is None
+
+    retry = client.post("/api/v1/auth/reset-password", json={
+        "token": raw_token,
+        "new_password": "GenuinelyDifferentPassword456",
+    })
+    assert retry.status_code == 200
+
+    # Old (unchanged) password no longer works, the genuinely new one does
+    old_login = client.post("/api/v1/auth/login", json={
+        "email": "samepass@example.com",
+        "password": "CurrentPassword123",
+    })
+    assert old_login.status_code == 401
+
+    new_login = client.post("/api/v1/auth/login", json={
+        "email": "samepass@example.com",
+        "password": "GenuinelyDifferentPassword456",
+    })
+    assert new_login.status_code == 200
+
+
 def test_reset_password_token_is_single_use(client, db_session):
     _register(client, email="singleuse@example.com", password="OldPassword123")
     user = db_session.query(User).filter(User.email == "singleuse@example.com").first()
@@ -96,7 +145,7 @@ def test_reset_password_token_is_single_use(client, db_session):
     from datetime import datetime, timedelta, timezone
     db_session.add(PasswordResetToken(
         user_id=user.id,
-        token_hash=hash_reset_token(raw_token),
+        token_hash=hash_secret(raw_token),
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
     ))
     db_session.commit()
@@ -123,7 +172,7 @@ def test_reset_password_expired_token_is_rejected(client, db_session):
     from datetime import datetime, timedelta, timezone
     db_session.add(PasswordResetToken(
         user_id=user.id,
-        token_hash=hash_reset_token(raw_token),
+        token_hash=hash_secret(raw_token),
         expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),  # already expired
     ))
     db_session.commit()

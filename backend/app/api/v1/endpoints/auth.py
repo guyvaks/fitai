@@ -11,19 +11,54 @@ from app.core.security import (
     create_access_token,
     decode_token,
     generate_password_reset_token,
+    generate_verification_code,
     get_password_hash,
-    hash_reset_token,
+    hash_secret,
     verify_password,
 )
 from app.core.config import settings
-from app.models.user import PasswordResetToken, User
-from app.schemas.auth import ForgotPasswordRequest, ResetPasswordConfirm, Token, UserLogin, UserRegister
+from app.models.user import EmailVerificationCode, PasswordResetToken, User
+from app.schemas.auth import (
+    ForgotPasswordRequest,
+    ResendVerificationRequest,
+    ResetPasswordConfirm,
+    Token,
+    UserLogin,
+    UserRegister,
+    VerifyEmailRequest,
+)
 from app.schemas.user import UserResponse
-from app.services.email import send_password_reset_email
+from app.services.email import send_password_reset_email, send_verification_email
 
 RESET_TOKEN_TTL_MINUTES = 30
+VERIFICATION_CODE_TTL_MINUTES = 15
 GENERIC_FORGOT_PASSWORD_MESSAGE = "אם קיים חשבון עם כתובת זו, נשלח אליו קישור לאיפוס סיסמה"
 GENERIC_RESET_PASSWORD_ERROR = "קישור האיפוס אינו תקין או שפג תוקפו"
+GENERIC_RESEND_VERIFICATION_MESSAGE = "אם קיים חשבון לא מאומת עם כתובת זו, נשלח אליו קוד אימות חדש"
+GENERIC_VERIFY_EMAIL_ERROR = "הקוד שגוי או שפג תוקפו"
+
+
+def _issue_verification_code(db: Session, user: User) -> str:
+    """(Re)generate the single verification code row for a user (register
+    and resend-verification both call this) and return the raw code to send.
+    """
+    raw_code = generate_verification_code()
+    existing = db.query(EmailVerificationCode).filter(
+        EmailVerificationCode.user_id == user.id
+    ).first()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=VERIFICATION_CODE_TTL_MINUTES)
+    if existing:
+        existing.code_hash = hash_secret(raw_code)
+        existing.expires_at = expires_at
+        existing.used_at = None
+    else:
+        db.add(EmailVerificationCode(
+            user_id=user.id,
+            code_hash=hash_secret(raw_code),
+            expires_at=expires_at,
+        ))
+    db.commit()
+    return raw_code
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -45,7 +80,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour")
-def register(request: Request, user_data: UserRegister, db: Session = Depends(get_db)):
+def register(request: Request, background_tasks: BackgroundTasks, user_data: UserRegister, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_data.email).first()
     if existing:
         raise HTTPException(
@@ -53,11 +88,21 @@ def register(request: Request, user_data: UserRegister, db: Session = Depends(ge
             detail="Email already registered",
         )
     hashed_pw = get_password_hash(user_data.password)
-    user = User(email=user_data.email, hashed_password=hashed_pw, full_name=user_data.full_name)
+    user = User(email=user_data.email, hashed_password=hashed_pw, full_name=user_data.full_name, is_verified=False)
     db.add(user)
     db.commit()
     db.refresh(user)
 
+    raw_code = _issue_verification_code(db, user)
+    background_tasks.add_task(send_verification_email, user.email, raw_code)
+
+    # Still returns a token for API-shape/backward-compat reasons (existing
+    # tests assert on it), but the frontend deliberately does NOT use it to
+    # establish a session -- Register.jsx calls the raw endpoint directly and
+    # sends the user straight to the verify-email screen instead, so there's
+    # no window where an unverified account has a working client-side
+    # session. The only paths to a real session are login (blocked below
+    # until verified) and a successful /verify-email.
     access_token = create_access_token(
         data={"sub": user.email},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -87,6 +132,23 @@ def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db))
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="אימייל או סיסמה שגויים",
         )
+
+    if not user.is_verified:
+        # Only reachable once the password has already been confirmed
+        # correct, so this doesn't reopen the email-enumeration gap the
+        # generic 401 above closes -- a wrong-password guess against an
+        # unverified account still gets the same generic 401 as any other.
+        # A distinct status (403) + structured detail (vs. the plain string
+        # above) lets the frontend tell "wrong credentials" apart from
+        # "right credentials, not verified yet" and route accordingly.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error_type": "EMAIL_NOT_VERIFIED",
+                "message": "יש לאמת את כתובת האימייל שלך לפני ההתחברות",
+            },
+        )
+
     access_token = create_access_token(
         data={"sub": user.email},
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -111,7 +173,7 @@ def forgot_password(
         raw_token = generate_password_reset_token()
         db.add(PasswordResetToken(
             user_id=user.id,
-            token_hash=hash_reset_token(raw_token),
+            token_hash=hash_secret(raw_token),
             expires_at=datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES),
         ))
         db.commit()
@@ -129,7 +191,7 @@ def forgot_password(
 @router.post("/reset-password")
 @limiter.limit("5/hour")
 def reset_password_confirm(request: Request, body: ResetPasswordConfirm, db: Session = Depends(get_db)):
-    token_hash = hash_reset_token(body.token)
+    token_hash = hash_secret(body.token)
     reset_token = db.query(PasswordResetToken).filter(
         PasswordResetToken.token_hash == token_hash
     ).first()
@@ -153,11 +215,80 @@ def reset_password_confirm(request: Request, body: ResetPasswordConfirm, db: Ses
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=GENERIC_RESET_PASSWORD_ERROR)
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
+
+    if verify_password(body.new_password, user.hashed_password):
+        # Token stays unused -- this isn't an invalid/expired/reused link,
+        # just a rejected choice of password, so the user can retry the same
+        # link with a different one instead of having to request a new email.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="הסיסמה החדשה חייבת להיות שונה מהסיסמה הנוכחית",
+        )
+
     user.hashed_password = get_password_hash(body.new_password)
     reset_token.used_at = now
     db.commit()
 
     return {"message": "הסיסמה עודכנה בהצלחה"}
+
+
+@router.post("/verify-email", response_model=Token)
+@limiter.limit("5/hour")
+def verify_email(request: Request, body: VerifyEmailRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    code_row = (
+        db.query(EmailVerificationCode).filter(EmailVerificationCode.user_id == user.id).first()
+        if user else None
+    )
+
+    now = datetime.now(timezone.utc)
+    expires_at = code_row.expires_at if code_row else None
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if (
+        not user
+        or not code_row
+        or code_row.used_at is not None
+        or expires_at < now
+        or hash_secret(body.code) != code_row.code_hash
+    ):
+        # One generic message for "no such user", "no code issued", "already
+        # used", "expired", and "wrong code" alike -- same principle as
+        # reset-password: don't tell a guesser which reason it failed for.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=GENERIC_VERIFY_EMAIL_ERROR)
+
+    user.is_verified = True
+    code_row.used_at = now
+    db.commit()
+
+    # Log the user straight in on success -- they already proved control of
+    # the email, no reason to make them submit a separate login afterward.
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return Token(access_token=access_token)
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/hour")
+def resend_verification(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    body: ResendVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    # Same generic-response principle as forgot-password: whether the email
+    # exists, and whether it's already verified, are both things this
+    # endpoint must not reveal one way or the other.
+    user = db.query(User).filter(User.email == body.email).first()
+
+    if user and not user.is_verified:
+        raw_code = _issue_verification_code(db, user)
+        background_tasks.add_task(send_verification_email, user.email, raw_code)
+
+    return {"message": GENERIC_RESEND_VERIFICATION_MESSAGE}
 
 
 @router.get("/me", response_model=UserResponse)

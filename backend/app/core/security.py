@@ -54,14 +54,25 @@ def generate_password_reset_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def hash_reset_token(raw_token: str) -> str:
-    """SHA-256 of the raw token, for at-rest storage.
+def generate_verification_code() -> str:
+    """A random 6-digit numeric code for the email-verification screen.
 
+    Zero-padded so it's always 6 characters (secrets.randbelow can return a
+    short number) -- the user reads and types this manually, unlike the
+    reset token above which only ever travels inside a clicked link.
+    """
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def hash_secret(raw_value: str) -> str:
+    """SHA-256 of a token/code, for at-rest storage.
+
+    Shared by the password-reset token and the email-verification code --
+    both are short-lived, rate-limited, server-generated secrets, not
+    low-entropy user-chosen ones, so a plain fast hash is appropriate for
+    both (unlike passwords, which need bcrypt's slow, salted hashing).
     Deliberately not bcrypt: bcrypt's per-hash random salt means the same
     input hashes differently every time, so it can't be used for an equality
-    lookup (`WHERE token_hash = ?`) -- and it doesn't need to be slow like a
-    password hash, since the token itself is already a high-entropy random
-    value (unguessable by brute force) rather than a low-entropy user-chosen
-    secret.
+    lookup (`WHERE token_hash = ?` / `WHERE code_hash = ?`).
     """
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    return hashlib.sha256(raw_value.encode("utf-8")).hexdigest()
