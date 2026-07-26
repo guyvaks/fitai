@@ -86,6 +86,11 @@ def test_login_unknown_email_path_not_faster_than_wrong_password_path(client):
     })
 
     def timed_login(email):
+        # Reset between calls -- this test measures bcrypt cost, not rate
+        # limiting, and 10 calls in a row would otherwise trip /auth/login's
+        # 5/minute limit partway through and corrupt the later timings with
+        # near-instant 429s.
+        client.app.state.limiter.reset()
         start = time.perf_counter()
         client.post("/api/v1/auth/login", json={"email": email, "password": "WrongPassword"})
         return time.perf_counter() - start
