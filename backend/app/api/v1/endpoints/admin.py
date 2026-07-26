@@ -61,11 +61,19 @@ def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     ]
 
 
+def _parse_user_id_or_404(user_id: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+
 @router.delete("/users/{user_id}")
 def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
     if str(current_admin.id) == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
-    user = db.query(User).filter(User.id == user_id).first()
+    parsed_id = _parse_user_id_or_404(user_id)
+    user = db.query(User).filter(User.id == parsed_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
@@ -73,9 +81,9 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
     # dependent rows must be removed explicitly (children before parents)
     # or db.delete(user) raises an IntegrityError that FastAPI turns into
     # an unhandled 500.
-    workout_plan_ids = db.query(WorkoutPlan.id).filter(WorkoutPlan.user_id == user_id)
-    nutrition_plan_ids = db.query(NutritionPlan.id).filter(NutritionPlan.user_id == user_id)
-    session_ids = db.query(WorkoutSession.id).filter(WorkoutSession.user_id == user_id)
+    workout_plan_ids = db.query(WorkoutPlan.id).filter(WorkoutPlan.user_id == parsed_id)
+    nutrition_plan_ids = db.query(NutritionPlan.id).filter(NutritionPlan.user_id == parsed_id)
+    session_ids = db.query(WorkoutSession.id).filter(WorkoutSession.user_id == parsed_id)
 
     db.query(Meal).filter(Meal.nutrition_plan_id.in_(nutrition_plan_ids)).delete(synchronize_session=False)
     db.query(WorkoutExercise).filter(WorkoutExercise.workout_plan_id.in_(workout_plan_ids)).delete(synchronize_session=False)
@@ -87,7 +95,7 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
         PersonalRecord, EnduranceLog, StrengthLog, HydrationLog, WeightLog,
         UserProfile,
     ):
-        db.query(model).filter(model.user_id == user_id).delete(synchronize_session=False)
+        db.query(model).filter(model.user_id == parsed_id).delete(synchronize_session=False)
 
     db.delete(user)
     db.commit()
@@ -98,7 +106,8 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
 def toggle_admin(user_id: str, db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
     if str(current_admin.id) == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change your own admin status")
-    user = db.query(User).filter(User.id == user_id).first()
+    parsed_id = _parse_user_id_or_404(user_id)
+    user = db.query(User).filter(User.id == parsed_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     user.is_admin = not user.is_admin
@@ -108,10 +117,7 @@ def toggle_admin(user_id: str, db: Session = Depends(get_db), current_admin: Use
 
 @router.patch("/users/{user_id}/toggle-ai-access")
 def toggle_ai_access(user_id: str, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    try:
-        parsed_id = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    parsed_id = _parse_user_id_or_404(user_id)
     user = db.query(User).filter(User.id == parsed_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -127,10 +133,7 @@ def set_daily_ai_limit(
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    try:
-        parsed_id = uuid.UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    parsed_id = _parse_user_id_or_404(user_id)
     user = db.query(User).filter(User.id == parsed_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -142,7 +145,8 @@ def set_daily_ai_limit(
 @router.patch("/users/{user_id}/reset-password")
 @limiter.limit("20/hour")
 def reset_password(request: Request, user_id: str, body: ResetPasswordRequest, db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    user = db.query(User).filter(User.id == user_id).first()
+    parsed_id = _parse_user_id_or_404(user_id)
+    user = db.query(User).filter(User.id == parsed_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     user.hashed_password = get_password_hash(body.new_password)
