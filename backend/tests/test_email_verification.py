@@ -102,6 +102,40 @@ def test_register_redirects_to_override_email_when_configured(mock_send, client,
     assert "real-user@example.com" in sent["html"]
 
 
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.settings.RESEND_SANDBOX_OVERRIDE_EMAIL", "owner@example.com")
+@patch("app.services.email.resend.Emails.send")
+def test_admin_notification_subject_and_banner_name_new_user_not_admin(mock_send, client, db_session):
+    # Regression test: the admin-notification subject/banner used to be
+    # built from the admin's own address (via _resolve_recipient_and_subject),
+    # so every registration produced the exact same subject line regardless
+    # of who signed up. It must instead vary per registration, naming the
+    # new user -- not the admin -- in both the subject and the banner.
+    get_auth_headers(client, email="ai-access-admin3@example.com")
+    admin = db_session.query(User).filter(User.email == "ai-access-admin3@example.com").first()
+    admin.is_admin = True
+    db_session.commit()
+    mock_send.reset_mock()
+
+    response = _register(client, email="ai-access-new-user3@example.com")
+    assert response.status_code == 201
+
+    # Both the admin-notification and the new user's own verification-code
+    # email get redirected to the same override address, so "to" alone can't
+    # distinguish them -- the admin link in the html can.
+    admin_calls = [
+        call.args[0] for call in mock_send.call_args_list
+        if "tab=users" in call.args[0]["html"]
+    ]
+    assert len(admin_calls) == 1
+    call_kwargs = admin_calls[0]
+    assert call_kwargs["to"] == ["owner@example.com"]
+    assert "ai-access-new-user3@example.com" in call_kwargs["subject"]
+    assert "ai-access-admin3@example.com" not in call_kwargs["subject"]
+    assert "ai-access-new-user3@example.com" in call_kwargs["html"]
+    assert "ai-access-admin3@example.com" not in call_kwargs["html"]
+
+
 def test_login_rejected_for_unverified_user_with_correct_password(client):
     _register(client, email="unverified@example.com", password="SecurePass123")
 
