@@ -1,15 +1,19 @@
+import logging
 import uuid
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.core.rate_limit import limiter
 from app.core.security import get_password_hash
+from app.services.email import send_admin_composed_email
 from app.models.user import User, UserProfile
+
+logger = logging.getLogger(__name__)
 from app.models.fitness import (
     NutritionPlan, Meal, FoodLog, WorkoutPlan, WorkoutExercise,
     WorkoutSession, ExerciseLog, AISuggestion, SmartProgression,
@@ -33,6 +37,29 @@ class DailyAiLimitRequest(BaseModel):
 
 class BulkFoodIdsRequest(BaseModel):
     ids: List[str]
+
+
+BulkUserAction = Literal["deactivate", "reactivate", "revoke_ai_access", "set_daily_limit", "send_email"]
+
+
+class BulkUserActionRequest(BaseModel):
+    user_ids: List[str]
+    action: BulkUserAction
+    # Only used by action == "set_daily_limit"; same meaning as
+    # DailyAiLimitRequest.daily_limit above (None/omitted = unlimited).
+    daily_limit: Optional[int] = Field(default=None, ge=0)
+    # Only used by action == "send_email".
+    subject: Optional[str] = None
+    body: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _validate_action_payload(self):
+        if not self.user_ids:
+            raise ValueError("user_ids must not be empty")
+        if self.action == "send_email" and not (self.subject and self.subject.strip() and self.body and self.body.strip()):
+            raise ValueError("subject and body are required for the send_email action")
+        return self
+
 
 router = APIRouter()
 
@@ -127,6 +154,61 @@ def set_daily_ai_limit(
     user.daily_ai_generation_limit = body.daily_limit
     db.commit()
     return {"id": str(user.id), "daily_ai_generation_limit": user.daily_ai_generation_limit}
+
+
+@router.post("/users/bulk")
+def bulk_user_action(
+    payload: BulkUserActionRequest,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+):
+    """Applies one action to a list of users, reporting per-user
+    success/failure rather than failing the whole request if some of the
+    targets are invalid or one email send fails -- an admin acting on a batch
+    of 30 users needs to know exactly which ones didn't go through, not just
+    that "something" failed.
+    """
+    results = []
+
+    for raw_id in payload.user_ids:
+        try:
+            parsed_id = uuid.UUID(raw_id)
+        except ValueError:
+            results.append({"id": raw_id, "success": False, "error": "Invalid user id"})
+            continue
+
+        user = db.query(User).filter(User.id == parsed_id).first()
+        if not user:
+            results.append({"id": raw_id, "success": False, "error": "User not found"})
+            continue
+
+        if payload.action == "deactivate" and user.id == current_admin.id:
+            # Same self-protection as delete_user -- an admin locking out
+            # their own only-admin account would need direct DB access to
+            # undo it, since a deactivated user can't log back in to reverse it.
+            results.append({"id": raw_id, "success": False, "error": "Cannot deactivate yourself"})
+            continue
+
+        try:
+            if payload.action == "deactivate":
+                user.is_active = False
+            elif payload.action == "reactivate":
+                user.is_active = True
+            elif payload.action == "revoke_ai_access":
+                user.ai_access_approved = False
+            elif payload.action == "set_daily_limit":
+                user.daily_ai_generation_limit = payload.daily_limit
+            elif payload.action == "send_email":
+                send_admin_composed_email(user.email, payload.subject, payload.body)
+
+            db.commit()
+            results.append({"id": raw_id, "success": True})
+        except Exception as exc:
+            db.rollback()
+            logger.exception("Bulk user action '%s' failed for user %s", payload.action, raw_id)
+            results.append({"id": raw_id, "success": False, "error": str(exc)})
+
+    return {"results": results}
 
 
 @router.patch("/users/{user_id}/reset-password")

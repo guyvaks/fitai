@@ -7,6 +7,7 @@ endpoint always returns the same generic message regardless of what happens
 here, and this function is called from a FastAPI BackgroundTask *after* that
 response is already sent.
 """
+import html
 import logging
 
 import resend
@@ -152,3 +153,39 @@ def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
             })
         except Exception:
             logger.exception("Failed to send pending-AI-access admin email to %s", admin_email)
+
+
+def send_admin_composed_email(to_email: str, subject: str, body: str) -> None:
+    """Free-form email an admin composes for one or more users (bulk actions
+    in the admin panel). Subject/body are admin-authored but still
+    HTML-escaped before interpolation -- they end up in an HTML email like
+    any other user-facing content here, so the same injection risk applies.
+
+    Unlike the other senders in this module, this one deliberately does NOT
+    swallow send failures: the bulk-admin endpoint that calls this needs to
+    report per-user success/failure back to the admin (there's no email-
+    enumeration concern to protect here, unlike forgot-password/verification,
+    since the admin already has the recipient list).
+    """
+    if not settings.RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY not configured")
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    safe_subject = html.escape(subject)
+    safe_body = html.escape(body).replace("\n", "<br>")
+    actual_to, resolved_subject, banner = _resolve_recipient_and_subject(to_email, safe_subject)
+
+    email_html = f"""
+    <div dir="rtl" style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        {banner}
+        <p>{safe_body}</p>
+    </div>
+    """
+
+    resend.Emails.send({
+        "from": settings.RESEND_FROM_EMAIL,
+        "to": [actual_to],
+        "subject": resolved_subject,
+        "html": email_html,
+    })
