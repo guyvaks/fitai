@@ -17,18 +17,29 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _resolve_recipient_and_subject(to_email: str, subject: str) -> tuple[str, str, str]:
+def _resolve_recipient_and_subject(
+    to_email: str, subject: str, context_email: str | None = None
+) -> tuple[str, str, str]:
     """Apply the sandbox-override redirect (see RESEND_SANDBOX_OVERRIDE_EMAIL in
     config.py) if configured, returning (actual_to, subject, banner_html).
+
+    `context_email` is who the message is *about* for the bracketed subject
+    and banner -- defaults to `to_email`, which is correct for
+    password-reset/verification (the recipient and the subject are the same
+    person). Pass it explicitly when the real recipient differs from who the
+    message concerns (e.g. an admin notification about a different user) --
+    swapping `to_email` itself in that case would also redirect the actual
+    send once no override is configured, not just the display text.
     """
     override = settings.RESEND_SANDBOX_OVERRIDE_EMAIL
     if not override:
         return to_email, subject, ""
+    subject_context = context_email or to_email
     banner = (
         f'<p style="background:#fff3cd;padding:8px;border-radius:4px;">'
-        f"<strong>עבור משתמש:</strong> {to_email}</p>"
+        f"<strong>עבור משתמש:</strong> {subject_context}</p>"
     )
-    return override, f"[{to_email}] {subject}", banner
+    return override, f"[{subject_context}] {subject}", banner
 
 
 def send_password_reset_email(to_email: str, reset_link: str) -> None:
@@ -129,7 +140,9 @@ def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
     """
 
     for admin_email in admin_emails:
-        actual_to, subject, banner = _resolve_recipient_and_subject(admin_email, subject_base)
+        actual_to, subject, banner = _resolve_recipient_and_subject(
+            admin_email, subject_base, context_email=new_user_email
+        )
         try:
             resend.Emails.send({
                 "from": settings.RESEND_FROM_EMAIL,
