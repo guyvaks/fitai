@@ -12,7 +12,13 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.core.database import get_db
 from app.models.user import User, UserProfile
 from app.models.fitness import WeightLog
-from app.schemas.user import AvatarUpload, UserProfileCreate, UserProfileResponse, UserProfileUpdate
+from app.schemas.user import (
+    AvatarUpload,
+    PreferredLanguageUpdate,
+    UserProfileCreate,
+    UserProfileResponse,
+    UserProfileUpdate,
+)
 from app.services.metrics import calculate_all_metrics
 
 router = APIRouter()
@@ -130,6 +136,19 @@ def update_profile(
     db.commit()
     db.refresh(profile)
     return _deserialize_equipment(profile)
+
+
+@router.patch("/preferred-language")
+def update_preferred_language(
+    body: PreferredLanguageUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Storage-only (see User.preferred_language) -- does not change the
+    # actual UI language, no i18n is wired up yet.
+    current_user.preferred_language = body.preferred_language.value
+    db.commit()
+    return {"preferred_language": current_user.preferred_language}
 
 
 @router.get("/metrics", response_model=UserProfileResponse)

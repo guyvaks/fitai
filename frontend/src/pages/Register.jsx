@@ -8,6 +8,7 @@ export default function Register() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [preferredLanguage, setPreferredLanguage] = useState("he");
   const [consentGiven, setConsentGiven] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,7 +21,7 @@ export default function Register() {
       // Deliberately not logging the user in here -- the account isn't
       // verified yet, so there's no session to establish until they enter
       // the code we just emailed them.
-      await authAPI.register(email, password, fullName, consentGiven);
+      await authAPI.register(email, password, fullName, consentGiven, preferredLanguage);
       navigate("/verify-email", { state: { email } });
     } catch (err) {
       const msg = err.response?.data?.detail;
@@ -94,6 +95,17 @@ export default function Register() {
                 placeholder="לפחות 6 תווים"
                 dir="ltr"
               />
+            </div>
+            <div>
+              <label className="block text-text-mid text-sm mb-1.5">שפה מועדפת</label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => setPreferredLanguage(e.target.value)}
+                className="input-volt"
+              >
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+              </select>
             </div>
 
             <label className="flex items-start gap-2.5 text-text-mid text-sm py-1 cursor-pointer">

@@ -6,6 +6,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
+class PreferredLanguage(str, Enum):
+    he = "he"
+    en = "en"
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
@@ -13,10 +18,15 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool = False
     is_verified: bool = False
+    preferred_language: str = "he"
     created_at: datetime
     avatar_updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PreferredLanguageUpdate(BaseModel):
+    preferred_language: PreferredLanguage
 
 
 class AvatarUpload(BaseModel):

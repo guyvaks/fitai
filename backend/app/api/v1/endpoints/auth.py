@@ -110,7 +110,13 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
             detail="Email already registered",
         )
     hashed_pw = get_password_hash(user_data.password)
-    user = User(email=user_data.email, hashed_password=hashed_pw, full_name=user_data.full_name, is_verified=False)
+    user = User(
+        email=user_data.email,
+        hashed_password=hashed_pw,
+        full_name=user_data.full_name,
+        is_verified=False,
+        preferred_language=user_data.preferred_language.value,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
