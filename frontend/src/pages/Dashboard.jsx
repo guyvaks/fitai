@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { agentsAPI, nutritionAPI, workoutsAPI, usersAPI } from "../services/api";
+import BMIMeter from "../components/ui/BMIMeter";
 import {
   HeartPulse,
   Flame,
-  Scale,
   Weight,
   Bot,
   Sparkles,
@@ -166,6 +166,7 @@ export default function Dashboard() {
 
   const targetCal = profile?.target_calories;
   const bmi = profile?.bmi;
+  const bmiCategory = profile?.bmi_category;
   const weightKg = profile?.weight_kg;
   const tdee = profile?.tdee;
 
@@ -180,7 +181,6 @@ export default function Dashboard() {
   const topMetrics = [
     { label: "TDEE", value: tdee ? tdee.toLocaleString() : "—", Icon: HeartPulse, chip: "bg-coral-soft text-coral" },
     { label: "יעד קלוריות", value: targetCal ? targetCal.toLocaleString() : "—", Icon: Flame, chip: "bg-amber-soft text-amber" },
-    { label: "BMI", value: bmi ?? "—", Icon: Scale, chip: "bg-volt-soft text-volt" },
     { label: "משקל", value: weightKg ?? "—", Icon: Weight, chip: "bg-cyan-soft text-cyan" },
   ];
 
@@ -247,6 +247,14 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* BMI gauge */}
+      {bmi != null && (
+        <div className="anim-rise anim-d1 card-glass p-5 flex flex-col items-center gap-2">
+          <span className="text-text-mid text-sm self-start">BMI</span>
+          <BMIMeter bmi={bmi} category={bmiCategory} showCaption />
+        </div>
+      )}
 
       {/* Activity rings */}
       <div className="anim-rise anim-d1 card-glass p-4 flex flex-col items-center gap-3">
