@@ -90,6 +90,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const [hasPendingSuggestion, setHasPendingSuggestion] = useState(false);
+  const [checkingSuggestion, setCheckingSuggestion] = useState(false);
   const [fullPlanLoading, setFullPlanLoading] = useState(false);
   const [fullPlanError, setFullPlanError] = useState(null);
   const [todayLogs, setTodayLogs] = useState([]);
@@ -140,6 +141,31 @@ export default function Dashboard() {
       .catch(() => setWeightHistory([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The banner's own hasPendingSuggestion only refreshes on route change
+  // (see the effect above) -- it never re-checks while the user just sits
+  // on Dashboard. If a same-type generation elsewhere supersedes the
+  // pending suggestion in that window (see _start_task's supersede-on-new-
+  // generation in agents.py), the banner keeps showing stale state, and
+  // clicking it lands on /ai-suggestion with nothing there anymore. Re-
+  // checking right before navigating closes that window instead of
+  // trusting state that may already be gone.
+  const handlePendingSuggestionClick = async () => {
+    setCheckingSuggestion(true);
+    try {
+      const { data } = await agentsAPI.getPending();
+      if ((data?.length ?? 0) > 0) {
+        navigate('/ai-suggestion');
+      } else {
+        setHasPendingSuggestion(false);
+      }
+    } catch {
+      // Leave the banner as-is on a network error -- same fail-open
+      // behavior as the effect above; don't hide it over a transient issue.
+    } finally {
+      setCheckingSuggestion(false);
+    }
+  };
 
   const handleFullPlan = async () => {
     setFullPlanLoading(true);
@@ -212,12 +238,12 @@ export default function Dashboard() {
       {/* AI pending suggestion banner */}
       {hasPendingSuggestion && (
         <div
-          onClick={() => navigate('/ai-suggestion')}
+          onClick={checkingSuggestion ? undefined : handlePendingSuggestionClick}
           className="anim-rise anim-d1 card-glass card-hover p-4 text-sm text-volt cursor-pointer flex items-center justify-between"
           style={{ borderColor: "rgba(163,230,53,0.35)" }}
         >
           <span className="flex items-center gap-2 font-medium">
-            <Bot className="w-4 h-4" />
+            {checkingSuggestion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
             AI הכין לך תכנית חדשה! לחץ לצפייה ואישור
           </span>
           <ArrowLeft className="w-4 h-4" />
