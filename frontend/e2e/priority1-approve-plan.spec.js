@@ -630,3 +630,127 @@ test.describe('ManualWorkoutBuilder picker + Workouts arrow fixes', () => {
     await expect(activeDayTab).toBeVisible()
   })
 })
+
+// Regression test (2026-07-28) for a horizontal-overflow bug in
+// ManualWorkoutBuilder's sets table, found live in production. Pre-existing
+// (present since the file's original commit, 8b594c3) -- confirmed via git
+// show that neither of today's ManualWorkoutBuilder commits (e3fe5f6,
+// e451cff) touched any layout/CSS in this file.
+//
+// Root cause: the weight_kg/reps <input type="number"> elements had no
+// explicit width class. Inside a CSS Grid track sized `1fr`, a grid item's
+// default min-width is `auto` (its own content/intrinsic size), not 0 --
+// so the browser's default ~183px intrinsic input width was never
+// shrunk to fit, and two of them side by side blew past the available
+// track width on any mobile viewport. <main> only sets overflow-y-auto;
+// per the CSS Overflow spec, an unset overflow-x on an element with a
+// non-visible overflow-y computes to auto too, so <main> silently grew
+// its own horizontal scrollbar to absorb the overflow -- meaning
+// document.documentElement itself never showed it, only <main> did.
+// Fixed with w-full min-w-0 on both inputs.
+test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', () => {
+  let p6Email
+  let p6Password
+  let p6Token
+  let p6UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p6Email = `e2e-priority6-${ts}@example.com`
+    p6Password = 'E2ePriority6#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p6Email, password: p6Password, full_name: 'E2E Priority6',
+        consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p6Email]
+    )
+    p6UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: p6Email, password: p6Password }),
+    })
+    p6Token = loginRes.access_token
+
+    await api(p6Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+
+    // Deliberately stressed: a long Hebrew exercise name and a decimal
+    // weight, plus 3 sets -- two side-by-side inputs per row is exactly
+    // the layout that overflowed.
+    await api(p6Token, '/api/v1/workouts/plan/manual', {
+      method: 'POST',
+      body: JSON.stringify({
+        week: {
+          sunday: [{
+            name: 'לחיצת חזה בשיפוע עם משקולות יד כבדות',
+            muscle_group: 'חזה',
+            notes: null,
+            sets: [
+              { weight_kg: 100.5, reps: 12 },
+              { weight_kg: 95, reps: 10 },
+              { weight_kg: 90, reps: 8 },
+            ],
+          }],
+        },
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p6UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'workout_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p6UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p6UserId])
+    await client.end()
+  })
+
+  for (const width of [375, 390]) {
+    test(`sets table fits without horizontal scroll at ${width}px`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 1200 } })
+      const page = await context.newPage()
+
+      await page.goto('/dashboard')
+      await page.evaluate(({ token, email }) => {
+        localStorage.setItem('fitai_token', token)
+        localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p6', email, full_name: 'E2E Priority6', is_admin: false }))
+      }, { token: p6Token, email: p6Email })
+
+      await page.goto('/workouts/manual-builder')
+      await page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+      // Wait for the real seeded data specifically (not just any picker
+      // catalog text, which can coincidentally contain similar substrings).
+      await page.waitForFunction(() => {
+        const inputs = Array.from(document.querySelectorAll('input[type="number"]'))
+        return inputs.some((i) => i.value === '100.5')
+      }, { timeout: 15000 })
+
+      const overflow = await page.evaluate(() => {
+        const main = document.querySelector('main')
+        return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth }
+      })
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+      await context.close()
+    })
+  }
+})

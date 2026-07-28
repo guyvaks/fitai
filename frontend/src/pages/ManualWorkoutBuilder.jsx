@@ -93,14 +93,14 @@ function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, 
               min="0"
               value={set.weight_kg}
               onChange={e => onUpdateSet(si, 'weight_kg', e.target.value)}
-              className="bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
+              className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
             />
             <input
               type="number"
               min="0"
               value={set.reps}
               onChange={e => onUpdateSet(si, 'reps', e.target.value)}
-              className="bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
+              className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
             />
             <button
               type="button"
