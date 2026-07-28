@@ -1,8 +1,10 @@
 import datetime
 import uuid
 
-from app.models.fitness import ExerciseMaster, WorkoutSession
+from app.models.fitness import ExerciseMaster, WorkoutPlan, WorkoutSession
 from tests.conftest import get_auth_headers
+
+FULL_WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 
 MANUAL_PLAN_PAYLOAD = {
     "week": {
@@ -69,6 +71,80 @@ def test_create_manual_plan_exercise_with_no_sets_is_dropped(client):
     response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=payload)
     # no exercise ends up with any sets -> treated as if nothing was added
     assert response.status_code == 400
+
+
+def test_manual_full_week_replaces_stale_ai_wrapper(client, db_session):
+    """A full 7-day manual submission (what ManualWorkoutBuilder.jsx always
+    sends) must fully replace plan_data, not merge onto it -- otherwise an
+    AI-approved plan "edited" via the manual builder would keep its stale
+    workout_plan wrapper key sitting in the DB forever, and any day that
+    comes back with zero exercises (a rest day) would have no flat key to
+    shadow it, silently falling back to the old AI content instead of the
+    now-empty day the user actually confirmed."""
+    headers = get_auth_headers(client)
+    from app.models.user import User
+    user = db_session.query(User).filter(User.email == "test@example.com").first()
+
+    ai_wrapped_plan_data = {
+        "workout_plan": {
+            day: (
+                {"type": "strength", "name": "אימון", "exercises": [
+                    {"name": "Old AI Exercise", "muscle_group": "chest",
+                     "sets": 3, "reps": 10, "weight_kg": 40, "rest_seconds": 60}
+                ]}
+                if day == "sunday"
+                else {"type": "rest", "name": "מנוחה", "exercises": []}
+            )
+            for day in FULL_WEEK_DAYS
+        }
+    }
+    db_session.add(WorkoutPlan(user_id=user.id, plan_data=ai_wrapped_plan_data, is_active=True))
+    db_session.commit()
+
+    full_week_payload = {
+        "week": {
+            day: (
+                [{"name": "New Manual Exercise", "muscle_group": "back", "notes": None,
+                  "sets": [{"weight_kg": 20, "reps": 12}]}]
+                if day == "sunday"
+                else []
+            )
+            for day in FULL_WEEK_DAYS
+        }
+    }
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=full_week_payload)
+    assert response.status_code == 200
+    plan_data = response.json()["plan_data"]
+
+    # Stale AI wrapper is gone entirely, not just shadowed.
+    assert "workout_plan" not in plan_data
+    # The edited day has the new manual content.
+    assert plan_data["sunday"]["exercises"][0]["name"] == "New Manual Exercise"
+    # A day that came back empty (a real rest day) has an explicit empty
+    # flat key -- not absent, which would fall back to nothing since the
+    # wrapper is gone, or worse, keep falling back to stale AI content if
+    # the wrapper had been left in place.
+    assert plan_data["monday"]["exercises"] == []
+
+
+def test_manual_partial_update_still_merges(client):
+    """Backward-compat: a payload that doesn't cover all 7 days (the shape
+    every existing test in this file uses) keeps the original merge-only-
+    what-was-sent behavior -- only the full-week case changes."""
+    headers = get_auth_headers(client)
+    client.post("/api/v1/workouts/plan/manual", headers=headers, json=MANUAL_PLAN_PAYLOAD)
+
+    monday_payload = {"week": {"monday": [
+        {"name": "Squat", "muscle_group": "legs", "notes": None,
+         "sets": [{"weight_kg": 80, "reps": 5}]}
+    ]}}
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=monday_payload)
+    assert response.status_code == 200
+    plan_data = response.json()["plan_data"]
+
+    # Sunday from the first call is untouched, Monday from the second call is added.
+    assert plan_data["sunday"]["exercises"][0]["name"] == "Bench Press"
+    assert plan_data["monday"]["exercises"][0]["name"] == "Squat"
 
 
 def test_start_session_creates_active_session(client):

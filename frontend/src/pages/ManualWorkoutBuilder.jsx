@@ -15,6 +15,37 @@ const DAYS = [
 ]
 
 const FREE_MUSCLE_GROUPS = MUSCLE_GROUPS.filter(g => g !== 'כל הקבוצות')
+const DAY_KEYS = DAYS.map(d => d.key)
+
+// Two different exercise shapes can show up in plan_data, depending on
+// origin: AI-generated exercises store a `sets` COUNT plus a single
+// exercise-level reps/weight_kg pair (uniform across all sets) and a
+// rest_seconds field; manually-built exercises store `sets` as an array of
+// independently-editable {weight_kg, reps} rows and have no rest_seconds
+// concept at all. Detect which shape we got (Array.isArray(ex.sets) is
+// enough) and expand the AI shape into N identical editable rows --
+// rest_seconds is intentionally dropped, there's no manual-plan field for
+// it. Passing an already-manual exercise through just re-shapes it
+// defensively (matches the pre-existing behavior).
+function normaliseExerciseForEditing(ex) {
+  if (Array.isArray(ex.sets)) {
+    return {
+      name: ex.name,
+      muscle_group: ex.muscle_group || '',
+      notes: ex.notes ?? null,
+      sets: ex.sets.map(s => ({ weight_kg: s.weight_kg ?? 0, reps: s.reps ?? 0 })),
+    }
+  }
+  const setCount = Math.max(1, parseInt(ex.sets, 10) || 1)
+  const weight_kg = ex.weight_kg ?? 0
+  const reps = ex.reps ?? 10
+  return {
+    name: ex.name,
+    muscle_group: ex.muscle_group || '',
+    notes: ex.notes ?? null,
+    sets: Array.from({ length: setCount }, () => ({ weight_kg, reps })),
+  }
+}
 
 function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, onMove, canMoveUp, canMoveDown }) {
   return (
@@ -105,6 +136,12 @@ export default function ManualWorkoutBuilder() {
   const [error, setError] = useState(null)
 
   // Load the existing active plan so edits merge onto it instead of replacing it.
+  // AI-approved plans nest days one level deeper under "workout_plan" (see
+  // normaliseExerciseForEditing's comment for the exercise-shape side of
+  // this) -- same flat-first-then-wrapped-fallback read as Workouts.jsx/
+  // LiveWorkout.jsx, iterated over the fixed day list rather than
+  // Object.entries(planData) so a wrapped-only plan (no flat keys at all
+  // yet) still yields all 7 days instead of none.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -112,14 +149,10 @@ export default function ManualWorkoutBuilder() {
         const { data } = await workoutsAPI.getPlan()
         const planData = data?.plan_data || {}
         const loaded = {}
-        for (const [day, dayData] of Object.entries(planData)) {
+        for (const day of DAY_KEYS) {
+          const dayData = planData[day] ?? planData.workout_plan?.[day]
           const exercises = dayData?.exercises || []
-          loaded[day] = exercises.map(ex => ({
-            name: ex.name,
-            muscle_group: ex.muscle_group || '',
-            notes: ex.notes ?? null,
-            sets: (ex.sets || []).map(s => ({ weight_kg: s.weight_kg ?? 0, reps: s.reps ?? 0 })),
-          }))
+          loaded[day] = exercises.map(normaliseExerciseForEditing)
         }
         if (!cancelled) setWeek(loaded)
       } catch (e) {
@@ -205,20 +238,25 @@ export default function ManualWorkoutBuilder() {
     }
     setSaving(true)
     try {
+      // Always submit all 7 days (an empty array for days with no valid
+      // exercises), not just the ones with content -- the backend treats a
+      // full 7-day submission as the complete intended plan and replaces
+      // plan_data outright, which is what actually converts an AI-approved
+      // plan to a real manual one instead of leaving its stale AI wrapper
+      // sitting in the DB for any day that happens to come back empty.
       const payload = {}
-      for (const [day, exs] of Object.entries(week)) {
+      for (const day of DAY_KEYS) {
+        const exs = week[day] || []
         const validExs = exs.filter(e => e.sets.length > 0 && e.name.trim())
-        if (validExs.length > 0) {
-          payload[day] = validExs.map(e => ({
-            name: e.name,
-            muscle_group: e.muscle_group || '',
-            notes: e.notes || null,
-            sets: e.sets.map(s => ({
-              weight_kg: Math.max(0, parseFloat(s.weight_kg) || 0),
-              reps: Math.max(1, parseInt(s.reps) || 1),
-            })),
-          }))
-        }
+        payload[day] = validExs.map(e => ({
+          name: e.name,
+          muscle_group: e.muscle_group || '',
+          notes: e.notes || null,
+          sets: e.sets.map(s => ({
+            weight_kg: Math.max(0, parseFloat(s.weight_kg) || 0),
+            reps: Math.max(1, parseInt(s.reps) || 1),
+          })),
+        }))
       }
       await workoutsAPI.createManualPlan(payload)
       navigate('/workouts')

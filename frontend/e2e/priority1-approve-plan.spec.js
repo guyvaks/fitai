@@ -315,3 +315,171 @@ test.describe('Priority 3: Dashboard pending-suggestion banner does not dead-end
     await expect(bannerLocator).not.toBeVisible()
   })
 })
+
+// Regression test (2026-07-28): ManualWorkoutBuilder.jsx opening an
+// AI-approved plan for editing. Same flat-vs-wrapped family as Priority 1,
+// but here a read-only fallback isn't enough -- the exercise SHAPE itself
+// differs (AI: `sets` is a count + exercise-level reps/weight_kg +
+// rest_seconds; manual: `sets` is an array of independently-editable
+// {weight_kg, reps} rows, no rest_seconds). See
+// normaliseExerciseForEditing() in ManualWorkoutBuilder.jsx for the exact
+// conversion, and create_manual_workout_plan in workouts.py for the
+// matching save-side change (a full 7-day submission now replaces
+// plan_data outright instead of merging, so editing-and-saving genuinely
+// converts the plan to flat/manual -- confirmed here end to end, not just
+// that the builder displays it converted).
+test.describe('ManualWorkoutBuilder: AI-approved plan loads, edits, and saves as a real manual plan', () => {
+  let p4Email
+  let p4Password
+  let p4Token
+  let p4UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p4Email = `e2e-priority4-${ts}@example.com`
+    p4Password = 'E2ePriority4#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p4Email, password: p4Password, full_name: 'E2E Priority4',
+        consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p4Email]
+    )
+    p4UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: p4Email, password: p4Password }),
+    })
+    p4Token = loginRes.access_token
+
+    await api(p4Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p4UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of [
+      'weight_logs', 'workout_sessions', 'workout_plans',
+      'user_profiles', 'consent_records', 'email_verification_codes',
+    ]) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p4UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p4UserId])
+    await client.end()
+  })
+
+  test('AI-approved plan opens correctly in the editor, edits save, and the result is a real flat manual plan everywhere it is read', async ({ page }) => {
+    const insertClient = new pg.Client({ connectionString: DATABASE_URL })
+    await insertClient.connect()
+    // AI-shaped plan_data: sets is a COUNT, reps/weight_kg are exercise-level,
+    // rest_seconds present -- exactly what crew_agents.py's prompt schema
+    // produces, wrapped under workout_plan.
+    await insertClient.query(
+      `INSERT INTO workout_plans (id, user_id, plan_data, is_active, created_at)
+       VALUES (gen_random_uuid(), $1, $2::jsonb, true, now())`,
+      [p4UserId, JSON.stringify({
+        workout_plan: {
+          sunday: {
+            type: 'strength', name: 'אימון פלג גוף עליון',
+            exercises: [
+              { name: 'AI Squat', muscle_group: 'רגליים', sets: 3, reps: 8, weight_kg: 50, rest_seconds: 90, notes: null },
+              { name: 'AI Row', muscle_group: 'גב', sets: 2, reps: 12, weight_kg: 20, rest_seconds: 60, notes: null },
+            ],
+          },
+          monday: { type: 'rest', name: 'מנוחה', exercises: [] },
+          tuesday: { type: 'rest', name: 'מנוחה', exercises: [] },
+          wednesday: { type: 'rest', name: 'מנוחה', exercises: [] },
+          thursday: { type: 'rest', name: 'מנוחה', exercises: [] },
+          friday: { type: 'rest', name: 'מנוחה', exercises: [] },
+          saturday: { type: 'rest', name: 'מנוחה', exercises: [] },
+        },
+      })]
+    )
+    await insertClient.end()
+
+    await page.goto('/dashboard')
+    await page.evaluate(({ token, email }) => {
+      localStorage.setItem('fitai_token', token)
+      localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p4', email, full_name: 'E2E Priority4', is_admin: false }))
+    }, { token: p4Token, email: p4Email })
+
+    // --- Step 1: open the AI plan in the manual editor, verify the
+    // shape conversion (count -> N editable rows, uniform values applied) ---
+    await page.goto('/workouts/manual-builder')
+    await page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+    await page.waitForFunction(() => document.body.innerText.includes('AI Squat'), { timeout: 10000 })
+
+    const squatCard = page.locator('div.card-glass', { hasText: 'AI Squat' })
+    // 3 sets x 2 inputs (weight, reps) per row = 6 number inputs
+    await expect(squatCard.locator('input[type="number"]')).toHaveCount(6)
+    const squatValues = await squatCard.locator('input[type="number"]').evaluateAll(
+      (inputs) => inputs.map((i) => i.value)
+    )
+    // [weight, reps] x 3 identical rows, expanded from sets:3/reps:8/weight_kg:50
+    expect(squatValues).toEqual(['50', '8', '50', '8', '50', '8'])
+
+    const rowCard = page.locator('div.card-glass', { hasText: 'AI Row' })
+    await expect(rowCard.locator('input[type="number"]')).toHaveCount(4)
+    const rowValues = await rowCard.locator('input[type="number"]').evaluateAll(
+      (inputs) => inputs.map((i) => i.value)
+    )
+    expect(rowValues).toEqual(['20', '12', '20', '12'])
+
+    // --- Step 2: edit -- change the last set of AI Squat's weight, verify
+    // it's actually editable (not read-only display) ---
+    const squatInputs = squatCard.locator('input[type="number"]')
+    await squatInputs.nth(4).fill('55') // last row's weight_kg input
+    await expect(squatInputs.nth(4)).toHaveValue('55')
+
+    // --- Step 3: save ---
+    await page.getByRole('button', { name: /שמור תוכנית/ }).click()
+    await page.waitForURL('**/workouts', { timeout: 10000 })
+
+    // --- Step 4: confirm the saved result reads correctly in Workouts.jsx,
+    // not just that the builder displayed it converted ---
+    await page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+    await page.waitForFunction(() => document.body.innerText.includes('AI Squat'), { timeout: 10000 })
+    await expect(page.getByText('אין תרגילים מתוכננים ליום זה')).not.toBeVisible()
+    await expect(page.getByText('55kg', { exact: false })).toBeVisible()
+
+    // --- Step 5: confirm the DB itself was actually converted to flat
+    // shape (not just displayed converted client-side) ---
+    const verifyClient = new pg.Client({ connectionString: DATABASE_URL })
+    await verifyClient.connect()
+    const { rows: planRows } = await verifyClient.query(
+      'SELECT plan_data FROM workout_plans WHERE user_id = $1 AND is_active = true',
+      [p4UserId]
+    )
+    await verifyClient.end()
+    const savedPlanData = planRows[0].plan_data
+    expect(savedPlanData.workout_plan).toBeUndefined()
+    expect(savedPlanData.sunday.exercises[0].name).toBe('AI Squat')
+    expect(Array.isArray(savedPlanData.sunday.exercises[0].sets)).toBe(true)
+    expect(savedPlanData.sunday.exercises[0].sets.at(-1).weight_kg).toBe(55)
+    expect(savedPlanData.monday.exercises).toEqual([])
+
+    // --- Step 6: confirm LiveWorkout also reads the saved plan correctly,
+    // not the demo-fallback exercises it shows when it can't find real data ---
+    await page.goto('/live-workout?day=sunday')
+    await page.waitForFunction(() => document.body.innerText.includes('AI Squat'), { timeout: 15000 })
+    await expect(page.getByText('לחיצת חזה')).not.toBeVisible() // demo fallback's first exercise name
+  })
+})
