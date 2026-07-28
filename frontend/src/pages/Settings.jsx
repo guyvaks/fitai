@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import api from "../services/api";
+import api, { usersAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -15,6 +15,7 @@ import {
   HelpCircle,
   Loader2,
   ChevronLeft,
+  Languages,
 } from "lucide-react";
 
 function SectionCard({ icon: Icon, title, children }) {
@@ -144,12 +145,14 @@ function ComingSoonCard({ icon: Icon, title, description }) {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [restTimerOverride, setRestTimerOverride] = useState("");
   const [autoStartRest, setAutoStartRest] = useState(true);
   const [savingWorkoutPrefs, setSavingWorkoutPrefs] = useState(false);
   const [workoutPrefsSaved, setWorkoutPrefsSaved] = useState(false);
+  const [savingLanguage, setSavingLanguage] = useState(false);
+  const [languageError, setLanguageError] = useState(null);
 
   useEffect(() => {
     api
@@ -176,6 +179,19 @@ export default function Settings() {
       setWorkoutPrefsSaved(true);
     } finally {
       setSavingWorkoutPrefs(false);
+    }
+  };
+
+  const handleChangeLanguage = async (value) => {
+    setSavingLanguage(true);
+    setLanguageError(null);
+    try {
+      const { data } = await usersAPI.updatePreferredLanguage(value);
+      updateUser({ preferred_language: data.preferred_language });
+    } catch {
+      setLanguageError("שגיאה בעדכון השפה");
+    } finally {
+      setSavingLanguage(false);
     }
   };
 
@@ -211,6 +227,25 @@ export default function Settings() {
           >
             <Sun className="w-4 h-4" /> בהיר
           </button>
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={Languages} title="שפה">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-text-mid text-sm">שפה מועדפת</label>
+          <select
+            value={user?.preferred_language ?? "he"}
+            onChange={(e) => handleChangeLanguage(e.target.value)}
+            disabled={savingLanguage}
+            className="input-volt disabled:opacity-50"
+          >
+            <option value="he">עברית</option>
+            <option value="en">English</option>
+          </select>
+          <p className="text-text-low text-xs">
+            שינוי זה שומר את ההעדפה שלך בלבד — ממשק האפליקציה עדיין יוצג בעברית בשלב זה
+          </p>
+          {languageError && <p className="text-coral text-xs">{languageError}</p>}
         </div>
       </SectionCard>
 

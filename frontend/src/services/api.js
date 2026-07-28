@@ -33,8 +33,8 @@ export const authAPI = {
   // Deliberately a raw call, not routed through AuthContext -- registering
   // must not establish a session before the email is verified. Register.jsx
   // sends the user to /verify-email afterward instead of logging them in.
-  register: (email, password, full_name, consent_given) =>
-    api.post('/api/v1/auth/register', { email, password, full_name, consent_given }),
+  register: (email, password, full_name, consent_given, preferred_language) =>
+    api.post('/api/v1/auth/register', { email, password, full_name, consent_given, preferred_language }),
   verifyEmail: (email, code) => api.post('/api/v1/auth/verify-email', { email, code }),
   resendVerification: (email) => api.post('/api/v1/auth/resend-verification', { email }),
 }
@@ -77,6 +77,10 @@ export const usersAPI = {
   getWeightHistory: () => api.get('/api/v1/users/weight-history'),
   uploadAvatar: (payload) => api.post('/api/v1/users/avatar', payload),
   deleteAvatar: () => api.delete('/api/v1/users/avatar'),
+  // Storage-only for now -- does not change the actual UI language, no i18n
+  // is wired up yet.
+  updatePreferredLanguage: (preferred_language) =>
+    api.patch('/api/v1/users/preferred-language', { preferred_language }),
 }
 
 export const foodsAPI = {

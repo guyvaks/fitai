@@ -1,11 +1,16 @@
 from pydantic import BaseModel, EmailStr
 
+from app.schemas.user import PreferredLanguage
+
 
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: str
     consent_given: bool
+    # Storage-only for now (see User.preferred_language) -- omitted requests
+    # default to "he", the current (and only actually implemented) UI language.
+    preferred_language: PreferredLanguage = PreferredLanguage.he
 
 
 class UserLogin(BaseModel):

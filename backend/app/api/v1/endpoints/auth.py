@@ -85,6 +85,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not user.is_active:
+        # Checked here (not just at login) so a deactivated user's existing
+        # token -- valid for up to ACCESS_TOKEN_EXPIRE_MINUTES (7 days) -- is
+        # rejected immediately on the next request, not just at their next
+        # login attempt.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="החשבון הושבת")
     return user
 
 
@@ -104,7 +110,13 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
             detail="Email already registered",
         )
     hashed_pw = get_password_hash(user_data.password)
-    user = User(email=user_data.email, hashed_password=hashed_pw, full_name=user_data.full_name, is_verified=False)
+    user = User(
+        email=user_data.email,
+        hashed_password=hashed_pw,
+        full_name=user_data.full_name,
+        is_verified=False,
+        preferred_language=user_data.preferred_language.value,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -178,6 +190,15 @@ def login(request: Request, user_data: UserLogin, db: Session = Depends(get_db))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="אימייל או סיסמה שגויים",
+        )
+
+    if not user.is_active:
+        # Checked after the password (same reasoning as is_verified below --
+        # doesn't reopen email enumeration since it's only reachable once the
+        # password is already confirmed correct).
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="החשבון הושבת. פנה למנהל המערכת.",
         )
 
     if not user.is_verified:

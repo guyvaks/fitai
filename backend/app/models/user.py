@@ -39,6 +39,11 @@ class User(Base):
     # Nullable, so no server_default/grandfathering concern like the two
     # booleans above -- existing rows simply get NULL for free.
     daily_ai_generation_limit = Column(Integer, nullable=True)
+    # Storage-only for now -- no i18n/translation is wired up yet, the UI
+    # stays Hebrew regardless of this value. Exists so the registration flow
+    # and Settings page can capture/display the preference ahead of an
+    # actual translation implementation.
+    preferred_language = Column(String, nullable=False, default="he", server_default="he")
     created_at = Column(DateTime(timezone=True), default=utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
