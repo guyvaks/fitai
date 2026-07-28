@@ -116,7 +116,11 @@ export default function Dashboard() {
     workoutsAPI.getPlan()
       .then(({ data }) => {
         setHasPlan(!!data?.plan_data);
-        const dayData = data?.plan_data?.[todayDayKey];
+        // AI-approved plans store days nested under a "workout_plan" key
+        // (the raw approved suggestion content); only manually-built plans
+        // are flat. See the same fallback in Workouts.jsx/LiveWorkout.jsx —
+        // without it, today's AI-generated workout never shows here.
+        const dayData = data?.plan_data?.[todayDayKey] ?? data?.plan_data?.workout_plan?.[todayDayKey];
         if (dayData) {
           const exercises = Array.isArray(dayData) ? dayData : dayData.exercises || [];
           setTodayWorkout({ name: dayData.name || "אימון היום", count: exercises.length });
