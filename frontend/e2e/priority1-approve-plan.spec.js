@@ -1,3 +1,7 @@
+// Growing file: one spec file per investigation session, each adding a
+// test.describe block for the bug it covers. Started as a Priority 1 only
+// file; Priority 3's test lives below it.
+//
 // Regression test for the Priority 1 bug (2026-07-28): a user approves an
 // AI-generated workout plan and the Workouts page still shows "אין תרגילים
 // מתוכננים ליום זה" (no exercises planned) for every day, even though the
@@ -41,12 +45,15 @@ let token
 let userId
 let plannedDays
 
-async function api(path, options = {}) {
+// Takes an explicit token (rather than closing over a shared module
+// variable) so multiple independent test users in this same file -- see
+// the Priority 3 suite below -- can't accidentally cross-contaminate.
+async function api(authToken, path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...options.headers,
     },
   })
@@ -63,7 +70,7 @@ test.describe('Priority 1: approve AI workout plan reflects in UI', () => {
     email = `e2e-priority1-${ts}@example.com`
     password = 'E2ePriority1#2026'
 
-    await api('/api/v1/auth/register', {
+    await api(null, '/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email, password, full_name: 'E2E Priority1',
@@ -83,13 +90,13 @@ test.describe('Priority 1: approve AI workout plan reflects in UI', () => {
     userId = rows[0].id
     await client.end()
 
-    const loginRes = await api('/api/v1/auth/login', {
+    const loginRes = await api(null, '/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
     token = loginRes.access_token
 
-    await api('/api/v1/users/profile', {
+    await api(token, '/api/v1/users/profile', {
       method: 'POST',
       body: JSON.stringify({
         age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
@@ -98,19 +105,19 @@ test.describe('Priority 1: approve AI workout plan reflects in UI', () => {
       }),
     })
 
-    const { task_id } = await api('/api/v1/agents/workout', { method: 'POST' })
+    const { task_id } = await api(token, '/api/v1/agents/workout', { method: 'POST' })
 
     let status
     for (let i = 0; i < 24; i++) {
       await new Promise((r) => setTimeout(r, 5000))
-      status = await api(`/api/v1/agents/status/${task_id}`)
+      status = await api(token, `/api/v1/agents/status/${task_id}`)
       if (status.status === 'ready' || status.status === 'error') break
     }
     if (status?.status !== 'ready') {
       throw new Error(`Workout generation did not complete: ${JSON.stringify(status)}`)
     }
 
-    await api(`/api/v1/agents/approve/${status.suggestion_id}`, { method: 'POST' })
+    await api(token, `/api/v1/agents/approve/${status.suggestion_id}`, { method: 'POST' })
 
     // Ground truth for the assertion below: the backend's own completeness
     // check (incomplete_plan_keys) only requires all 7 day *keys* to be
@@ -119,7 +126,7 @@ test.describe('Priority 1: approve AI workout plan reflects in UI', () => {
     // marker, and correctly show the empty state. Read the actual approved
     // content so the test can tell "legitimately empty" apart from "the bug
     // hid real content" instead of assuming every day has exercises.
-    const savedPlan = await api('/api/v1/workouts/plan')
+    const savedPlan = await api(token, '/api/v1/workouts/plan')
     plannedDays = Object.fromEntries(
       DAY_KEYS.map((day) => {
         const dayData = savedPlan.plan_data?.workout_plan?.[day]
@@ -181,5 +188,130 @@ test.describe('Priority 1: approve AI workout plan reflects in UI', () => {
       // else: legitimately no exercises and no rest flag -- the empty
       // state is the correct rendering for that day, not asserted either way.
     }
+  })
+})
+
+// Regression test for the Priority 3 bug (2026-07-28): Dashboard shows the
+// "AI prepared a new plan" banner, but tapping it lands on the AI-suggestions
+// page showing "אין הצעות ממתינות לאישור" (no suggestions pending).
+//
+// Investigated first, not assumed: Dashboard.jsx and AISuggestion.jsx call
+// the exact same endpoint (GET /api/v1/agents/pending), so this is not a
+// different-data-source bug, and it's unrelated to Priority 1's plan_data
+// shape bug (this is about AISuggestion.status, a completely separate field).
+//
+// Root cause: Dashboard's hasPendingSuggestion only refreshes when
+// location.pathname changes (see its useEffect deps) -- it never re-checks
+// while the user just sits on the page. If the same-type suggestion gets
+// superseded in the background during that window (see _start_task's
+// supersede-on-new-generation in agents.py -- e.g. a regenerate fired from
+// another tab, or the "בנה תכנית ליום זה עם AI" CTA elsewhere), the banner
+// keeps showing stale state and clicking it lands on a page with nothing
+// there anymore. Fixed by re-checking /pending at click time, before
+// navigating, instead of trusting state that may already be gone.
+//
+// Uses a DB-inserted fake pending suggestion rather than a real CrewAI call
+// (already covered by the Priority 1 suite above) -- this bug is about
+// suggestion *status* timing, not content, so a synthetic row is enough and
+// keeps this test fast and deterministic.
+test.describe('Priority 3: Dashboard pending-suggestion banner does not dead-end', () => {
+  let p3Email
+  let p3Password
+  let p3Token
+  let p3UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p3Email = `e2e-priority3-${ts}@example.com`
+    p3Password = 'E2ePriority3#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p3Email, password: p3Password, full_name: 'E2E Priority3',
+        consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p3Email]
+    )
+    p3UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: p3Email, password: p3Password }),
+    })
+    p3Token = loginRes.access_token
+
+    await api(p3Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p3UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'ai_suggestions', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p3UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p3UserId])
+    await client.end()
+  })
+
+  test('banner re-checks before navigating instead of trusting stale state', async ({ page }) => {
+    const insertClient = new pg.Client({ connectionString: DATABASE_URL })
+    await insertClient.connect()
+    await insertClient.query(
+      `INSERT INTO ai_suggestions (id, user_id, suggestion_type, content, status, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, 'workout', $2::jsonb, 'pending', now(), now())`,
+      [p3UserId, JSON.stringify({
+        workout_plan: {
+          sunday: { exercises: [{ name: 'Push-ups', muscle_group: 'chest', sets: 3, reps: 10, weight_kg: 0 }] },
+          monday: { rest: true }, tuesday: { rest: true }, wednesday: { rest: true },
+          thursday: { rest: true }, friday: { rest: true }, saturday: { rest: true },
+        },
+      })]
+    )
+    await insertClient.end()
+
+    await page.goto('/dashboard')
+    await page.evaluate(({ token, email }) => {
+      localStorage.setItem('fitai_token', token)
+      localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p3', email, full_name: 'E2E Priority3', is_admin: false }))
+    }, { token: p3Token, email: p3Email })
+    await page.goto('/dashboard')
+    await page.waitForResponse((r) => r.url().includes('/api/v1/agents/pending'), { timeout: 15000 })
+
+    const bannerLocator = page.getByText('AI הכין לך תכנית חדשה')
+    await bannerLocator.waitFor({ state: 'visible', timeout: 10000 })
+
+    // Simulate the race: something else supersedes the pending suggestion
+    // (same suggestion_type) while the user stays on Dashboard, without
+    // waiting for the new generation to finish -- the banner has no way to
+    // know yet.
+    await fetch(`${API_URL}/api/v1/agents/workout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${p3Token}` },
+    })
+    await page.waitForTimeout(500)
+
+    await bannerLocator.click()
+    await page.waitForTimeout(2000)
+
+    // The fix: re-checking before navigating means no dead-end landing on
+    // /ai-suggestion with nothing there -- stay put, hide the now-stale banner.
+    expect(page.url()).toContain('/dashboard')
+    await expect(bannerLocator).not.toBeVisible()
   })
 })
