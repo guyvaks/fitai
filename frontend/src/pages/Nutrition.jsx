@@ -5,7 +5,7 @@ import { usePolling } from '../hooks/usePolling'
 import { useAuth } from '../context/AuthContext'
 import ManualPlanModal from '../components/ManualPlanModal'
 import FoodLog from './FoodLog'
-import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog, CalendarDays, ClipboardList } from 'lucide-react'
+import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog, CalendarDays, ClipboardList, Sun, Soup, Moon, Apple } from 'lucide-react'
 
 const TABS = [
   { key: 'weekly', label: 'תכנון שבועי', Icon: CalendarDays },
@@ -29,11 +29,15 @@ const MEAL_NAMES = {
   snack: 'חטיף',
 }
 
-const MEAL_IMAGES = {
-  breakfast: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=160&h=160&fit=crop&q=80',
-  lunch: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=160&h=160&fit=crop&q=80',
-  dinner: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=160&h=160&fit=crop&q=80',
-  snack: 'https://images.unsplash.com/photo-1599599810769-bcde5a160d32?w=160&h=160&fit=crop&q=80',
+// Fixed icon per meal type -- was a generic stock photo unrelated to the
+// actual meal (Unsplash lookup by meal_type only, not by content). Colors
+// match the existing bg-{color}-soft/text-{color} badge convention used
+// elsewhere (e.g. AISuggestion.jsx's MacroPill).
+const MEAL_ICONS = {
+  breakfast: { Icon: Sun, bg: 'bg-amber-soft', color: 'text-amber' },
+  lunch: { Icon: Soup, bg: 'bg-coral-soft', color: 'text-coral' },
+  dinner: { Icon: Moon, bg: 'bg-cyan-soft', color: 'text-cyan' },
+  snack: { Icon: Apple, bg: 'bg-volt-soft', color: 'text-volt' },
 }
 
 function MiniBar({ value, max, color }) {
@@ -360,17 +364,19 @@ export default function Nutrition() {
         <div className="space-y-3">
           {dayMeals.map((meal, i) => {
             const isExpanded = expandedMeal === i
+            const { Icon: MealIcon, bg: mealBg, color: mealColor } = MEAL_ICONS[meal.meal_type] || MEAL_ICONS.snack
             return (
               <div key={i} className="card-glass card-hover overflow-hidden">
                 <button
                   onClick={() => setExpandedMeal(isExpanded ? null : i)}
                   className="w-full flex items-center gap-4 p-3 text-right"
                 >
-                  <img
-                    src={MEAL_IMAGES[meal.meal_type] || MEAL_IMAGES.snack}
-                    alt={MEAL_NAMES[meal.meal_type] || meal.meal_type}
-                    className="w-16 h-16 rounded-xl object-cover shrink-0 ring-1 ring-line"
-                  />
+                  <span
+                    className={`w-16 h-16 rounded-xl shrink-0 ring-1 ring-line flex items-center justify-center ${mealBg}`}
+                    aria-hidden="true"
+                  >
+                    <MealIcon className={`w-7 h-7 ${mealColor}`} />
+                  </span>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-text-hi">{MEAL_NAMES[meal.meal_type] || meal.meal_type}</p>
                     {meal.name && <p className="text-text-mid text-sm truncate">{meal.name}</p>}
