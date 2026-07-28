@@ -89,8 +89,11 @@ def create_manual_workout_plan(
                 "notes": ex.notes,
                 "sets": [s.model_dump() for s in ex.sets],
             })
-        if day_exercises:
-            plan_data[day] = {"exercises": day_exercises}
+        # Always record the day, even with zero exercises -- an explicitly
+        # empty day (a real rest day, or one the user cleared) must override
+        # any stale content for that day rather than silently falling
+        # through to it (see the full-week replace below).
+        plan_data[day] = {"exercises": day_exercises}
 
     if not has_exercises:
         raise HTTPException(status_code=400, detail="לא נוספו תרגילים לתוכנית")
@@ -101,11 +104,24 @@ def create_manual_workout_plan(
     ).first()
 
     if existing:
-        # Merge into the existing active plan: days that were sent are added/replaced,
-        # days that were not sent stay untouched.
-        prev = existing.plan_data or {}
-        # Reassign a new dict so SQLAlchemy tracks the JSON column as dirty.
-        existing.plan_data = {**prev, **plan_data}
+        if set(payload.week.keys()) == VALID_DAYS:
+            # The only real caller today (ManualWorkoutBuilder.jsx) always
+            # submits all 7 days -- that represents the complete intended
+            # plan, so replace plan_data outright instead of merging.
+            # Otherwise, an AI-approved plan opened for editing would keep
+            # its stale "workout_plan" wrapper key sitting in the DB
+            # forever after being "converted" to manual -- harmless under
+            # the flat-first read fallback used elsewhere (LiveWorkout.jsx
+            # etc.) for days that WERE resubmitted, but wrong for a day
+            # that came back empty here (a rest day) with no flat key to
+            # shadow it, which would silently keep reading the old AI
+            # content instead of the now-empty rest day the user confirmed.
+            existing.plan_data = plan_data
+        else:
+            # Partial update (fewer than all 7 days) -- preserve the
+            # existing merge-only-what-was-sent behavior.
+            prev = existing.plan_data or {}
+            existing.plan_data = {**prev, **plan_data}
         plan = existing
     else:
         plan = WorkoutPlan(user_id=current_user.id, plan_data=plan_data, is_active=True)
