@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
-import { Menu, Home, Zap, Sun, Moon, Bell } from "lucide-react";
+import { Menu, Home, Sun, Moon, Bell } from "lucide-react";
 import Avatar from "../Avatar";
 import api from "../../services/api";
 import { PENDING_COUNT_CHANGED_EVENT } from "../../utils/pendingUpdates";
@@ -79,19 +79,14 @@ export default function Header({ onToggleSidebar }) {
         <Link to="/profile" className="md:hidden shrink-0" title="הפרופיל שלי">
           <Avatar user={user} className="w-7 h-7 text-[10px] shrink-0" />
         </Link>
-        <span className="md:hidden text-xl font-extrabold text-text-hi tracking-tight flex items-center gap-1.5 shrink-0">
-          <span className="w-6 h-6 rounded-lg bg-volt flex items-center justify-center shrink-0">
-            <Zap className="w-3.5 h-3.5 text-ink" fill="currentColor" strokeWidth={0} />
-          </span>
-          <span dir="ltr">Fit<span className="text-volt">AI</span></span>
-        </span>
         <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
-      {/* Mobile: page title — flexible middle region: truncates instead of
-          squeezing the fixed-size icons/avatar on either side when a long
-          title (e.g. "ניהול משתמשים") plus a wide right cluster overflow the
-          430px mobile frame. */}
+      {/* Mobile: page title — flexible middle region. The FitAI wordmark
+          used to live here too (duplicating the one in Sidebar's header),
+          which left too little width for longer titles like "ניהול
+          משתמשים" or "הצעות AI" and truncated them; dropping it gives the
+          title the full remaining width instead. */}
       <h1 className="md:hidden flex-1 min-w-0 text-sm font-bold text-text-hi flex items-center justify-center gap-1.5 truncate px-2">
         <span className="truncate">{title}</span>
       </h1>
