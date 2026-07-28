@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { exercisesAPI } from '../services/api'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 
 const MUSCLE_GROUP_COLOR = {
   'חזה':    'bg-cyan-soft text-cyan',
@@ -24,7 +24,13 @@ const MUSCLE_GROUPS = [
 ]
 
 // ─── Exercise Search + Grid ───────────────────────────────────────────────────
-export default function ExerciseSearch({ onSelect }) {
+// addedNames (optional): a Set of exercise names already present in whatever
+// list the caller is building (e.g. the active day in ManualWorkoutBuilder).
+// Repeated clicks used to add silent duplicates -- once an exercise is in
+// that set, its button disables and shows a checkmark instead. Callers that
+// don't track "already added" (e.g. LiveWorkout's ad-hoc add-mid-session)
+// simply omit the prop and every button behaves as before.
+export default function ExerciseSearch({ onSelect, addedNames }) {
   const [query, setQuery] = useState('')
   const [muscleGroup, setMuscleGroup] = useState('כל הקבוצות')
   const [allExercises, setAllExercises] = useState([])
@@ -121,16 +127,30 @@ export default function ExerciseSearch({ onSelect }) {
               <span className="text-text-mid text-xs">{grouped[mg].length} תרגילים</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
-              {grouped[mg].map(ex => (
-                <button
-                  key={ex.id}
-                  type="button"
-                  onClick={() => onSelect(ex)}
-                  className="bg-white/4 hover:bg-volt-soft hover:border-volt/40 border border-line rounded-elem px-3 py-2 text-right transition-all group"
-                >
-                  <p className="text-text-hi text-xs font-medium leading-tight group-hover:text-volt transition-colors truncate">{ex.name}</p>
-                </button>
-              ))}
+              {grouped[mg].map(ex => {
+                const isAdded = addedNames?.has(ex.name)
+                return (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => { if (!isAdded) onSelect(ex) }}
+                    disabled={isAdded}
+                    aria-pressed={isAdded}
+                    className={`border rounded-elem px-3 py-2 text-right transition-all group flex items-center justify-between gap-1.5 ${
+                      isAdded
+                        ? 'bg-volt-soft border-volt/40 cursor-default'
+                        : 'bg-white/4 hover:bg-volt-soft hover:border-volt/40 border-line'
+                    }`}
+                  >
+                    <p className={`text-xs font-medium leading-tight transition-colors truncate ${
+                      isAdded ? 'text-volt' : 'text-text-hi group-hover:text-volt'
+                    }`}>
+                      {ex.name}
+                    </p>
+                    {isAdded && <Check className="w-3.5 h-3.5 text-volt shrink-0" />}
+                  </button>
+                )
+              })}
             </div>
           </div>
         ))}

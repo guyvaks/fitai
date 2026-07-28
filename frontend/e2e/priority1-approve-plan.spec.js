@@ -483,3 +483,150 @@ test.describe('ManualWorkoutBuilder: AI-approved plan loads, edits, and saves as
     await expect(page.getByText('לחיצת חזה')).not.toBeVisible() // demo fallback's first exercise name
   })
 })
+
+// Regression tests (2026-07-28) for two live UX bugs found during
+// production verification of the ManualWorkoutBuilder fix above -- neither
+// caused by that fix (confirmed by diffing e3fe5f6, which never touched
+// ExerciseSearch.jsx, handleSelectFromSearch/addExerciseToDay, or
+// Workouts.jsx's exercise-row rendering), both pre-existing gaps.
+test.describe('ManualWorkoutBuilder picker + Workouts arrow fixes', () => {
+  let p5Email
+  let p5Password
+  let p5Token
+  let p5UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p5Email = `e2e-priority5-${ts}@example.com`
+    p5Password = 'E2ePriority5#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p5Email, password: p5Password, full_name: 'E2E Priority5',
+        consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p5Email]
+    )
+    p5UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: p5Email, password: p5Password }),
+    })
+    p5Token = loginRes.access_token
+
+    await api(p5Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p5UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'workout_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p5UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p5UserId])
+    await client.end()
+  })
+
+  test('picker: clicking an already-added exercise again does not add a duplicate', async ({ page }) => {
+    await page.goto('/dashboard')
+    await page.evaluate(({ token, email }) => {
+      localStorage.setItem('fitai_token', token)
+      localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p5', email, full_name: 'E2E Priority5', is_admin: false }))
+    }, { token: p5Token, email: p5Email })
+
+    await page.goto('/workouts/manual-builder')
+    await page.waitForResponse((r) => r.url().includes('/api/v1/exercises/search'), { timeout: 15000 })
+
+    await page.fill('input[placeholder="חיפוש חופשי..."]', 'לחיצת חזה במוט')
+    await page.waitForTimeout(500) // debounced search (200ms) + render
+
+    const catalogButton = page.locator('div.grid.grid-cols-2 button').first()
+    await catalogButton.waitFor({ state: 'visible', timeout: 5000 })
+
+    await catalogButton.click()
+    // aria-label="הסר תרגיל" (remove button) is unique to a real exercise
+    // card -- unlike card-glass/p-4/space-y-3, which the "add exercise"
+    // panel container above also happens to share.
+    await expect(page.locator('button[aria-label="הסר תרגיל"]')).toHaveCount(1)
+
+    // Guy's exact repro: click the same catalog entry repeatedly. The
+    // button is now `disabled`, which alone stops a real user's repeated
+    // clicks -- Playwright's normal .click() actually refuses to click a
+    // disabled element at all (confirmed: it retries/times out waiting for
+    // "enabled" instead of clicking). Force the click anyway to also prove
+    // the onClick handler's own isAdded guard holds, not just the disabled
+    // attribute (defense in depth, and robust to a real click somehow
+    // landing despite the disabled state, e.g. a fast double-click race).
+    for (let i = 0; i < 5; i++) {
+      await catalogButton.click({ force: true })
+    }
+    // aria-label="הסר תרגיל" (remove button) is unique to a real exercise
+    // card -- unlike card-glass/p-4/space-y-3, which the "add exercise"
+    // panel container above also happens to share.
+    await expect(page.locator('button[aria-label="הסר תרגיל"]')).toHaveCount(1)
+
+    // The picker button itself reflects the "already added" state instead
+    // of silently accepting more clicks.
+    await expect(catalogButton).toBeDisabled()
+    await expect(catalogButton.locator('svg').last()).toBeVisible() // checkmark
+  })
+
+  test('arrow: clicking an exercise row on Workouts navigates into ManualWorkoutBuilder with that day pre-selected', async ({ page }) => {
+    const insertClient = new pg.Client({ connectionString: DATABASE_URL })
+    await insertClient.connect()
+    await insertClient.query(
+      `INSERT INTO workout_plans (id, user_id, plan_data, is_active, created_at)
+       VALUES (gen_random_uuid(), $1, $2::jsonb, true, now())`,
+      [p5UserId, JSON.stringify({
+        wednesday: { exercises: [
+          { name: 'Arrow Test Exercise', muscle_group: 'רגליים', notes: null, sets: [{ weight_kg: 50, reps: 8 }] },
+        ] },
+      })]
+    )
+    await insertClient.end()
+
+    await page.goto('/dashboard')
+    await page.evaluate(({ token, email }) => {
+      localStorage.setItem('fitai_token', token)
+      localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p5', email, full_name: 'E2E Priority5', is_admin: false }))
+    }, { token: p5Token, email: p5Email })
+
+    await page.goto('/workouts')
+    await page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+
+    // Wednesday is the 4th button (index 3) in the sunday..saturday day strip.
+    const dayStrip = page.locator('div.overflow-x-auto').first()
+    await dayStrip.locator('button').nth(3).click()
+    await page.waitForFunction(() => document.body.innerText.includes('Arrow Test Exercise'), { timeout: 10000 })
+
+    const responsePromise = page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+    await page.locator('button', { hasText: 'Arrow Test Exercise' }).click()
+    await page.waitForURL('**/workouts/manual-builder*', { timeout: 10000 })
+    await responsePromise
+
+    expect(page.url()).toContain('day=wednesday')
+    // Give the load effect's setWeek a moment to settle before asserting content.
+    await page.waitForFunction(() => document.body.innerText.includes('Arrow Test Exercise'), { timeout: 10000 })
+    await expect(page.getByText('אין תרגילים עדיין ליום זה')).not.toBeVisible()
+
+    const activeDayTab = page.locator('button.bg-volt.text-ink', { hasText: 'רביעי' })
+    await expect(activeDayTab).toBeVisible()
+  })
+})
