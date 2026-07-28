@@ -129,29 +129,36 @@ export default function Workouts() {
     }
   }
 
+  // Manually-built plans (POST /workouts/plan/manual) store days flat at the
+  // top level of plan_data. AI-approved plans store the exact same
+  // suggestion content that was approved, which is always wrapped one level
+  // deeper under a "workout_plan" key (see agents.py's approve_suggestion —
+  // it persists `content` as-is, and every crew-generated suggestion nests
+  // days under workout_plan). Without the fallback, every AI-approved plan
+  // reads as having no days at all. Mirrors the same flat-first resolution
+  // already fixed in LiveWorkout.jsx for this exact reason.
+  const getDayData = (day) => {
+    if (!plan) return null
+    return plan.plan_data?.[day] ?? plan.plan_data?.workout_plan?.[day] ?? null
+  }
+
   const getDayExercises = (day) => {
-    if (!plan) return []
-    if (plan.plan_data && plan.plan_data[day]) {
-      const dayData = plan.plan_data[day]
-      if (Array.isArray(dayData)) return dayData
-      if (dayData.exercises) return dayData.exercises
-    }
+    const dayData = getDayData(day)
+    if (!dayData) return []
+    if (Array.isArray(dayData)) return dayData
+    if (dayData.exercises) return dayData.exercises
     return []
   }
 
   const getDayName = (day) => {
-    if (!plan) return null
-    if (plan.plan_data && plan.plan_data[day] && plan.plan_data[day].name) {
-      return plan.plan_data[day].name
-    }
-    return null
+    return getDayData(day)?.name ?? null
   }
 
   // 'rest': explicitly marked as a rest day in the plan
   // 'no_plan': no exercises and not marked as rest — nothing was planned for this day
   // 'has_plan': has exercises
   const getDayStatus = (day) => {
-    if (plan?.plan_data?.[day]?.rest) return 'rest'
+    if (getDayData(day)?.rest) return 'rest'
     const exercises = getDayExercises(day)
     if (exercises.length === 0) return 'no_plan'
     return 'has_plan'
