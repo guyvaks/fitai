@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { workoutsAPI } from '../services/api'
 import ExerciseSearch, { MUSCLE_GROUP_COLOR, MUSCLE_GROUPS } from '../components/ExerciseSearch'
 import { Dumbbell, Search, Type, Plus, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
@@ -127,7 +127,12 @@ function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, 
 
 export default function ManualWorkoutBuilder() {
   const navigate = useNavigate()
-  const [activeDay, setActiveDay] = useState('sunday')
+  // Same ?day= query-param convention LiveWorkout.jsx already uses -- lets
+  // Workouts.jsx's per-day edit link (the ChevronLeft arrow) land here with
+  // the right day pre-selected instead of always defaulting to Sunday.
+  const [searchParams] = useSearchParams()
+  const initialDay = searchParams.get('day')
+  const [activeDay, setActiveDay] = useState(DAY_KEYS.includes(initialDay) ? initialDay : 'sunday')
   const [week, setWeek] = useState({}) // { [day]: [{ name, muscle_group, notes, sets: [{weight_kg, reps}] }] }
   const [addMode, setAddMode] = useState('search') // 'search' | 'free'
   const [freeName, setFreeName] = useState('')
@@ -164,6 +169,7 @@ export default function ManualWorkoutBuilder() {
 
   const dayExercises = week[activeDay] || []
   const totalExerciseCount = Object.values(week).reduce((sum, exs) => sum + exs.filter(e => e.sets.length > 0).length, 0)
+  const addedExerciseNames = new Set(dayExercises.map(e => e.name))
 
   const addExerciseToDay = (exercise) => {
     setWeek(w => ({
@@ -321,7 +327,7 @@ export default function ManualWorkoutBuilder() {
         </div>
 
         {addMode === 'search' ? (
-          <ExerciseSearch onSelect={handleSelectFromSearch} />
+          <ExerciseSearch onSelect={handleSelectFromSearch} addedNames={addedExerciseNames} />
         ) : (
           <div className="space-y-3">
             <input

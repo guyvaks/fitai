@@ -356,7 +356,12 @@ export default function Workouts() {
           </div>
           <div className="space-y-2">
             {getDayExercises(activeDay).map((ex, i) => (
-              <div key={i} className="card-glass card-hover p-3 flex items-center gap-3">
+              <button
+                key={i}
+                type="button"
+                onClick={() => navigate(`/workouts/manual-builder?day=${activeDay}`)}
+                className="card-glass card-hover p-3 flex items-center gap-3 w-full text-right"
+              >
                 <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
                   <Dumbbell className="w-5 h-5" />
                 </span>
@@ -374,8 +379,12 @@ export default function Workouts() {
                     {(lastWeights[ex.name] ?? lastSetWeight(ex)) ? `${lastWeights[ex.name] ?? lastSetWeight(ex)}kg` : '—'}
                   </p>
                 </div>
+                {/* Previously purely decorative -- the whole row is now the
+                    click target (navigates into ManualWorkoutBuilder with
+                    this day pre-selected), this just keeps the existing
+                    "tap for detail" visual affordance honest. */}
                 <ChevronLeft className="w-4 h-4 text-text-mid shrink-0" />
-              </div>
+              </button>
             ))}
           </div>
 
