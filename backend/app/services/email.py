@@ -135,7 +135,7 @@ def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
     <div dir="rtl" style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         {{banner}}
         <h2>משתמש חדש ממתין לאישור</h2>
-        <p>המשתמש <strong>{new_user_email}</strong> נרשם ל-FitAI וממתין לאישור גישה לתכונת ה-AI.</p>
+        <p>המשתמש <strong>{new_user_email}</strong> נרשם ל-FitAI וממתין לאישור גישה לתוכנת ה-AI.</p>
         <p><a href="{admin_link}">לפאנל הניהול</a></p>
     </div>
     """
