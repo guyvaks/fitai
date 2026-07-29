@@ -8,7 +8,12 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, options_to_json
-from webauthn.helpers.structs import PublicKeyCredentialDescriptor
+from webauthn.helpers.structs import (
+    AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
+    ResidentKeyRequirement,
+    UserVerificationRequirement,
+)
 
 from app.core.database import get_db
 from app.core.rate_limit import limiter
@@ -619,6 +624,20 @@ def webauthn_register_options(
             PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id))
             for c in existing_creds
         ],
+        # Discoverable credential (resident key), required rather than
+        # merely preferred -- this is what makes the Login.jsx biometric
+        # button/conditional-autofill flow possible at all: the browser can
+        # only surface "which account?" from the authenticator itself, with
+        # zero typed input, if the credential was stored resident-side with
+        # its own copy of the user handle. Every platform authenticator this
+        # feature targets (Face ID, Touch ID, Windows Hello, Android
+        # biometric unlock) supports resident keys, so requiring it doesn't
+        # meaningfully narrow who can enroll.
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            require_resident_key=True,
+            user_verification=UserVerificationRequirement.PREFERRED,
+        ),
     )
     challenge_token = _create_purpose_token(
         "webauthn_reg_challenge",
@@ -676,16 +695,22 @@ def webauthn_register_verify(
 @router.post("/webauthn/login/options")
 @limiter.limit("10/minute")
 def webauthn_login_options(request: Request, body: WebAuthnLoginOptionsRequest, db: Session = Depends(get_db)):
-    normalized = _normalize_username(body.username)
-    user = db.query(User).filter(User.username_normalized == normalized).first()
-
+    # Usernameless/discoverable-credential path (Login.jsx's biometric
+    # button and conditional-autofill call) omits username entirely --
+    # allow_credentials stays None/empty so the browser asks the
+    # authenticator "which resident credential fits this site?" instead of
+    # the server pre-scoping to one account. The typed-username path (kept
+    # for callers that already know it) still works exactly as before.
+    normalized = _normalize_username(body.username) if body.username else None
     allow_credentials = None
-    if user:
-        creds = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == user.id).all()
-        if creds:
-            allow_credentials = [
-                PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id)) for c in creds
-            ]
+    if normalized:
+        user = db.query(User).filter(User.username_normalized == normalized).first()
+        if user:
+            creds = db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == user.id).all()
+            if creds:
+                allow_credentials = [
+                    PublicKeyCredentialDescriptor(id=base64url_to_bytes(c.credential_id)) for c in creds
+                ]
     # An unknown username, or a known one with no enrolled credentials, both
     # still produce a well-formed options payload (empty allow-list) rather
     # than a 404 -- same enumeration-safety principle as everywhere else in
@@ -698,7 +723,6 @@ def webauthn_login_options(request: Request, body: WebAuthnLoginOptionsRequest, 
     challenge_token = _create_purpose_token(
         "webauthn_login_challenge",
         WEBAUTHN_CHALLENGE_TOKEN_TTL_MINUTES,
-        username_normalized=normalized,
         challenge=bytes_to_base64url(options.challenge),
     )
     return {"options": json.loads(options_to_json(options)), "challenge_token": challenge_token}
@@ -708,18 +732,19 @@ def webauthn_login_options(request: Request, body: WebAuthnLoginOptionsRequest, 
 @limiter.limit("5/minute")
 def webauthn_login_verify(request: Request, body: WebAuthnLoginVerifyRequest, db: Session = Depends(get_db)):
     payload = _decode_purpose_token(body.challenge_token, "webauthn_login_challenge")
-    normalized = _normalize_username(body.username)
-    if payload.get("username_normalized") != normalized:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_WEBAUTHN_LOGIN_ERROR)
 
-    user = db.query(User).filter(User.username_normalized == normalized).first()
+    # The credential ID (globally unique, see WebAuthnCredential.credential_id)
+    # is what actually resolves the user -- not username, which is now
+    # optional and typically absent entirely for the discoverable/
+    # usernameless flow. This is the standard discoverable-credential
+    # pattern: the authenticator, not a typed identifier, tells the server
+    # which account this assertion is for.
     credential_id_b64 = body.credential.get("id") if isinstance(body.credential, dict) else None
-    stored = None
-    if user and credential_id_b64:
-        stored = db.query(WebAuthnCredential).filter(
-            WebAuthnCredential.user_id == user.id,
-            WebAuthnCredential.credential_id == credential_id_b64,
-        ).first()
+    stored = (
+        db.query(WebAuthnCredential).filter(WebAuthnCredential.credential_id == credential_id_b64).first()
+        if credential_id_b64 else None
+    )
+    user = db.query(User).filter(User.id == stored.user_id).first() if stored else None
 
     if not user or not stored:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_WEBAUTHN_LOGIN_ERROR)

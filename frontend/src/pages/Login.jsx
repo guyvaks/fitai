@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authAPI } from "../services/api";
-import { isWebAuthnPlatformAvailable } from "../services/webauthn";
+import { isConditionalMediationAvailable, isWebAuthnPlatformAvailable } from "../services/webauthn";
 import { Zap, Loader2, Fingerprint } from "lucide-react";
 
 export default function Login() {
@@ -16,14 +16,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [webauthnLoading, setWebauthnLoading] = useState(false);
   const [webauthnSupported, setWebauthnSupported] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    isWebAuthnPlatformAvailable().then((available) => {
-      if (!cancelled) setWebauthnSupported(available);
-    });
-    return () => { cancelled = true }
-  }, []);
+  const conditionalAttempted = useRef(false);
 
   const handleAuthError = (err) => {
     const detail = err.response?.data?.detail;
@@ -41,6 +34,59 @@ export default function Login() {
     }
   };
 
+  // Shared by the explicit biometric button and the conditional-autofill
+  // attempt below -- both end with "we have a signed assertion + the
+  // challenge token it answers, turn that into a session." Deliberately
+  // never sends a username: the assertion's credential ID is what the
+  // backend resolves the account from (standard discoverable-credential
+  // pattern), so there's nothing to type first either way.
+  const completeWebauthnLogin = async (assertion, challengeToken) => {
+    const { data } = await authAPI.webauthnLoginVerify(undefined, challengeToken, assertion);
+    await loginWithToken(data.access_token);
+    navigate("/dashboard");
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    isWebAuthnPlatformAvailable().then((available) => {
+      if (!cancelled) setWebauthnSupported(available);
+    });
+    return () => { cancelled = true }
+  }, []);
+
+  // Conditional UI (autofill-style) discoverable-credential login: arms the
+  // username field's native autofill dropdown with a passkey suggestion as
+  // soon as the page loads -- no click, no typed username. This is the
+  // "proactive" half of the fix; the explicit button below is the fallback
+  // for browsers that support platform authenticators but not conditional
+  // mediation. Fires at most once per mount; a resolved or rejected attempt
+  // (browser doesn't actually support it despite the capability check, user
+  // picked a password-manager entry instead, etc.) is never retried --
+  // falling through to typing a username/password normally is always fine.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (conditionalAttempted.current) return;
+      if (!(await isConditionalMediationAvailable())) return;
+      conditionalAttempted.current = true;
+      try {
+        const { startAuthentication } = await import("@simplewebauthn/browser");
+        const { data: optionsData } = await authAPI.webauthnLoginOptions();
+        const assertion = await startAuthentication({
+          optionsJSON: optionsData.options,
+          useBrowserAutofill: true,
+        });
+        if (cancelled) return;
+        await completeWebauthnLogin(assertion, optionsData.challenge_token);
+      } catch {
+        // No explicit "not available after all" signal from the API here --
+        // any failure just means conditional login didn't happen this time.
+      }
+    })();
+    return () => { cancelled = true };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -57,20 +103,20 @@ export default function Login() {
   };
 
   const handleWebauthnLogin = async () => {
-    if (!username.trim()) {
-      setError("הזן שם משתמש כדי להיכנס עם Face ID / טביעת אצבע");
-      return;
-    }
     setError("");
     setNeedsVerification(false);
     setWebauthnLoading(true);
     try {
       const { startAuthentication } = await import("@simplewebauthn/browser");
-      const { data: optionsData } = await authAPI.webauthnLoginOptions(username);
+      // If a username happens to already be typed, pass it along purely as
+      // an optional narrowing hint (the browser then only offers that
+      // account's credential) -- but it's never required: omitted, the
+      // authenticator surfaces whichever resident credential fits this
+      // site, and completeWebauthnLogin resolves the account from the
+      // assertion itself either way.
+      const { data: optionsData } = await authAPI.webauthnLoginOptions(username.trim() || undefined);
       const assertion = await startAuthentication({ optionsJSON: optionsData.options });
-      const { data } = await authAPI.webauthnLoginVerify(username, optionsData.challenge_token, assertion);
-      await loginWithToken(data.access_token);
-      navigate("/dashboard");
+      await completeWebauthnLogin(assertion, optionsData.challenge_token);
     } catch (err) {
       if (err?.name === "NotAllowedError") {
         // User cancelled the biometric prompt -- not a real error, just quietly stop.
@@ -121,6 +167,30 @@ export default function Login() {
             </div>
           )}
 
+          {/* Biometric login is offered first and stands entirely on its
+              own -- it must never require the username field below to be
+              filled in first, that would defeat the point of "skip manual
+              identification." */}
+          {webauthnSupported && (
+            <button
+              type="button"
+              onClick={handleWebauthnLogin}
+              disabled={loading || webauthnLoading}
+              className="btn-volt w-full py-3 mb-4 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+            >
+              {webauthnLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
+              כניסה עם Face ID / טביעת אצבע
+            </button>
+          )}
+
+          {webauthnSupported && (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-line" />
+              <span className="text-text-low text-xs">או</span>
+              <div className="flex-1 h-px bg-line" />
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-text-mid text-sm mb-1.5">שם משתמש</label>
@@ -131,7 +201,10 @@ export default function Login() {
                 required
                 className="input-volt"
                 placeholder="שם משתמש"
-                autoComplete="username"
+                // "webauthn" alongside "username" is what lets a browser
+                // that supports conditional mediation attach the passkey
+                // autofill suggestion to this specific field.
+                autoComplete="username webauthn"
                 dir="auto"
               />
             </div>
@@ -163,18 +236,6 @@ export default function Login() {
               {loading ? "מתחבר..." : "התחבר"}
             </button>
           </form>
-
-          {webauthnSupported && (
-            <button
-              type="button"
-              onClick={handleWebauthnLogin}
-              disabled={loading || webauthnLoading}
-              className="w-full py-3 mt-3 text-sm rounded-elem border border-line text-text-mid hover:text-text-hi hover:bg-white/6 transition flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-            >
-              {webauthnLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Fingerprint className="w-4 h-4" />}
-              כניסה עם Face ID / טביעת אצבע
-            </button>
-          )}
 
           <p className="text-center text-text-mid text-sm mt-6">
             עדיין לא בחרת שם משתמש?{" "}

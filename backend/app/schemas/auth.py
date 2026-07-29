@@ -102,11 +102,19 @@ class WebAuthnRegisterVerifyRequest(BaseModel):
 
 
 class WebAuthnLoginOptionsRequest(BaseModel):
-    username: str
+    # Optional -- omitted entirely for the usernameless/discoverable-
+    # credential flow (Login.jsx's biometric button/conditional autofill),
+    # where the authenticator itself surfaces which resident credential to
+    # use rather than the server scoping options to one known user upfront.
+    username: str | None = None
 
 
 class WebAuthnLoginVerifyRequest(BaseModel):
-    username: str
+    # Same as above -- the credential_id in `credential` is what actually
+    # resolves the user (WebAuthnCredential.credential_id is globally
+    # unique), not this field. Kept only so a caller that already knows the
+    # username (the old typed-username flow) can still pass it.
+    username: str | None = None
     challenge_token: str
     credential: dict
 

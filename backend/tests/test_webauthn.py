@@ -28,6 +28,17 @@ def test_webauthn_register_options_returns_challenge(client):
     assert body["options"]["user"]["name"] == "webauthn1"
 
 
+def test_webauthn_register_options_requires_resident_key(client):
+    # This is what makes the usernameless/discoverable login flow possible
+    # at all -- without a resident key, the authenticator has nothing to
+    # hand the browser when no allowCredentials list is given.
+    headers = get_auth_headers(client, email="webauthn1b@example.com")
+    resp = client.post("/api/v1/auth/webauthn/register/options", headers=headers)
+    selection = resp.json()["options"]["authenticatorSelection"]
+    assert selection["residentKey"] == "required"
+    assert selection["requireResidentKey"] is True
+
+
 class _FakeVerifiedRegistration:
     def __init__(self):
         self.credential_id = b"fake-credential-id-1"
@@ -142,6 +153,60 @@ def test_webauthn_login_verify_unknown_credential_returns_generic_error(client):
         "username": "no-such-user",
         "challenge_token": challenge_token,
         "credential": {"id": "whatever"},
+    })
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "הכניסה נכשלה"
+
+
+def test_webauthn_login_options_omitted_username_returns_no_allow_list(client):
+    # The usernameless/discoverable path -- Login.jsx's biometric button and
+    # conditional-autofill flow both call this with no username at all.
+    resp = client.post("/api/v1/auth/webauthn/login/options", json={})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["options"].get("allowCredentials") in (None, [])
+
+
+@patch("app.api.v1.endpoints.auth.webauthn.verify_authentication_response")
+@patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
+def test_webauthn_login_verify_succeeds_with_no_username_via_discoverable_credential(
+    mock_reg_verify, mock_auth_verify, client
+):
+    # The core of this feature: a full login using only the credential ID
+    # from the assertion response -- no username typed or sent anywhere in
+    # either the options or verify call. This is what makes biometric login
+    # skip manual identification entirely, per the whole point of the fix.
+    mock_reg_verify.return_value = _FakeVerifiedRegistration()
+    mock_auth_verify.return_value = _FakeVerifiedAuthentication()
+
+    headers = get_auth_headers(client, email="webauthn7@example.com")
+    options_resp = client.post("/api/v1/auth/webauthn/register/options", headers=headers)
+    client.post("/api/v1/auth/webauthn/register/verify", headers=headers, json={
+        "challenge_token": options_resp.json()["challenge_token"],
+        "credential": {"id": "fake-credential-id-1"},
+    })
+
+    login_options = client.post("/api/v1/auth/webauthn/login/options", json={})
+    challenge_token = login_options.json()["challenge_token"]
+
+    from webauthn.helpers import bytes_to_base64url
+    stored_credential_id = bytes_to_base64url(_FakeVerifiedRegistration().credential_id)
+
+    login_verify = client.post("/api/v1/auth/webauthn/login/verify", json={
+        "challenge_token": challenge_token,
+        "credential": {"id": stored_credential_id},
+    })
+    assert login_verify.status_code == 200
+    assert "access_token" in login_verify.json()
+
+
+def test_webauthn_login_verify_omitted_username_and_unknown_credential_returns_generic_error(client):
+    login_options = client.post("/api/v1/auth/webauthn/login/options", json={})
+    challenge_token = login_options.json()["challenge_token"]
+
+    resp = client.post("/api/v1/auth/webauthn/login/verify", json={
+        "challenge_token": challenge_token,
+        "credential": {"id": "never-registered"},
     })
     assert resp.status_code == 401
     assert resp.json()["detail"] == "הכניסה נכשלה"

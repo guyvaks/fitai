@@ -18,3 +18,18 @@ export async function isWebAuthnPlatformAvailable() {
     return false;
   }
 }
+
+// Conditional UI / autofill support -- distinct capability from platform-
+// authenticator availability above. When available, the browser can arm a
+// text input (marked autoComplete="username webauthn") with a passkey
+// suggestion in its native autofill dropdown, so a discoverable credential
+// can be used with zero clicks: no button, no typed username. Used by
+// Login.jsx's proactive login attempt.
+export async function isConditionalMediationAvailable() {
+  if (!window.PublicKeyCredential?.isConditionalMediationAvailable) return false;
+  try {
+    return await window.PublicKeyCredential.isConditionalMediationAvailable();
+  } catch {
+    return false;
+  }
+}
