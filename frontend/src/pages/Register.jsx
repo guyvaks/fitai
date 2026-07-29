@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Zap, Loader2 } from "lucide-react";
 import { authAPI } from "../services/api";
+import UsernameField from "../components/UsernameField";
 
 export default function Register() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("he");
@@ -21,12 +23,16 @@ export default function Register() {
       // Deliberately not logging the user in here -- the account isn't
       // verified yet, so there's no session to establish until they enter
       // the code we just emailed them.
-      await authAPI.register(email, password, fullName, consentGiven, preferredLanguage);
+      await authAPI.register(email, password, fullName, username, consentGiven, preferredLanguage);
       navigate("/verify-email", { state: { email } });
     } catch (err) {
       const msg = err.response?.data?.detail;
       if (msg === "Email already registered") {
         setError("האימייל הזה כבר רשום במערכת");
+      } else if (typeof msg === "string" && msg.includes("שם המשתמש")) {
+        // Authoritative race guard from the backend (409/400) -- the live
+        // availability check above is only a pre-flight, this is the real one.
+        setError(msg);
       } else {
         setError("שגיאה בהרשמה. נסה שוב.");
       }
@@ -71,6 +77,7 @@ export default function Register() {
                 placeholder="ישראל ישראלי"
               />
             </div>
+            <UsernameField value={username} onChange={setUsername} />
             <div>
               <label className="block text-text-mid text-sm mb-1.5">אימייל</label>
               <input

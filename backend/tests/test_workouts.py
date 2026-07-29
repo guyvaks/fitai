@@ -398,10 +398,10 @@ def test_session_detail_not_found_for_session_id_that_does_not_exist(client):
 
 
 def test_session_detail_not_found_for_other_users_session(client):
-    headers_a = get_auth_headers(client, email="a@example.com")
+    headers_a = get_auth_headers(client, email="a@example.com", username="usera")
     session = _create_plan_and_start_session(client, headers_a)
 
-    headers_b = get_auth_headers(client, email="b@example.com")
+    headers_b = get_auth_headers(client, email="b@example.com", username="userb")
     response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers_b)
     assert response.status_code == 404
 

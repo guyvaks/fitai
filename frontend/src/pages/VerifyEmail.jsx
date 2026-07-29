@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Zap, Loader2 } from "lucide-react";
+import { Zap, Loader2, Fingerprint } from "lucide-react";
 import { authAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { isWebAuthnPlatformAvailable, runWebAuthnRegistration } from "../services/webauthn";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -19,6 +20,18 @@ export default function VerifyEmail() {
   const [resendMessage, setResendMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  // 'verify' -> 'webauthn-prompt' (only if the platform supports it) -> dashboard.
+  const [step, setStep] = useState("verify");
+  const [webauthnSupported, setWebauthnSupported] = useState(false);
+  const [webauthnBusy, setWebauthnBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    isWebAuthnPlatformAvailable().then((available) => {
+      if (!cancelled) setWebauthnSupported(available);
+    });
+    return () => { cancelled = true }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,11 +41,33 @@ export default function VerifyEmail() {
     try {
       const { data } = await authAPI.verifyEmail(email, code);
       await loginWithToken(data.access_token);
-      navigate("/dashboard");
+      // Session is now established, so a WebAuthn registration ceremony
+      // (which needs an authenticated request to attach a credential to
+      // this user) can run right here -- but only offer it if the platform
+      // actually supports it, otherwise skip straight to the dashboard.
+      if (webauthnSupported) {
+        setStep("webauthn-prompt");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "שגיאה באימות הקוד. נסה שוב.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEnableWebauthn = async () => {
+    setWebauthnBusy(true);
+    try {
+      await runWebAuthnRegistration();
+    } catch {
+      // Never block dashboard access on this optional step -- a cancelled
+      // or failed ceremony just means the user skips biometric login for
+      // now, revisitable later in Settings.
+    } finally {
+      setWebauthnBusy(false);
+      navigate("/dashboard");
     }
   };
 
@@ -65,6 +100,34 @@ export default function VerifyEmail() {
           <p className="text-text-mid">בדוק את המייל שלך</p>
         </div>
 
+        {step === "webauthn-prompt" ? (
+          <div className="card-glass p-8 anim-rise anim-d1 text-center">
+            <Fingerprint className="w-10 h-10 text-volt mx-auto mb-3" />
+            <h2 className="text-xl font-bold text-text-hi mb-2">הפעל כניסה עם Face ID / טביעת אצבע?</h2>
+            <p className="text-text-mid text-sm mb-6">
+              בפעם הבאה תוכל/י להיכנס בלי להקליד סיסמה. אפשר להפעיל את זה גם מאוחר יותר דרך ההגדרות.
+            </p>
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={handleEnableWebauthn}
+                disabled={webauthnBusy}
+                className="btn-volt w-full py-3 text-sm flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+              >
+                {webauthnBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                הפעל
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard")}
+                disabled={webauthnBusy}
+                className="w-full py-3 text-sm rounded-elem border border-line text-text-mid hover:text-text-hi transition"
+              >
+                אולי מאוחר יותר
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="card-glass p-8 anim-rise anim-d1">
           <h2 className="text-xl font-bold text-text-hi mb-2">אימות כתובת מייל</h2>
           <p className="text-text-mid text-sm mb-6">
@@ -139,6 +202,7 @@ export default function VerifyEmail() {
             </Link>
           </p>
         </div>
+        )}
       </div>
     </div>
   );

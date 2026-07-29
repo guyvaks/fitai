@@ -44,6 +44,21 @@ class User(Base):
     # and Settings page can capture/display the preference ahead of an
     # actual translation implementation.
     preferred_language = Column(String, nullable=False, default="he", server_default="he")
+    # Deliberately nullable forever -- NOT a nullable-then-backfilled column.
+    # username IS NULL is the permanent, DB-level marker for "pre-migration
+    # account" (existed before username-based login shipped). There is no
+    # backfill migration and there must never be a NOT NULL constraint added
+    # here: every *new* account gets a username at registration (enforced in
+    # the /register endpoint, an application-level invariant), while existing
+    # accounts stay NULL until they self-serve through POST
+    # /auth/activate-account. Stored as-typed for display.
+    username = Column(String(30), nullable=True)
+    # Lowercased mirror of `username`, used for uniqueness and every
+    # lookup/login -- keeps case-insensitive matching a plain indexed
+    # equality check instead of a Postgres functional index on lower(username).
+    # Postgres unique indexes allow multiple NULLs, so this coexists fine with
+    # every pre-migration row being NULL.
+    username_normalized = Column(String(30), nullable=True, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
@@ -55,6 +70,7 @@ class User(Base):
     food_logs = relationship("FoodLog", back_populates="user")
     workout_sessions = relationship("WorkoutSession", back_populates="user")
     ai_suggestions = relationship("AISuggestion", back_populates="user")
+    webauthn_credentials = relationship("WebAuthnCredential", back_populates="user")
 
 
 class UserProfile(Base):
@@ -130,6 +146,25 @@ class EmailVerificationCode(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class WebAuthnCredential(Base):
+    __tablename__ = "webauthn_credentials"
+
+    # Multiple rows per user are expected (one per enrolled device) -- only
+    # credential_id is globally unique, per the WebAuthn spec (an
+    # authenticator-issued credential ID never collides across users).
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    credential_id = Column(String, nullable=False, unique=True, index=True)
+    public_key = Column(String, nullable=False)
+    sign_count = Column(Integer, nullable=False, default=0)
+    transports = Column(String, nullable=True)
+    device_label = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="webauthn_credentials")
 
 
 class ConsentRecord(Base):

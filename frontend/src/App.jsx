@@ -4,7 +4,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import ForgotPassword from "./pages/ForgotPassword";
+import ForgotAccess from "./pages/ForgotAccess";
+import ActivateAccount from "./pages/ActivateAccount";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -57,7 +58,8 @@ export default function App() {
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgot-access" element={<ForgotAccess />} />
+        <Route path="/activate-account" element={<ActivateAccount />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />

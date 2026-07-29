@@ -60,7 +60,7 @@ def test_bulk_deactivate_blocks_login_and_existing_session(client, db_session):
     # New login attempts are rejected...
     login_resp = client.post(
         "/api/v1/auth/login",
-        json={"email": "target@example.com", "password": "SecurePass123"},
+        json={"username": "target", "password": "SecurePass123"},
     )
     assert login_resp.status_code == 403
     assert "הושבת" in login_resp.json()["detail"]
@@ -92,7 +92,7 @@ def test_bulk_reactivate_restores_login(client, db_session):
 
     login_resp = client.post(
         "/api/v1/auth/login",
-        json={"email": "reactivate-target@example.com", "password": "SecurePass123"},
+        json={"username": "reactivate-target", "password": "SecurePass123"},
     )
     assert login_resp.status_code == 200
 

@@ -33,11 +33,18 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_auth_headers(client, email="test@example.com"):
+def get_auth_headers(client, email="test@example.com", username=None):
+    # Derived from the email's local-part by default -- every test email in
+    # this suite already uses only username-legal characters
+    # (letters/digits/hyphens), so this needs no per-call changes at most
+    # existing call sites. Pass `username=` explicitly for a test that
+    # specifically needs to control it (e.g. a collision test).
+    username = username or email.split("@")[0]
     client.post("/api/v1/auth/register", json={
         "email": email,
         "password": "SecurePass123",
         "full_name": "Test User",
+        "username": username,
         "consent_given": True,
     })
     # New signups are unverified and AI-access-unapproved by default
@@ -59,7 +66,7 @@ def get_auth_headers(client, email="test@example.com"):
         direct_session.close()
 
     response = client.post("/api/v1/auth/login", json={
-        "email": email,
+        "username": username,
         "password": "SecurePass123",
     })
     token = response.json()["access_token"]

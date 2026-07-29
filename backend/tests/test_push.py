@@ -69,7 +69,7 @@ def test_unsubscribe_does_not_delete_another_users_row(client, db_session):
     other_headers = get_auth_headers(client, email="other@example.com")
     client.post("/api/v1/push/subscribe", headers=other_headers, json=SUBSCRIPTION_PAYLOAD)
 
-    my_headers = get_auth_headers(client, email="me@example.com")
+    my_headers = get_auth_headers(client, email="me@example.com", username="myuser")
     response = client.request(
         "DELETE", "/api/v1/push/subscribe", headers=my_headers,
         json={"endpoint": SUBSCRIPTION_PAYLOAD["endpoint"]},

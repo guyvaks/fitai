@@ -754,3 +754,151 @@ test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', 
     })
   }
 })
+
+// Regression/coverage tests (2026-07-29) for the username-based login +
+// existing-user migration bridge feature. Requires the username/
+// username_normalized columns and webauthn_credentials table migrations
+// (backend/alembic/versions/f2b8c1d9e4a3_*, a7c4e9f1b6d2_*) to already be
+// applied on whatever DATABASE_URL/backend this suite points at -- these
+// tests will fail with column-not-found errors against a pre-migration DB.
+test.describe('Username-based register/login', () => {
+  test('register with username, then log in with that username (case-insensitive)', async ({ page }) => {
+    const ts = Date.now()
+    const uEmail = `e2e-username-${ts}@example.com`
+    const uUsername = `e2eusername${ts}`
+    const uPassword = 'E2eUsername#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: uEmail, password: uPassword, full_name: 'E2E Username',
+        username: uUsername, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [uEmail]
+    )
+    const uUserId = rows[0].id
+    await client.end()
+
+    // Login screen is username-only -- drive the actual UI, not a raw API
+    // call, so this also covers Login.jsx's field wiring, not just the
+    // backend contract.
+    await page.goto('/login')
+    await page.getByPlaceholder('שם משתמש').fill(uUsername.toUpperCase())
+    await page.getByPlaceholder('••••••••').fill(uPassword)
+    await page.getByRole('button', { name: 'התחבר' }).click()
+    await page.waitForURL('**/dashboard', { timeout: 10000 })
+
+    const cleanup = new pg.Client({ connectionString: DATABASE_URL })
+    await cleanup.connect()
+    for (const table of ['weight_logs', 'workout_plans', 'nutrition_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await cleanup.query(`DELETE FROM ${table} WHERE user_id = $1`, [uUserId])
+    }
+    await cleanup.query('DELETE FROM users WHERE id = $1', [uUserId])
+    await cleanup.end()
+  })
+
+  test('registering a second account with a case-varied duplicate username is rejected', async () => {
+    const ts = Date.now()
+    const email1 = `e2e-collision-a-${ts}@example.com`
+    const email2 = `e2e-collision-b-${ts}@example.com`
+    const username = `e2ecollision${ts}`
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email1, password: 'E2eCollision#2026', full_name: 'E2E Collision A',
+        username, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    let rejected = false
+    try {
+      await api(null, '/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email2, password: 'E2eCollision#2026', full_name: 'E2E Collision B',
+          username: username.toUpperCase(), consent_given: true, preferred_language: 'he',
+        }),
+      })
+    } catch (e) {
+      rejected = /-> 400:|-> 409:/.test(e.message)
+    }
+    expect(rejected).toBe(true)
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query('SELECT id FROM users WHERE email = $1', [email1])
+    await client.query('DELETE FROM consent_records WHERE user_id = $1', [rows[0].id])
+    await client.query('DELETE FROM email_verification_codes WHERE user_id = $1', [rows[0].id])
+    await client.query('DELETE FROM users WHERE id = $1', [rows[0].id])
+    await client.end()
+  })
+})
+
+test.describe('Existing-user migration bridge (activate-account)', () => {
+  test('a pre-migration account (username IS NULL) activates through the real UI', async ({ page }) => {
+    const ts = Date.now()
+    const legacyEmail = `e2e-legacy-${ts}@example.com`
+    const legacyPassword = 'E2eLegacy#2026'
+    const chosenUsername = `e2elegacy${ts}`
+
+    // Simulate a legacy (pre-migration) account by registering normally
+    // through the real API -- which gets a real bcrypt hash from the
+    // backend's own get_password_hash, no pgcrypto/raw-hash dependency --
+    // then nulling out username/username_normalized directly, since
+    // /register always sets both now and a NULL-username row can otherwise
+    // only exist as a real account that predates this feature.
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: legacyEmail, password: legacyPassword, full_name: 'E2E Legacy',
+        username: `e2elegacytemp${ts}`, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      `UPDATE users SET username = NULL, username_normalized = NULL, is_verified = true
+       WHERE email = $1 RETURNING id`,
+      [legacyEmail]
+    )
+    const legacyUserId = rows[0].id
+    await client.end()
+
+    await page.goto('/activate-account')
+    await page.getByPlaceholder('your@email.com').fill(legacyEmail)
+    await page.locator('input[type="password"]').fill(legacyPassword)
+    await page.getByRole('button', { name: 'המשך' }).click()
+
+    await page.waitForSelector('text=בחר/י שם משתמש', { timeout: 10000 })
+    await page.getByPlaceholder('שם משתמש').fill(chosenUsername)
+    await page.getByRole('button', { name: 'סיום והפעלה' }).click()
+    await page.waitForURL('**/dashboard', { timeout: 10000 })
+
+    // A second activation attempt on the same account must now fail --
+    // the self-closing-door property is the crux of the whole migration
+    // design (see backend/app/api/v1/endpoints/auth.py's activate_account).
+    let secondAttemptRejected = false
+    try {
+      await api(null, '/api/v1/auth/activate-account', {
+        method: 'POST',
+        body: JSON.stringify({ email: legacyEmail, password: legacyPassword }),
+      })
+    } catch (e) {
+      secondAttemptRejected = /-> 401:/.test(e.message)
+    }
+    expect(secondAttemptRejected).toBe(true)
+
+    const cleanup = new pg.Client({ connectionString: DATABASE_URL })
+    await cleanup.connect()
+    await cleanup.query('DELETE FROM users WHERE id = $1', [legacyUserId])
+    await cleanup.end()
+  })
+})

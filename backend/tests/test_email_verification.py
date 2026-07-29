@@ -6,11 +6,16 @@ from app.models.user import EmailVerificationCode, User
 from tests.conftest import get_auth_headers
 
 
+def _username_for(email):
+    return email.split("@")[0]
+
+
 def _register(client, email="verify-test@example.com", password="SecurePass123"):
     return client.post("/api/v1/auth/register", json={
         "email": email,
         "password": password,
         "full_name": "Verify Test User",
+        "username": _username_for(email),
         "consent_given": True,
     })
 
@@ -140,7 +145,7 @@ def test_login_rejected_for_unverified_user_with_correct_password(client):
     _register(client, email="unverified@example.com", password="SecurePass123")
 
     resp = client.post("/api/v1/auth/login", json={
-        "email": "unverified@example.com",
+        "username": "unverified",
         "password": "SecurePass123",
     })
     assert resp.status_code == 403
@@ -155,11 +160,11 @@ def test_login_wrong_password_for_unverified_user_still_gets_generic_401(client)
     _register(client, email="unverified2@example.com", password="SecurePass123")
 
     resp = client.post("/api/v1/auth/login", json={
-        "email": "unverified2@example.com",
+        "username": "unverified2",
         "password": "WrongPassword",
     })
     assert resp.status_code == 401
-    assert resp.json()["detail"] == "אימייל או סיסמה שגויים"
+    assert resp.json()["detail"] == "שם משתמש או סיסמה שגויים"
 
 
 def test_verify_email_with_correct_code_marks_verified_and_returns_token(client, db_session):
@@ -190,7 +195,7 @@ def test_verify_email_with_correct_code_marks_verified_and_returns_token(client,
 
     # Now login succeeds too
     login_resp = client.post("/api/v1/auth/login", json={
-        "email": "tobeverified@example.com",
+        "username": "tobeverified",
         "password": "SecurePass123",
     })
     assert login_resp.status_code == 200

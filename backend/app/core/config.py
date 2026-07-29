@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     # the deployed frontend origin in staging/production (set via env), not
     # this localhost default.
     FRONTEND_URL: str = "http://localhost:5173"
+    # WebAuthn Relying Party identity. RP_ID must be the frontend's exact
+    # hostname (no scheme/port) and must match what the browser's
+    # navigator.credentials calls see as document.location.hostname -- a
+    # credential registered under one RP ID is refused under another, so
+    # this can't be left to drift from FRONTEND_URL. Defaults derive from
+    # FRONTEND_URL so local dev/most deployments need zero extra config;
+    # override only if a deployment's actual browser-facing origin differs
+    # from FRONTEND_URL (e.g. a CDN in front of it).
+    WEBAUTHN_RP_ID: Optional[str] = None
+    WEBAUTHN_RP_NAME: str = "FitAI"
+    WEBAUTHN_ORIGIN: Optional[str] = None
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds
@@ -72,6 +83,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Derive WebAuthn RP ID/origin from FRONTEND_URL when not explicitly set --
+# see the field comments above for why these must track the real
+# browser-facing origin rather than have their own independent defaults.
+if not settings.WEBAUTHN_RP_ID:
+    settings.WEBAUTHN_RP_ID = urlparse(settings.FRONTEND_URL).hostname
+if not settings.WEBAUTHN_ORIGIN:
+    settings.WEBAUTHN_ORIGIN = settings.FRONTEND_URL
 
 if settings.ENVIRONMENT in ("development", "test") and not _is_allowed_dev_db(settings.DATABASE_URL):
     raise RuntimeError(

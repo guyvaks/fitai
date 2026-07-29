@@ -43,22 +43,49 @@ def _resolve_recipient_and_subject(
     return override, f"[{subject_context}] {subject}", banner
 
 
-def send_password_reset_email(to_email: str, reset_link: str) -> None:
+def send_account_recovery_email(
+    to_email: str, reset_link: str, username: str | None, activate_link: str | None
+) -> None:
+    """Combined 'forgot username / forgot password' email, sent by
+    /auth/forgot-access for any account that exists (the HTTP response is
+    always generic regardless -- see forgot_access() -- so this content
+    difference doesn't create a new response-shape/timing leak, only the
+    same inherent "did an email arrive" signal any email-based recovery flow
+    already has).
+
+    - `username` set (migrated account): include it as a reminder alongside
+      the reset-password link.
+    - `username` None (pre-migration account, see User.username's nullable-
+      forever design): no username to remind them of yet -- point at
+      `activate_link` (POST /auth/activate-account's frontend page) instead.
+      `reset_link` is still included either way, since a legacy user may
+      have simply forgotten their password independent of migration status.
+    """
     if not settings.RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not configured -- skipping password reset email send")
+        logger.warning("RESEND_API_KEY not configured -- skipping account recovery email send")
         return
 
     resend.api_key = settings.RESEND_API_KEY
 
-    actual_to, subject, banner = _resolve_recipient_and_subject(to_email, "איפוס סיסמה ל-FitAI")
+    actual_to, subject, banner = _resolve_recipient_and_subject(to_email, "שחזור גישה ל-FitAI")
+
+    if username:
+        identity_html = f"<p>שם המשתמש שלך הוא: <strong>{username}</strong></p>"
+    else:
+        identity_html = (
+            f'<p>עדיין לא בחרת שם משתמש לחשבון הזה. '
+            f'<a href="{activate_link}">לחץ כאן כדי להפעיל את החשבון ולבחור שם משתמש</a>.</p>'
+        )
 
     html = f"""
     <div dir="rtl" style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         {banner}
-        <h2>איפוס סיסמה ל-FitAI</h2>
-        <p>קיבלנו בקשה לאיפוס הסיסמה שלך. לחץ על הקישור הבא כדי לבחור סיסמה חדשה:</p>
+        <h2>שחזור גישה ל-FitAI</h2>
+        <p>קיבלנו בקשה לשחזור הגישה לחשבון שלך.</p>
+        {identity_html}
+        <p>לאיפוס הסיסמה, לחץ על הקישור הבא:</p>
         <p><a href="{reset_link}">{reset_link}</a></p>
-        <p>הקישור תקף ל-30 דקות. אם לא ביקשת לאפס את הסיסמה, אפשר להתעלם מהודעה זו.</p>
+        <p>קישור איפוס הסיסמה תקף ל-30 דקות. אם לא ביקשת זאת, אפשר להתעלם מהודעה זו.</p>
     </div>
     """
 
@@ -70,7 +97,7 @@ def send_password_reset_email(to_email: str, reset_link: str) -> None:
             "html": html,
         })
     except Exception:
-        logger.exception("Failed to send password reset email via Resend")
+        logger.exception("Failed to send account recovery email via Resend")
 
 
 def send_verification_email(to_email: str, code: str) -> None:

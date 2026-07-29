@@ -46,8 +46,8 @@ export function AuthProvider({ children }) {
   );
 
   const login = useCallback(
-    async (email, password) => {
-      const res = await api.post("/api/v1/auth/login", { email, password });
+    async (username, password) => {
+      const res = await api.post("/api/v1/auth/login", { username, password });
       return establishSession(res.data.access_token);
     },
     [establishSession]

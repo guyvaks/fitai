@@ -28,15 +28,34 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-  forgotPassword: (email) => api.post('/api/v1/auth/forgot-password', { email }),
+  // Combined "forgot username / forgot password" entry point -- replaces
+  // the old email-only forgot-password endpoint. Response is always the
+  // same generic message regardless of whether the account exists; the
+  // emailed content (if any) carries the username reminder and/or reset link.
+  forgotAccess: (email) => api.post('/api/v1/auth/forgot-access', { email }),
   resetPassword: (token, new_password) => api.post('/api/v1/auth/reset-password', { token, new_password }),
   // Deliberately a raw call, not routed through AuthContext -- registering
   // must not establish a session before the email is verified. Register.jsx
   // sends the user to /verify-email afterward instead of logging them in.
-  register: (email, password, full_name, consent_given, preferred_language) =>
-    api.post('/api/v1/auth/register', { email, password, full_name, consent_given, preferred_language }),
+  register: (email, password, full_name, username, consent_given, preferred_language) =>
+    api.post('/api/v1/auth/register', { email, password, full_name, username, consent_given, preferred_language }),
   verifyEmail: (email, code) => api.post('/api/v1/auth/verify-email', { email, code }),
   resendVerification: (email) => api.post('/api/v1/auth/resend-verification', { email }),
+  checkUsernameAvailable: (username) =>
+    api.get('/api/v1/auth/username-available', { params: { username } }),
+  // Existing-user migration bridge (see ActivateAccount.jsx) -- email+password
+  // ONLY for accounts with no username yet, never a standing login alternative.
+  activateAccount: (email, password) => api.post('/api/v1/auth/activate-account', { email, password }),
+  activateSetUsername: (activation_token, username) =>
+    api.post('/api/v1/auth/activate-account/set-username', { activation_token, username }),
+  webauthnRegisterOptions: () => api.post('/api/v1/auth/webauthn/register/options'),
+  webauthnRegisterVerify: (challenge_token, credential) =>
+    api.post('/api/v1/auth/webauthn/register/verify', { challenge_token, credential }),
+  webauthnLoginOptions: (username) => api.post('/api/v1/auth/webauthn/login/options', { username }),
+  webauthnLoginVerify: (username, challenge_token, credential) =>
+    api.post('/api/v1/auth/webauthn/login/verify', { username, challenge_token, credential }),
+  webauthnListCredentials: () => api.get('/api/v1/auth/webauthn/credentials'),
+  webauthnRemoveCredential: (id) => api.delete(`/api/v1/auth/webauthn/credentials/${id}`),
 }
 
 export const nutritionAPI = {
