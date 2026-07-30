@@ -39,7 +39,7 @@ class BulkFoodIdsRequest(BaseModel):
     ids: List[str]
 
 
-BulkUserAction = Literal["deactivate", "reactivate", "revoke_ai_access", "set_daily_limit", "send_email"]
+BulkUserAction = Literal["deactivate", "reactivate", "revoke_ai_access", "set_daily_limit", "send_email", "delete"]
 
 
 class BulkUserActionRequest(BaseModel):
@@ -95,19 +95,16 @@ def _parse_user_id_or_404(user_id: str) -> uuid.UUID:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
 
-@router.delete("/users/{user_id}")
-def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
-    if str(current_admin.id) == user_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
-    parsed_id = _parse_user_id_or_404(user_id)
-    user = db.query(User).filter(User.id == parsed_id).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    # No ON DELETE CASCADE is configured on these FKs at the DB level, so
-    # dependent rows must be removed explicitly (children before parents)
-    # or db.delete(user) raises an IntegrityError that FastAPI turns into
-    # an unhandled 500.
+def _delete_user_cascade(db: Session, parsed_id: uuid.UUID, user: User) -> None:
+    """Removes a user and every dependent row that isn't already covered by
+    an ON DELETE CASCADE FK (webauthn_credentials, password_reset_tokens,
+    email_verification_codes, push_subscriptions, consent_records all cascade
+    at the DB level). Everything below predates those and has no DB-level
+    cascade, so it must be deleted explicitly (children before parents) or
+    db.delete(user) raises an IntegrityError that FastAPI turns into an
+    unhandled 500. Does not commit -- callers commit (or roll back) as a unit,
+    since the bulk endpoint needs per-user transaction control.
+    """
     workout_plan_ids = db.query(WorkoutPlan.id).filter(WorkoutPlan.user_id == parsed_id)
     nutrition_plan_ids = db.query(NutritionPlan.id).filter(NutritionPlan.user_id == parsed_id)
     session_ids = db.query(WorkoutSession.id).filter(WorkoutSession.user_id == parsed_id)
@@ -125,6 +122,18 @@ def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User
         db.query(model).filter(model.user_id == parsed_id).delete(synchronize_session=False)
 
     db.delete(user)
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: str, db: Session = Depends(get_db), current_admin: User = Depends(require_admin)):
+    if str(current_admin.id) == user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete yourself")
+    parsed_id = _parse_user_id_or_404(user_id)
+    user = db.query(User).filter(User.id == parsed_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    _delete_user_cascade(db, parsed_id, user)
     db.commit()
     return {"ok": True}
 
@@ -189,6 +198,10 @@ def bulk_user_action(
             results.append({"id": raw_id, "success": False, "error": "Cannot deactivate yourself"})
             continue
 
+        if payload.action == "delete" and user.id == current_admin.id:
+            results.append({"id": raw_id, "success": False, "error": "Cannot delete yourself"})
+            continue
+
         try:
             if payload.action == "deactivate":
                 user.is_active = False
@@ -200,6 +213,8 @@ def bulk_user_action(
                 user.daily_ai_generation_limit = payload.daily_limit
             elif payload.action == "send_email":
                 send_admin_composed_email(user.email, payload.subject, payload.body)
+            elif payload.action == "delete":
+                _delete_user_cascade(db, parsed_id, user)
 
             db.commit()
             results.append({"id": raw_id, "success": True})

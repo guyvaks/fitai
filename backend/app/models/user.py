@@ -70,7 +70,12 @@ class User(Base):
     food_logs = relationship("FoodLog", back_populates="user")
     workout_sessions = relationship("WorkoutSession", back_populates="user")
     ai_suggestions = relationship("AISuggestion", back_populates="user")
-    webauthn_credentials = relationship("WebAuthnCredential", back_populates="user")
+    # passive_deletes=True: this FK relies on the DB-level ON DELETE CASCADE
+    # (unlike the relationships above, which are cleared explicitly before
+    # the parent is deleted) -- without it, SQLAlchemy would try to UPDATE
+    # webauthn_credentials.user_id to NULL on parent delete instead of
+    # leaving it to the DB, which fails since that column is NOT NULL.
+    webauthn_credentials = relationship("WebAuthnCredential", back_populates="user", passive_deletes=True)
 
 
 class UserProfile(Base):

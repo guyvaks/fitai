@@ -240,6 +240,76 @@ function BulkEmailModal({ count, onClose, onSubmit }) {
   );
 }
 
+// Unlike the other bulk actions, deletion is irreversible and destroys data
+// (not just access), so this modal requires typing the exact count as an
+// extra deliberate step on top of the count already being restated -- a
+// single click here can't be an accident the way clicking "בטל גישת AI" can.
+export function BulkDeleteModal({ count, onClose, onSubmit }) {
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (confirmText.trim() !== String(count)) {
+      setError(`הקלד ${count} כדי לאשר`);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await onSubmit();
+      onClose();
+    } catch {
+      setError("שגיאה במחיקת המשתמשים");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-surface-2 border border-coral/40 rounded-card p-6 w-full max-w-sm mx-4 shadow-2xl anim-rise" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-text-hi font-bold text-lg mb-1 flex items-center gap-2"><Trash2 className="w-5 h-5 text-coral" /> מחיקת משתמשים</h2>
+        <p className="text-text-mid text-sm mb-1">
+          עומדים למחוק לצמיתות <span dir="ltr">{count}</span> משתמשים נבחרים.
+        </p>
+        <p className="text-coral text-xs mb-4">
+          כל הנתונים שלהם (תוכניות, יומני תזונה ואימון, שיאים, מכשירי כניסה ביומטרית וכו') יימחקו לצמיתות. פעולה זו אינה ניתנת לביטול.
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-text-low text-xs block mb-1">הקלד <span dir="ltr">{count}</span> כדי לאשר</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoFocus
+              className="input-volt"
+              dir="ltr"
+            />
+          </div>
+          {error && <p className="text-coral text-xs">{error}</p>}
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-text-mid hover:text-text-hi transition-colors">
+              בטל
+            </button>
+            <button
+              type="submit"
+              disabled={loading || confirmText.trim() !== String(count)}
+              className="px-4 py-2 text-sm rounded-lg bg-coral text-white font-medium disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {loading ? "מוחק..." : `מחק ${count} משתמשים לצמיתות`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function PendingExercises() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -552,6 +622,7 @@ function UsersTab() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkLimitOpen, setBulkLimitOpen] = useState(false);
   const [bulkEmailOpen, setBulkEmailOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // isInitial drives the full-page loading state (first mount only) --
   // every later refetch (manual button, tab-refocus) uses `refreshing`
@@ -646,14 +717,18 @@ function UsersTab() {
       const failed = results.filter((r) => !r.success);
 
       if (succeededIds.size > 0) {
-        setUsers((prev) => prev.map((u) => {
-          if (!succeededIds.has(u.id)) return u;
-          if (action === "deactivate") return { ...u, is_active: false };
-          if (action === "reactivate") return { ...u, is_active: true };
-          if (action === "revoke_ai_access") return { ...u, ai_access_approved: false };
-          if (action === "set_daily_limit") return { ...u, daily_ai_generation_limit: extra.daily_limit };
-          return u;
-        }));
+        if (action === "delete") {
+          setUsers((prev) => prev.filter((u) => !succeededIds.has(u.id)));
+        } else {
+          setUsers((prev) => prev.map((u) => {
+            if (!succeededIds.has(u.id)) return u;
+            if (action === "deactivate") return { ...u, is_active: false };
+            if (action === "reactivate") return { ...u, is_active: true };
+            if (action === "revoke_ai_access") return { ...u, ai_access_approved: false };
+            if (action === "set_daily_limit") return { ...u, daily_ai_generation_limit: extra.daily_limit };
+            return u;
+          }));
+        }
       }
       if (action === "revoke_ai_access" && succeededIds.size > 0) notifyPendingCountChanged();
 
@@ -783,6 +858,13 @@ function UsersTab() {
             className="text-xs px-3 py-1.5 rounded-lg border border-coral/30 text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
           >
             {bulkBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserX className="w-3.5 h-3.5" />} השבת
+          </button>
+          <button
+            onClick={() => setBulkDeleteOpen(true)}
+            disabled={bulkBusy}
+            className="text-xs px-3 py-1.5 rounded-lg border border-coral text-coral hover:bg-coral-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> מחק נבחרים
           </button>
           <button
             onClick={clearSelection}
@@ -941,6 +1023,14 @@ function UsersTab() {
           count={selected.size}
           onClose={() => setBulkEmailOpen(false)}
           onSubmit={(subject, body) => runBulkAction([...selected], "send_email", { subject, body })}
+        />
+      )}
+
+      {bulkDeleteOpen && (
+        <BulkDeleteModal
+          count={selected.size}
+          onClose={() => setBulkDeleteOpen(false)}
+          onSubmit={() => runBulkAction([...selected], "delete")}
         />
       )}
     </>
