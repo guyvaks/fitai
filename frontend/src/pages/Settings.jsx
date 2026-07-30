@@ -132,8 +132,9 @@ function AdminPushNotifications() {
   );
 }
 
-function WebAuthnSettings() {
+export function WebAuthnSettings() {
   const [supported, setSupported] = useState(false);
+  const [platformChecked, setPlatformChecked] = useState(false);
   const [credentials, setCredentials] = useState(null); // null = still loading
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -149,10 +150,17 @@ function WebAuthnSettings() {
 
   useEffect(() => {
     let cancelled = false;
+    // Loading the credential list -- and letting the user revoke from it --
+    // must NOT depend on *this* device having platform-authenticator
+    // hardware. That's exactly the lost/stolen-device scenario this list
+    // exists for: revoking a credential that belongs to a different device
+    // you no longer have, from a machine that may not support WebAuthn at
+    // all. Only registering a *new* credential needs platform support.
+    loadCredentials();
     isWebAuthnPlatformAvailable().then((available) => {
       if (cancelled) return;
       setSupported(available);
-      if (available) loadCredentials();
+      setPlatformChecked(true);
     });
     return () => { cancelled = true };
   }, []);
@@ -183,7 +191,13 @@ function WebAuthnSettings() {
     }
   };
 
-  if (!supported) return null;
+  // Nothing to show: this device can't register a new credential, and there
+  // are no existing ones to list/revoke either. Once credentials have
+  // loaded, an unsupported device with a real credential list still renders
+  // below (list + revoke only, no "Add Device" button).
+  if (platformChecked && !supported && credentials !== null && credentials.length === 0) {
+    return null;
+  }
 
   return (
     <SectionCard icon={Fingerprint} title="כניסה עם Face ID / טביעת אצבע">
@@ -221,15 +235,17 @@ function WebAuthnSettings() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleAddDevice}
-        disabled={busy}
-        className="w-full py-2.5 text-sm rounded-elem font-medium border border-volt/40 text-volt hover:bg-volt-soft transition inline-flex items-center justify-center gap-1.5"
-      >
-        {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-        {busy ? "מעדכן..." : "הוסף מכשיר"}
-      </button>
+      {supported && (
+        <button
+          type="button"
+          onClick={handleAddDevice}
+          disabled={busy}
+          className="w-full py-2.5 text-sm rounded-elem font-medium border border-volt/40 text-volt hover:bg-volt-soft transition inline-flex items-center justify-center gap-1.5"
+        >
+          {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+          {busy ? "מעדכן..." : "הוסף מכשיר"}
+        </button>
+      )}
     </SectionCard>
   );
 }
