@@ -75,6 +75,15 @@ class Settings(BaseSettings):
     WEBAUTHN_RP_ID: Optional[str] = None
     WEBAUTHN_RP_NAME: str = "FitAI"
     WEBAUTHN_ORIGIN: Optional[str] = None
+    # Shared secret for the scheduled E2E monitor (monitoring/e2e-check.mjs)
+    # only -- see its X-E2E-Monitor-Key usage in register(). Unset in every
+    # environment by default, which keeps the skip-real-email path in
+    # register() permanently dead (request.headers.get(...) can never equal
+    # None). Must never be exposed to the frontend bundle or any client-
+    # reachable config endpoint -- it is not a general "skip verification"
+    # switch, only a "don't spend a real Resend send" switch for a request
+    # whose caller already knows this value.
+    E2E_MONITOR_SECRET: Optional[str] = None
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds

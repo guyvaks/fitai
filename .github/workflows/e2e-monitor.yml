@@ -44,3 +44,10 @@ jobs:
         env:
           FRONTEND_BASE_URL: ${{ matrix.frontend_base_url }}
           DATABASE_URL: ${{ matrix.environment == 'staging' && secrets.STAGING_DATABASE_URL || secrets.PRODUCTION_DATABASE_URL }}
+          # Must equal the backend's own E2E_MONITOR_SECRET env var on
+          # Railway (same value for both staging and production is fine --
+          # see app/api/v1/endpoints/auth.py's _is_e2e_monitor_request()).
+          # Lets this monitor's register requests skip real Resend sends
+          # (verification-code + admin-notification emails) so a run every
+          # 30 minutes across both environments doesn't burn the daily quota.
+          E2E_MONITOR_SECRET: ${{ secrets.E2E_MONITOR_SECRET }}

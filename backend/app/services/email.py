@@ -100,7 +100,14 @@ def send_account_recovery_email(
         logger.exception("Failed to send account recovery email via Resend")
 
 
-def send_verification_email(to_email: str, code: str) -> None:
+def send_verification_email(to_email: str, code: str, dry_run: bool = False) -> None:
+    """`dry_run=True` runs everything up to the actual Resend network call and
+    then skips it -- see register()'s X-E2E-Monitor-Key handling, the only
+    caller that ever passes this. The verification code is still written to
+    the DB either way (that happens in register() before this is even
+    scheduled), so a dry run doesn't weaken verification, it just doesn't
+    spend a real send for a code nobody will read out of an inbox.
+    """
     if not settings.RESEND_API_KEY:
         logger.warning("RESEND_API_KEY not configured -- skipping verification email send")
         return
@@ -119,6 +126,10 @@ def send_verification_email(to_email: str, code: str) -> None:
     </div>
     """
 
+    if dry_run:
+        logger.info("dry_run=True -- skipping real Resend send of verification email to %s", actual_to)
+        return
+
     try:
         resend.Emails.send({
             "from": settings.RESEND_FROM_EMAIL,
@@ -130,7 +141,7 @@ def send_verification_email(to_email: str, code: str) -> None:
         logger.exception("Failed to send verification email via Resend")
 
 
-def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
+def send_pending_ai_access_email(db: Session, new_user_email: str, dry_run: bool = False) -> None:
     """Email fallback alongside send_push_to_admins() (push_notifications.py)
     for the same event -- a new signup landing in the unapproved
     ai_access_approved state. Push has proven unreliable in practice (no
@@ -171,6 +182,9 @@ def send_pending_ai_access_email(db: Session, new_user_email: str) -> None:
         actual_to, subject, banner = _resolve_recipient_and_subject(
             admin_email, subject_base, context_email=new_user_email
         )
+        if dry_run:
+            logger.info("dry_run=True -- skipping real Resend send of pending-AI-access admin email to %s", actual_to)
+            continue
         try:
             resend.Emails.send({
                 "from": settings.RESEND_FROM_EMAIL,

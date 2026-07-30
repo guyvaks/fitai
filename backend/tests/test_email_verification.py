@@ -95,6 +95,90 @@ def test_register_succeeds_even_if_admin_email_send_fails(mock_send, client, db_
 
 
 @patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.api.v1.endpoints.auth.settings.E2E_MONITOR_SECRET", "sekrit-monitor-key")
+@patch("app.services.email.resend.Emails.send")
+def test_register_with_valid_monitor_key_skips_real_email_but_keeps_everything_else(
+    mock_send, client, db_session
+):
+    get_auth_headers(client, email="monitor-admin@example.com")
+    admin = db_session.query(User).filter(User.email == "monitor-admin@example.com").first()
+    admin.is_admin = True
+    db_session.commit()
+    mock_send.reset_mock()  # clear the admin's own verification-code send
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "monitor-e2e-user@example.com",
+            "password": "SecurePass123",
+            "full_name": "Monitor Test User",
+            "username": "monitor-e2e-user",
+            "consent_given": True,
+        },
+        headers={"X-E2E-Monitor-Key": "sekrit-monitor-key"},
+    )
+    assert response.status_code == 201
+
+    # Neither the verification-code email nor the admin-notification email
+    # actually hit Resend...
+    assert not mock_send.called
+
+    # ...but everything the E2E monitor actually relies on still happened for
+    # real: the user row, and a crackable verification code in the DB.
+    user = db_session.query(User).filter(User.email == "monitor-e2e-user@example.com").first()
+    assert user is not None
+    assert user.is_verified is False
+    code_row = db_session.query(EmailVerificationCode).filter(
+        EmailVerificationCode.user_id == user.id
+    ).first()
+    assert code_row is not None
+    assert code_row.used_at is None
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.api.v1.endpoints.auth.settings.E2E_MONITOR_SECRET", "sekrit-monitor-key")
+@patch("app.services.email.resend.Emails.send")
+def test_register_with_wrong_monitor_key_still_sends_real_email(mock_send, client, db_session):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "wrong-key-user@example.com",
+            "password": "SecurePass123",
+            "full_name": "Wrong Key User",
+            "username": "wrong-key-user",
+            "consent_given": True,
+        },
+        headers={"X-E2E-Monitor-Key": "not-the-right-secret"},
+    )
+    assert response.status_code == 201
+    assert mock_send.called
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.resend.Emails.send")
+def test_register_with_monitor_key_header_but_no_secret_configured_still_sends_real_email(
+    mock_send, client
+):
+    # app.api.v1.endpoints.auth.settings.E2E_MONITOR_SECRET is left at its
+    # real default (None/unset) here -- a real end user sending this header
+    # by accident (or a copy-pasted curl command) must never skip a real
+    # send unless an operator has deliberately configured the secret.
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "no-secret-configured@example.com",
+            "password": "SecurePass123",
+            "full_name": "No Secret User",
+            "username": "no-secret-configured",
+            "consent_given": True,
+        },
+        headers={"X-E2E-Monitor-Key": "anything"},
+    )
+    assert response.status_code == 201
+    assert mock_send.called
+
+
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
 @patch("app.services.email.settings.RESEND_SANDBOX_OVERRIDE_EMAIL", "owner@example.com")
 @patch("app.services.email.resend.Emails.send")
 def test_register_redirects_to_override_email_when_configured(mock_send, client, db_session):

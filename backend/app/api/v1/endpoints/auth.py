@@ -195,6 +195,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
+def _is_e2e_monitor_request(request: Request) -> bool:
+    """True only for the scheduled E2E monitor's own requests (see
+    monitoring/e2e-check.mjs), never for a real user -- E2E_MONITOR_SECRET is
+    a server-side-only env var (GitHub Actions secret + Railway env var),
+    never shipped to the frontend bundle or any client-reachable config
+    endpoint. `settings.E2E_MONITOR_SECRET` is None by default in every
+    environment, which makes this permanently False until an operator
+    deliberately sets it -- so this can't accidentally start comparing a
+    request header against an empty/falsy secret and matching.
+    """
+    secret = settings.E2E_MONITOR_SECRET
+    return bool(secret) and request.headers.get("x-e2e-monitor-key") == secret
+
+
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/hour")
 def register(request: Request, background_tasks: BackgroundTasks, user_data: UserRegister, db: Session = Depends(get_db)):
@@ -280,10 +294,11 @@ def register(request: Request, background_tasks: BackgroundTasks, user_data: Use
     # guaranteed). Independent of the push call above: each is
     # best-effort and swallows its own exceptions, so one failing has no
     # effect on the other or on registration itself.
-    send_pending_ai_access_email(db, user_data.email)
+    skip_real_email = _is_e2e_monitor_request(request)
+    send_pending_ai_access_email(db, user_data.email, dry_run=skip_real_email)
 
     raw_code = _issue_verification_code(db, user)
-    background_tasks.add_task(send_verification_email, user_data.email, raw_code)
+    background_tasks.add_task(send_verification_email, user_data.email, raw_code, dry_run=skip_real_email)
     # Still returns a token for API-shape/backward-compat reasons (existing
     # tests assert on it), but the frontend deliberately does NOT use it to
     # establish a session -- Register.jsx calls the raw endpoint directly and
