@@ -3,13 +3,14 @@ def test_login_sixth_attempt_in_a_minute_is_rate_limited(client):
         "email": "rate-limit-test@example.com",
         "password": "SecurePass123",
         "full_name": "Rate Limit Test User",
+        "username": "ratelimittest",
         "consent_given": True,
     })
 
     # 5 wrong-password attempts should all be answered normally (401, not 429)
     for _ in range(5):
         resp = client.post("/api/v1/auth/login", json={
-            "email": "rate-limit-test@example.com",
+            "username": "ratelimittest",
             "password": "WrongPassword",
         })
         assert resp.status_code == 401
@@ -17,7 +18,7 @@ def test_login_sixth_attempt_in_a_minute_is_rate_limited(client):
     # The 6th attempt within the same minute must be rejected before it even
     # touches the DB/bcrypt check
     resp = client.post("/api/v1/auth/login", json={
-        "email": "rate-limit-test@example.com",
+        "username": "ratelimittest",
         "password": "WrongPassword",
     })
     assert resp.status_code == 429
@@ -31,14 +32,14 @@ def test_login_rate_limit_is_per_ip_not_global(client):
     for _ in range(5):
         resp = client.post(
             "/api/v1/auth/login",
-            json={"email": "nobody@example.com", "password": "WrongPassword"},
+            json={"username": "nobody", "password": "WrongPassword"},
             headers={"X-Forwarded-For": "10.0.0.1"},
         )
         assert resp.status_code == 401
 
     limited = client.post(
         "/api/v1/auth/login",
-        json={"email": "nobody@example.com", "password": "WrongPassword"},
+        json={"username": "nobody", "password": "WrongPassword"},
         headers={"X-Forwarded-For": "10.0.0.1"},
     )
     assert limited.status_code == 429
@@ -46,7 +47,7 @@ def test_login_rate_limit_is_per_ip_not_global(client):
     # A different source IP is unaffected
     other_ip = client.post(
         "/api/v1/auth/login",
-        json={"email": "nobody@example.com", "password": "WrongPassword"},
+        json={"username": "nobody", "password": "WrongPassword"},
         headers={"X-Forwarded-For": "10.0.0.2"},
     )
     assert other_ip.status_code == 401
@@ -59,6 +60,7 @@ def test_normal_login_usage_does_not_trip_rate_limit(client, db_session):
         "email": "normal-user@example.com",
         "password": "SecurePass123",
         "full_name": "Normal User",
+        "username": "normaluser",
         "consent_given": True,
     })
     from app.models.user import User
@@ -67,7 +69,7 @@ def test_normal_login_usage_does_not_trip_rate_limit(client, db_session):
 
     for _ in range(2):
         resp = client.post("/api/v1/auth/login", json={
-            "email": "normal-user@example.com",
+            "username": "normaluser",
             "password": "SecurePass123",
         })
         assert resp.status_code == 200
@@ -81,6 +83,7 @@ def test_register_rate_limit_does_not_trip_on_a_handful_of_signups(client):
             "email": f"signup-{i}@example.com",
             "password": "SecurePass123",
             "full_name": "Signup User",
+            "username": f"signupuser{i}",
             "consent_given": True,
         })
         assert resp.status_code == 201

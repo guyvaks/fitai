@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import api, { usersAPI } from "../services/api";
+import api, { authAPI, usersAPI } from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { isWebAuthnPlatformAvailable, runWebAuthnRegistration } from "../services/webauthn";
 import {
   Sun,
   Moon,
@@ -16,6 +17,8 @@ import {
   Loader2,
   ChevronLeft,
   Languages,
+  Fingerprint,
+  Trash2,
 } from "lucide-react";
 
 function SectionCard({ icon: Icon, title, children }) {
@@ -125,6 +128,108 @@ function AdminPushNotifications() {
           </button>
         </>
       )}
+    </SectionCard>
+  );
+}
+
+function WebAuthnSettings() {
+  const [supported, setSupported] = useState(false);
+  const [credentials, setCredentials] = useState(null); // null = still loading
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadCredentials = async () => {
+    try {
+      const { data } = await authAPI.webauthnListCredentials();
+      setCredentials(data);
+    } catch {
+      setCredentials([]);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    isWebAuthnPlatformAvailable().then((available) => {
+      if (cancelled) return;
+      setSupported(available);
+      if (available) loadCredentials();
+    });
+    return () => { cancelled = true };
+  }, []);
+
+  const handleAddDevice = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await runWebAuthnRegistration();
+      await loadCredentials();
+    } catch {
+      setError("שגיאה ברישום המכשיר, נסה שוב");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async (id) => {
+    setError(null);
+    setBusy(true);
+    try {
+      await authAPI.webauthnRemoveCredential(id);
+      await loadCredentials();
+    } catch {
+      setError("שגיאה בהסרת המכשיר, נסה שוב");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!supported) return null;
+
+  return (
+    <SectionCard icon={Fingerprint} title="כניסה עם Face ID / טביעת אצבע">
+      <p className="text-text-mid text-sm">נהל את המכשירים שמורשים להיכנס לחשבון שלך בלי סיסמה</p>
+      {error && <p className="text-coral text-xs">{error}</p>}
+
+      {credentials === null ? (
+        <Loader2 className="w-4 h-4 animate-spin text-text-mid mx-auto" />
+      ) : credentials.length === 0 ? (
+        <p className="text-text-low text-xs">אין עדיין מכשירים רשומים</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {credentials.map((cred) => (
+            <div
+              key={cred.id}
+              className="flex items-center justify-between gap-2 bg-white/4 border border-line rounded-elem px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="text-text-hi text-sm truncate">{cred.device_label || "מכשיר"}</p>
+                <p className="text-text-low text-xs">
+                  נוסף ב-{new Date(cred.created_at).toLocaleDateString("he-IL")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemove(cred.id)}
+                disabled={busy}
+                className="text-text-mid hover:text-coral transition p-1 shrink-0"
+                aria-label="הסר מכשיר"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handleAddDevice}
+        disabled={busy}
+        className="w-full py-2.5 text-sm rounded-elem font-medium border border-volt/40 text-volt hover:bg-volt-soft transition inline-flex items-center justify-center gap-1.5"
+      >
+        {busy && <Loader2 className="w-4 h-4 animate-spin" />}
+        {busy ? "מעדכן..." : "הוסף מכשיר"}
+      </button>
     </SectionCard>
   );
 }
@@ -287,6 +392,7 @@ export default function Settings() {
       </SectionCard>
 
       <SectionCard icon={UserIcon} title="חשבון">
+        <p className="text-text-hi text-sm font-medium" dir="auto">{user?.username}</p>
         <p className="text-text-mid text-sm" dir="ltr">{user?.email}</p>
         <div className="flex flex-col gap-1">
           <NavLink
@@ -319,6 +425,8 @@ export default function Settings() {
           <LogOut className="w-4 h-4" /> התנתקות
         </button>
       </SectionCard>
+
+      <WebAuthnSettings />
 
       {user?.is_admin && <AdminPushNotifications />}
 

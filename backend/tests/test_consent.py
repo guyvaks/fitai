@@ -6,6 +6,7 @@ def test_registration_blocked_without_consent(client):
         "email": "no-consent@example.com",
         "password": "SecurePass123",
         "full_name": "No Consent User",
+        "username": "noconsentuser",
         "consent_given": False,
     })
     assert resp.status_code == 400
@@ -13,7 +14,7 @@ def test_registration_blocked_without_consent(client):
 
     # No account (and no consent record) should exist at all
     assert client.post("/api/v1/auth/login", json={
-        "email": "no-consent@example.com",
+        "username": "noconsentuser",
         "password": "SecurePass123",
     }).status_code == 401
 
@@ -36,6 +37,7 @@ def test_registration_with_consent_creates_consent_record(client, db_session):
         "email": "consented@example.com",
         "password": "SecurePass123",
         "full_name": "Consented User",
+        "username": "consenteduser",
         "consent_given": True,
     })
     assert resp.status_code == 201

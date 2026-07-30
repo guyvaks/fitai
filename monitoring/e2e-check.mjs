@@ -10,8 +10,18 @@
 // the throwaway user afterward no matter what happens.
 //
 // Required env vars:
-//   FRONTEND_BASE_URL  e.g. https://fitai-frontend-staging.up.railway.app
-//   DATABASE_URL       Postgres connection string for that same environment
+//   FRONTEND_BASE_URL   e.g. https://fitai-frontend-staging.up.railway.app
+//   DATABASE_URL        Postgres connection string for that same environment
+//   E2E_MONITOR_SECRET  shared secret also set as the backend's
+//                        E2E_MONITOR_SECRET env var (Railway) -- sent as the
+//                        X-E2E-Monitor-Key header on the register request so
+//                        the backend skips the real Resend send for the
+//                        verification-code + admin-notification emails this
+//                        flow would otherwise trigger every run. Everything
+//                        else about registration (DB writes, response shape,
+//                        the verification-code row this script cracks below)
+//                        happens exactly as it would for a real user -- see
+//                        register()'s _is_e2e_monitor_request() in auth.py.
 //
 // Exit code 0 = healthy, 1 = something failed (register/verify/login/
 // navigation/API, or cleanup itself) -- GitHub Actions turns a non-zero exit
@@ -23,9 +33,11 @@ import pg from 'pg'
 
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL
 const DATABASE_URL = process.env.DATABASE_URL
+const E2E_MONITOR_SECRET = process.env.E2E_MONITOR_SECRET
 
 if (!FRONTEND_BASE_URL) throw new Error('FRONTEND_BASE_URL env var is required')
 if (!DATABASE_URL) throw new Error('DATABASE_URL env var is required')
+if (!E2E_MONITOR_SECRET) throw new Error('E2E_MONITOR_SECRET env var is required')
 
 const email = `e2e-monitor-${Date.now()}@example.com`
 const password = 'Monitor123456!'
@@ -97,6 +109,12 @@ async function main() {
 
     // --- Step 1: register the throwaway account ---
     const registerPage = await browser.newPage()
+    // Applies to every request this page makes (including the register
+    // form's XHR to the backend) -- the backend's CORS allow_headers=["*"]
+    // reflects whatever headers a preflight requests, so this needs no
+    // frontend code change. See the header's purpose in the env var comment
+    // above.
+    await registerPage.setExtraHTTPHeaders({ 'X-E2E-Monitor-Key': E2E_MONITOR_SECRET })
     await registerPage.goto(`${FRONTEND_BASE_URL}/register`, {
       waitUntil: 'networkidle0',
       timeout: NAV_TIMEOUT_MS,

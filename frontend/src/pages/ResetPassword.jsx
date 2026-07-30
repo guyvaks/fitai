@@ -56,7 +56,7 @@ export default function ResetPassword() {
           {!token ? (
             <div className="p-3 bg-coral-soft border border-coral/30 rounded-elem text-coral text-sm">
               קישור האיפוס אינו תקין. בקש קישור חדש דרך{" "}
-              <Link to="/forgot-password" className="underline font-medium">
+              <Link to="/forgot-access" className="underline font-medium">
                 שכחתי סיסמה
               </Link>
               .
@@ -74,7 +74,7 @@ export default function ResetPassword() {
                     <>
                       {" "}
                       בקש{" "}
-                      <Link to="/forgot-password" className="underline font-medium">
+                      <Link to="/forgot-access" className="underline font-medium">
                         קישור חדש
                       </Link>
                       .

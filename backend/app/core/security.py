@@ -34,11 +34,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def decode_token(token: str) -> Optional[str]:
+def decode_token(token: str) -> Optional[dict]:
+    """Returns the full JWT payload (not just `sub`) so callers can inspect
+    extra claims -- e.g. the `purpose` claim on the activate-account bridge's
+    short-lived token, which must never be accepted as a general session by
+    get_current_user."""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        return email
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
 

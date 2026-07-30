@@ -14,6 +14,11 @@ class PreferredLanguage(str, Enum):
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    # Non-optional: every endpoint capable of issuing a session token
+    # (register, login, activate-account/set-username, webauthn login)
+    # requires a username to already exist on the account first, so no
+    # session-holding request can ever reach here with username still NULL.
+    username: str
     full_name: str
     is_active: bool
     is_admin: bool = False

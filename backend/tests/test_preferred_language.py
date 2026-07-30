@@ -11,6 +11,7 @@ def _register(client, email="lang-test@example.com", preferred_language=None):
         "email": email,
         "password": "SecurePass123",
         "full_name": "Lang Test",
+        "username": email.split("@")[0],
         "consent_given": True,
     }
     if preferred_language is not None:

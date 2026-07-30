@@ -17,3 +17,4 @@ Pillow>=10.3.0
 pywebpush>=2.3.0
 slowapi==0.1.10
 resend==2.34.0
+webauthn==2.5.2

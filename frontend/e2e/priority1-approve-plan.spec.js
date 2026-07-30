@@ -630,3 +630,419 @@ test.describe('ManualWorkoutBuilder picker + Workouts arrow fixes', () => {
     await expect(activeDayTab).toBeVisible()
   })
 })
+
+// Regression test (2026-07-28) for a horizontal-overflow bug in
+// ManualWorkoutBuilder's sets table, found live in production. Pre-existing
+// (present since the file's original commit, 8b594c3) -- confirmed via git
+// show that neither of today's ManualWorkoutBuilder commits (e3fe5f6,
+// e451cff) touched any layout/CSS in this file.
+//
+// Root cause: the weight_kg/reps <input type="number"> elements had no
+// explicit width class. Inside a CSS Grid track sized `1fr`, a grid item's
+// default min-width is `auto` (its own content/intrinsic size), not 0 --
+// so the browser's default ~183px intrinsic input width was never
+// shrunk to fit, and two of them side by side blew past the available
+// track width on any mobile viewport. <main> only sets overflow-y-auto;
+// per the CSS Overflow spec, an unset overflow-x on an element with a
+// non-visible overflow-y computes to auto too, so <main> silently grew
+// its own horizontal scrollbar to absorb the overflow -- meaning
+// document.documentElement itself never showed it, only <main> did.
+// Fixed with w-full min-w-0 on both inputs.
+test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', () => {
+  let p6Email
+  let p6Password
+  let p6Token
+  let p6UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p6Email = `e2e-priority6-${ts}@example.com`
+    const p6Username = `e2epriority6${ts}`
+    p6Password = 'E2ePriority6#2026'
+
+    // Register/login require `username` now (2026-07-29 username-based
+    // auth feature) -- this test predates that feature, updated here just
+    // enough to keep registering/logging in, not otherwise touched.
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p6Email, password: p6Password, full_name: 'E2E Priority6',
+        username: p6Username, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p6Email]
+    )
+    p6UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: p6Username, password: p6Password }),
+    })
+    p6Token = loginRes.access_token
+
+    await api(p6Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+
+    // Deliberately stressed: a long Hebrew exercise name and a decimal
+    // weight, plus 3 sets -- two side-by-side inputs per row is exactly
+    // the layout that overflowed.
+    await api(p6Token, '/api/v1/workouts/plan/manual', {
+      method: 'POST',
+      body: JSON.stringify({
+        week: {
+          sunday: [{
+            name: 'לחיצת חזה בשיפוע עם משקולות יד כבדות',
+            muscle_group: 'חזה',
+            notes: null,
+            sets: [
+              { weight_kg: 100.5, reps: 12 },
+              { weight_kg: 95, reps: 10 },
+              { weight_kg: 90, reps: 8 },
+            ],
+          }],
+        },
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p6UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'workout_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p6UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p6UserId])
+    await client.end()
+  })
+
+  for (const width of [375, 390]) {
+    test(`sets table fits without horizontal scroll at ${width}px`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 1200 } })
+      const page = await context.newPage()
+
+      await page.goto('/dashboard')
+      await page.evaluate(({ token, email }) => {
+        localStorage.setItem('fitai_token', token)
+        localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p6', email, full_name: 'E2E Priority6', is_admin: false }))
+      }, { token: p6Token, email: p6Email })
+
+      await page.goto('/workouts/manual-builder')
+      await page.waitForResponse((r) => r.url().includes('/api/v1/workouts/plan'), { timeout: 15000 })
+      // Wait for the real seeded data specifically (not just any picker
+      // catalog text, which can coincidentally contain similar substrings).
+      await page.waitForFunction(() => {
+        const inputs = Array.from(document.querySelectorAll('input[type="number"]'))
+        return inputs.some((i) => i.value === '100.5')
+      }, { timeout: 15000 })
+
+      const overflow = await page.evaluate(() => {
+        const main = document.querySelector('main')
+        return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth }
+      })
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+      await context.close()
+    })
+  }
+})
+
+// Regression test (2026-07-29) for a different overflow bug than the one
+// above: LiveWorkout.jsx's in-session sets table used a fixed w-16 (64px)
+// box for the weight/reps <input type="number"> elements inside a
+// grid-cols-5 (equal-width) row. That never produced a page-level
+// horizontal scrollbar (unlike the ManualWorkoutBuilder bug above) -- the
+// <input> itself silently clipped its own value instead, rendering e.g.
+// "999.9" as "|9.9" with the leading digits scrolled out of view inside the
+// box. Fixed by widening the weight/reps columns (grid-cols-[1.6rem_1fr_
+// 1.3fr_1.3fr_2rem] instead of equal fifths) and switching the inputs to
+// w-full min-w-0 (the same pattern as the ManualWorkoutBuilder fix).
+//
+// input.scrollWidth/clientWidth is not a reliable clipping signal for
+// <input> elements (unlike block elements, browsers don't consistently
+// expose the internal text-scroll state through those DOM properties), so
+// this asserts something deterministic instead: the input's content-box
+// width (clientWidth minus its own padding/border) must be at least as wide
+// as the rendered pixel width of the longest realistic value, measured with
+// a canvas using the input's own computed font.
+test.describe('LiveWorkout sets table: weight/reps inputs do not clip long values', () => {
+  let p7Email
+  let p7Password
+  let p7Token
+  let p7UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p7Email = `e2e-priority7-${ts}@example.com`
+    const p7Username = `e2epriority7${ts}`
+    p7Password = 'E2ePriority7#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p7Email, password: p7Password, full_name: 'E2E Priority7',
+        username: p7Username, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p7Email]
+    )
+    p7UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: p7Username, password: p7Password }),
+    })
+    p7Token = loginRes.access_token
+
+    await api(p7Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+
+    // A 3-digit decimal (weight) and a 3-digit integer (reps) -- unrealistic
+    // as a real workout number, but exactly the class of value (>=3 digits +
+    // decimal point) that a fixed 64px box can't fit at any of the widths below.
+    await api(p7Token, '/api/v1/workouts/plan/manual', {
+      method: 'POST',
+      body: JSON.stringify({
+        week: {
+          sunday: [{
+            name: 'סקוואט',
+            muscle_group: 'רגליים',
+            notes: null,
+            sets: [{ weight_kg: 999.9, reps: 999 }],
+          }],
+        },
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p7UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'workout_sessions', 'workout_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p7UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p7UserId])
+    await client.end()
+  })
+
+  for (const width of [375, 390, 414]) {
+    test(`weight input fits "999.9" without clipping at ${width}px`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 1200 } })
+      const page = await context.newPage()
+
+      await page.goto('/dashboard')
+      await page.evaluate(({ token, email }) => {
+        localStorage.setItem('fitai_token', token)
+        localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p7', email, full_name: 'E2E Priority7', is_admin: false }))
+      }, { token: p7Token, email: p7Email })
+
+      await page.goto('/live-workout?day=sunday')
+      const weightInput = page.locator('input[type="number"]').first()
+      await expect(weightInput).toHaveValue('999.9', { timeout: 15000 })
+
+      const fits = await weightInput.evaluate(async (el) => {
+        // Custom webfonts (Rubik/Heebo) load async -- measuring before
+        // document.fonts.ready resolves can silently fall back to a
+        // narrower system font and under-report textWidth.
+        await document.fonts.ready
+        const style = getComputedStyle(el)
+        const paddingH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+        const contentWidth = el.clientWidth - paddingH
+
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+        const textWidth = ctx.measureText(el.value).width
+
+        return { contentWidth, textWidth }
+      })
+
+      // A couple of px of slack for the text cursor/caret, not a tolerance
+      // for actual clipping.
+      expect(fits.textWidth).toBeLessThanOrEqual(fits.contentWidth + 2)
+
+      // Also confirm no page-level regression, same check as the
+      // ManualWorkoutBuilder suite above.
+      const overflow = await page.evaluate(() => {
+        const main = document.querySelector('main')
+        return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth }
+      })
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+      await context.close()
+    })
+  }
+})
+
+// Regression/coverage tests (2026-07-29) for the username-based login +
+// existing-user migration bridge feature. Requires the username/
+// username_normalized columns and webauthn_credentials table migrations
+// (backend/alembic/versions/f2b8c1d9e4a3_*, a7c4e9f1b6d2_*) to already be
+// applied on whatever DATABASE_URL/backend this suite points at -- these
+// tests will fail with column-not-found errors against a pre-migration DB.
+test.describe('Username-based register/login', () => {
+  test('register with username, then log in with that username (case-insensitive)', async ({ page }) => {
+    const ts = Date.now()
+    const uEmail = `e2e-username-${ts}@example.com`
+    const uUsername = `e2eusername${ts}`
+    const uPassword = 'E2eUsername#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: uEmail, password: uPassword, full_name: 'E2E Username',
+        username: uUsername, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [uEmail]
+    )
+    const uUserId = rows[0].id
+    await client.end()
+
+    // Login screen is username-only -- drive the actual UI, not a raw API
+    // call, so this also covers Login.jsx's field wiring, not just the
+    // backend contract.
+    await page.goto('/login')
+    await page.getByPlaceholder('שם משתמש').fill(uUsername.toUpperCase())
+    await page.getByPlaceholder('••••••••').fill(uPassword)
+    await page.getByRole('button', { name: 'התחבר' }).click()
+    await page.waitForURL('**/dashboard', { timeout: 10000 })
+
+    const cleanup = new pg.Client({ connectionString: DATABASE_URL })
+    await cleanup.connect()
+    for (const table of ['weight_logs', 'workout_plans', 'nutrition_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await cleanup.query(`DELETE FROM ${table} WHERE user_id = $1`, [uUserId])
+    }
+    await cleanup.query('DELETE FROM users WHERE id = $1', [uUserId])
+    await cleanup.end()
+  })
+
+  test('registering a second account with a case-varied duplicate username is rejected', async () => {
+    const ts = Date.now()
+    const email1 = `e2e-collision-a-${ts}@example.com`
+    const email2 = `e2e-collision-b-${ts}@example.com`
+    const username = `e2ecollision${ts}`
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: email1, password: 'E2eCollision#2026', full_name: 'E2E Collision A',
+        username, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    let rejected = false
+    try {
+      await api(null, '/api/v1/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: email2, password: 'E2eCollision#2026', full_name: 'E2E Collision B',
+          username: username.toUpperCase(), consent_given: true, preferred_language: 'he',
+        }),
+      })
+    } catch (e) {
+      rejected = /-> 400:|-> 409:/.test(e.message)
+    }
+    expect(rejected).toBe(true)
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query('SELECT id FROM users WHERE email = $1', [email1])
+    await client.query('DELETE FROM consent_records WHERE user_id = $1', [rows[0].id])
+    await client.query('DELETE FROM email_verification_codes WHERE user_id = $1', [rows[0].id])
+    await client.query('DELETE FROM users WHERE id = $1', [rows[0].id])
+    await client.end()
+  })
+})
+
+test.describe('Existing-user migration bridge (activate-account)', () => {
+  test('a pre-migration account (username IS NULL) activates through the real UI', async ({ page }) => {
+    const ts = Date.now()
+    const legacyEmail = `e2e-legacy-${ts}@example.com`
+    const legacyPassword = 'E2eLegacy#2026'
+    const chosenUsername = `e2elegacy${ts}`
+
+    // Simulate a legacy (pre-migration) account by registering normally
+    // through the real API -- which gets a real bcrypt hash from the
+    // backend's own get_password_hash, no pgcrypto/raw-hash dependency --
+    // then nulling out username/username_normalized directly, since
+    // /register always sets both now and a NULL-username row can otherwise
+    // only exist as a real account that predates this feature.
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: legacyEmail, password: legacyPassword, full_name: 'E2E Legacy',
+        username: `e2elegacytemp${ts}`, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      `UPDATE users SET username = NULL, username_normalized = NULL, is_verified = true
+       WHERE email = $1 RETURNING id`,
+      [legacyEmail]
+    )
+    const legacyUserId = rows[0].id
+    await client.end()
+
+    await page.goto('/activate-account')
+    await page.getByPlaceholder('your@email.com').fill(legacyEmail)
+    await page.locator('input[type="password"]').fill(legacyPassword)
+    await page.getByRole('button', { name: 'המשך' }).click()
+
+    await page.waitForSelector('text=בחר/י שם משתמש', { timeout: 10000 })
+    await page.getByPlaceholder('שם משתמש').fill(chosenUsername)
+    await page.getByRole('button', { name: 'סיום והפעלה' }).click()
+    await page.waitForURL('**/dashboard', { timeout: 10000 })
+
+    // A second activation attempt on the same account must now fail --
+    // the self-closing-door property is the crux of the whole migration
+    // design (see backend/app/api/v1/endpoints/auth.py's activate_account).
+    let secondAttemptRejected = false
+    try {
+      await api(null, '/api/v1/auth/activate-account', {
+        method: 'POST',
+        body: JSON.stringify({ email: legacyEmail, password: legacyPassword }),
+      })
+    } catch (e) {
+      secondAttemptRejected = /-> 401:/.test(e.message)
+    }
+    expect(secondAttemptRejected).toBe(true)
+
+    const cleanup = new pg.Client({ connectionString: DATABASE_URL })
+    await cleanup.connect()
+    await cleanup.query('DELETE FROM users WHERE id = $1', [legacyUserId])
+    await cleanup.end()
+  })
+})

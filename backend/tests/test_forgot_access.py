@@ -3,30 +3,39 @@ from unittest.mock import patch
 from app.core.security import hash_secret
 from app.models.user import PasswordResetToken, User
 
+GENERIC_MESSAGE = "אם קיים חשבון עם כתובת זו, נשלח אליו אימייל עם שם המשתמש וקישור לאיפוס הסיסמה"
+
+
+def _username_for(email):
+    return email.split("@")[0]
+
 
 def _register(client, email="reset-test@example.com", password="SecurePass123"):
     client.post("/api/v1/auth/register", json={
         "email": email,
         "password": password,
         "full_name": "Reset Test User",
+        "username": _username_for(email),
         "consent_given": True,
     })
 
 
 @patch("app.services.email.settings.RESEND_API_KEY", "test-key")
 @patch("app.services.email.resend.Emails.send")
-def test_forgot_password_known_email_sends_email_and_creates_token(mock_send, client, db_session):
+def test_forgot_access_known_email_sends_email_and_creates_token(mock_send, client, db_session):
     _register(client)
 
-    resp = client.post("/api/v1/auth/forgot-password", json={"email": "reset-test@example.com"})
+    resp = client.post("/api/v1/auth/forgot-access", json={"email": "reset-test@example.com"})
     assert resp.status_code == 200
-    assert resp.json()["message"] == "אם קיים חשבון עם כתובת זו, נשלח אליו קישור לאיפוס סיסמה"
+    assert resp.json()["message"] == GENERIC_MESSAGE
 
     # BackgroundTasks run synchronously under TestClient before the response
     # is returned to the caller, so the mocked send is already recorded here.
     assert mock_send.called
     call_kwargs = mock_send.call_args[0][0]
     assert call_kwargs["to"] == ["reset-test@example.com"]
+    # The migrated account's username reminder must be in the email body.
+    assert "reset-test" in call_kwargs["html"]
 
     token_row = db_session.query(PasswordResetToken).join(
         User, PasswordResetToken.user_id == User.id
@@ -35,21 +44,45 @@ def test_forgot_password_known_email_sends_email_and_creates_token(mock_send, cl
     assert token_row.used_at is None
 
 
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
 @patch("app.services.email.resend.Emails.send")
-def test_forgot_password_unknown_email_returns_identical_generic_response(mock_send, client):
-    resp = client.post("/api/v1/auth/forgot-password", json={"email": "nobody-at-all@example.com"})
+def test_forgot_access_legacy_account_points_at_activate_account(mock_send, client, db_session):
+    from app.core.security import get_password_hash
+
+    db_session.add(User(
+        email="legacy-recovery@example.com",
+        hashed_password=get_password_hash("SecurePass123"),
+        full_name="Legacy User",
+        username=None,
+        username_normalized=None,
+        is_verified=True,
+    ))
+    db_session.commit()
+
+    resp = client.post("/api/v1/auth/forgot-access", json={"email": "legacy-recovery@example.com"})
     assert resp.status_code == 200
-    assert resp.json()["message"] == "אם קיים חשבון עם כתובת זו, נשלח אליו קישור לאיפוס סיסמה"
+    assert resp.json()["message"] == GENERIC_MESSAGE
+
+    assert mock_send.called
+    call_kwargs = mock_send.call_args[0][0]
+    assert "activate-account" in call_kwargs["html"]
+
+
+@patch("app.services.email.resend.Emails.send")
+def test_forgot_access_unknown_email_returns_identical_generic_response(mock_send, client):
+    resp = client.post("/api/v1/auth/forgot-access", json={"email": "nobody-at-all@example.com"})
+    assert resp.status_code == 200
+    assert resp.json()["message"] == GENERIC_MESSAGE
     # No account -> no email attempted at all
     assert not mock_send.called
 
 
 @patch("app.services.email.resend.Emails.send")
-def test_forgot_password_known_and_unknown_email_return_identical_response(mock_send, client):
+def test_forgot_access_known_and_unknown_email_return_identical_response(mock_send, client):
     _register(client, email="known@example.com")
 
-    known_resp = client.post("/api/v1/auth/forgot-password", json={"email": "known@example.com"})
-    unknown_resp = client.post("/api/v1/auth/forgot-password", json={"email": "unknown@example.com"})
+    known_resp = client.post("/api/v1/auth/forgot-access", json={"email": "known@example.com"})
+    unknown_resp = client.post("/api/v1/auth/forgot-access", json={"email": "unknown@example.com"})
 
     assert known_resp.status_code == unknown_resp.status_code == 200
     assert known_resp.json() == unknown_resp.json()
@@ -78,13 +111,13 @@ def test_reset_password_with_valid_token_updates_password_and_allows_login(clien
 
     # Old password no longer works, new one does
     old_login = client.post("/api/v1/auth/login", json={
-        "email": "resetflow@example.com",
+        "username": "resetflow",
         "password": "OldPassword123",
     })
     assert old_login.status_code == 401
 
     new_login = client.post("/api/v1/auth/login", json={
-        "email": "resetflow@example.com",
+        "username": "resetflow",
         "password": "NewPassword456",
     })
     assert new_login.status_code == 200
@@ -126,13 +159,13 @@ def test_reset_password_rejects_same_password_as_current(client, db_session):
 
     # Old (unchanged) password no longer works, the genuinely new one does
     old_login = client.post("/api/v1/auth/login", json={
-        "email": "samepass@example.com",
+        "username": "samepass",
         "password": "CurrentPassword123",
     })
     assert old_login.status_code == 401
 
     new_login = client.post("/api/v1/auth/login", json={
-        "email": "samepass@example.com",
+        "username": "samepass",
         "password": "GenuinelyDifferentPassword456",
     })
     assert new_login.status_code == 200
@@ -195,12 +228,12 @@ def test_reset_password_unknown_token_is_rejected(client):
     assert resp.json()["detail"] == "קישור האיפוס אינו תקין או שפג תוקפו"
 
 
-def test_forgot_password_rate_limit_fourth_attempt_in_an_hour_is_limited(client):
+def test_forgot_access_rate_limit_fourth_attempt_in_an_hour_is_limited(client):
     for _ in range(3):
-        resp = client.post("/api/v1/auth/forgot-password", json={"email": "someone@example.com"})
+        resp = client.post("/api/v1/auth/forgot-access", json={"email": "someone@example.com"})
         assert resp.status_code == 200
 
-    limited = client.post("/api/v1/auth/forgot-password", json={"email": "someone@example.com"})
+    limited = client.post("/api/v1/auth/forgot-access", json={"email": "someone@example.com"})
     assert limited.status_code == 429
     assert limited.json()["detail"] == "יותר מדי ניסיונות, נסה שוב מאוחר יותר"
 
