@@ -48,6 +48,7 @@ from app.schemas.auth import (
 from app.schemas.user import UserResponse
 from app.services.email import (
     send_account_recovery_email,
+    send_new_device_email,
     send_pending_ai_access_email,
     send_verification_email,
 )
@@ -667,6 +668,7 @@ def webauthn_register_options(
 @limiter.limit("10/hour")
 def webauthn_register_verify(
     request: Request,
+    background_tasks: BackgroundTasks,
     body: WebAuthnRegisterVerifyRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -695,15 +697,24 @@ def webauthn_register_verify(
         if raw_transports:
             transports = ",".join(raw_transports)
 
+    device_label = _guess_device_label(request)
     db.add(WebAuthnCredential(
         user_id=current_user.id,
         credential_id=credential_id_b64,
         public_key=bytes_to_base64url(verification.credential_public_key),
         sign_count=verification.sign_count,
         transports=transports,
-        device_label=_guess_device_label(request),
+        device_label=device_label,
     ))
     db.commit()
+
+    # Best-effort, after commit -- see send_new_device_email's docstring for
+    # why this exists (a stolen-password-then-register-a-device attack
+    # otherwise leaves no signal at all).
+    background_tasks.add_task(
+        send_new_device_email, current_user.email, device_label, datetime.now(timezone.utc)
+    )
+
     return {"message": "המכשיר נרשם בהצלחה"}
 
 

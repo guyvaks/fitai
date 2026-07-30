@@ -9,6 +9,7 @@ response is already sent.
 """
 import html
 import logging
+from datetime import datetime
 
 import resend
 from sqlalchemy.orm import Session
@@ -230,3 +231,47 @@ def send_admin_composed_email(to_email: str, subject: str, body: str) -> None:
         "subject": resolved_subject,
         "html": email_html,
     })
+
+
+def send_new_device_email(to_email: str, device_label: str, timestamp: datetime) -> None:
+    """Sent after a new WebAuthn credential is registered on an account
+    (webauthn_register_verify() in auth.py), so a stolen-password-then-
+    register-a-device attack leaves a signal instead of none -- the account
+    owner had no way to find out about a new biometric device otherwise.
+
+    Best-effort/swallow-failures like send_account_recovery_email -- a
+    Resend hiccup here must not turn registering a legitimate new device
+    into a 500 for the user actually doing it.
+    """
+    if not settings.RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured -- skipping new-device email send")
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    actual_to, subject, banner = _resolve_recipient_and_subject(to_email, "מכשיר חדש נוסף לחשבון FitAI שלך")
+
+    formatted_time = timestamp.strftime("%d/%m/%Y %H:%M")
+    safe_device_label = html.escape(device_label)
+
+    html_body = f"""
+    <div dir="rtl" style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        {banner}
+        <h2>מכשיר חדש נוסף לחשבון שלך</h2>
+        <p>מכשיר חדש נרשם עכשיו לכניסה עם Face ID / טביעת אצבע לחשבון שלך:</p>
+        <p><strong>{safe_device_label}</strong> &mdash; {formatted_time}</p>
+        <p>אם זה אתה, אין צורך לעשות דבר. אם אתה לא מזהה את הפעולה הזו, \
+היכנס לחשבון שלך והסר את המכשיר תחת הגדרות &larr; כניסה עם Face ID / טביעת אצבע, \
+ושקול לאפס את הסיסמה שלך.</p>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": settings.RESEND_FROM_EMAIL,
+            "to": [actual_to],
+            "subject": subject,
+            "html": html_body,
+        })
+    except Exception:
+        logger.exception("Failed to send new-device email to %s", actual_to)
