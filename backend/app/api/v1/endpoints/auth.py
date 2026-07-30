@@ -652,7 +652,15 @@ def webauthn_register_options(
         authenticator_selection=AuthenticatorSelectionCriteria(
             resident_key=ResidentKeyRequirement.REQUIRED,
             require_resident_key=True,
-            user_verification=UserVerificationRequirement.PREFERRED,
+            # REQUIRED (not PREFERRED): a discoverable credential alone means
+            # physical access to an unlocked device is enough to sign in
+            # without typing anything -- see Login.jsx's biometric button.
+            # That tradeoff is only safe if the authenticator's own biometric/
+            # PIN gate is actually enforced every time, not merely requested
+            # and silently skippable. webauthn_login_verify() double-checks
+            # this server-side too (verification.user_verified), since
+            # "requested" and "enforced" are different guarantees.
+            user_verification=UserVerificationRequirement.REQUIRED,
         ),
     )
     challenge_token = _create_purpose_token(
@@ -683,8 +691,16 @@ def webauthn_register_verify(
             expected_challenge=base64url_to_bytes(payload["challenge"]),
             expected_rp_id=settings.WEBAUTHN_RP_ID,
             expected_origin=settings.WEBAUTHN_ORIGIN,
+            require_user_verification=True,
         )
     except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="אימות המכשיר נכשל")
+
+    # Belt-and-suspenders alongside require_user_verification above and the
+    # REQUIRED authenticatorSelection in webauthn_register_options -- don't
+    # rely solely on the authenticator having been *asked* to verify the
+    # user; confirm it actually reported having done so.
+    if not verification.user_verified:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="אימות המכשיר נכשל")
 
     credential_id_b64 = bytes_to_base64url(verification.credential_id)
@@ -745,6 +761,9 @@ def webauthn_login_options(request: Request, body: WebAuthnLoginOptionsRequest, 
     options = webauthn.generate_authentication_options(
         rp_id=settings.WEBAUTHN_RP_ID,
         allow_credentials=allow_credentials,
+        # REQUIRED, not the library's PREFERRED default -- see the matching
+        # comment on webauthn_register_options' authenticator_selection.
+        user_verification=UserVerificationRequirement.REQUIRED,
     )
     challenge_token = _create_purpose_token(
         "webauthn_login_challenge",
@@ -783,8 +802,21 @@ def webauthn_login_verify(request: Request, body: WebAuthnLoginVerifyRequest, db
             expected_origin=settings.WEBAUTHN_ORIGIN,
             credential_public_key=base64url_to_bytes(stored.public_key),
             credential_current_sign_count=stored.sign_count,
+            require_user_verification=True,
         )
     except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_WEBAUTHN_LOGIN_ERROR)
+
+    # Belt-and-suspenders alongside require_user_verification above and the
+    # REQUIRED user_verification requested in webauthn_login_options -- the
+    # whole point of requiring a resident/discoverable credential (see
+    # webauthn_register_options) is that physical access to an unlocked
+    # device is enough to sign in with zero typed input, so the
+    # authenticator's own biometric/PIN gate is the only thing standing in
+    # for a password here. Don't rely solely on having *requested* that gate;
+    # confirm the authenticator actually reported performing it, before this
+    # counts as a successful login attempt.
+    if not verification.user_verified:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_WEBAUTHN_LOGIN_ERROR)
 
     stored.sign_count = verification.new_sign_count

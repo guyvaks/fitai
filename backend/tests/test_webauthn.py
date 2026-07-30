@@ -40,10 +40,11 @@ def test_webauthn_register_options_requires_resident_key(client):
 
 
 class _FakeVerifiedRegistration:
-    def __init__(self):
+    def __init__(self, user_verified=True):
         self.credential_id = b"fake-credential-id-1"
         self.credential_public_key = b"fake-public-key-bytes"
         self.sign_count = 0
+        self.user_verified = user_verified
 
 
 @patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
@@ -109,6 +110,26 @@ def test_webauthn_register_verify_rejects_challenge_token_for_different_user(moc
     assert verify_resp.status_code == 401
 
 
+@patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
+def test_webauthn_register_verify_rejects_when_authenticator_did_not_verify_user(mock_verify, client):
+    # user_verification=REQUIRED (webauthn_register_options) only *requests*
+    # the authenticator's biometric/PIN gate -- this confirms the server
+    # doesn't just trust that request happened, it checks the assertion's
+    # own user_verified flag before persisting the credential.
+    mock_verify.return_value = _FakeVerifiedRegistration(user_verified=False)
+    headers = get_auth_headers(client, email="webauthn3c@example.com")
+
+    options_resp = client.post("/api/v1/auth/webauthn/register/options", headers=headers)
+    verify_resp = client.post("/api/v1/auth/webauthn/register/verify", headers=headers, json={
+        "challenge_token": options_resp.json()["challenge_token"],
+        "credential": {"id": "fake-id-3c"},
+    })
+    assert verify_resp.status_code == 400
+
+    list_resp = client.get("/api/v1/auth/webauthn/credentials", headers=headers)
+    assert list_resp.json() == []
+
+
 def test_webauthn_login_options_unknown_username_returns_generic_empty_options(client):
     resp = client.post("/api/v1/auth/webauthn/login/options", json={"username": "no-such-user"})
     assert resp.status_code == 200
@@ -135,8 +156,9 @@ def test_webauthn_login_options_known_username_with_credentials_lists_them(mock_
 
 
 class _FakeVerifiedAuthentication:
-    def __init__(self, new_sign_count=1):
+    def __init__(self, new_sign_count=1, user_verified=True):
         self.new_sign_count = new_sign_count
+        self.user_verified = user_verified
 
 
 @patch("app.api.v1.endpoints.auth.webauthn.verify_authentication_response")
@@ -168,6 +190,43 @@ def test_webauthn_login_verify_success_issues_session_token(mock_reg_verify, moc
     })
     assert login_verify.status_code == 200
     assert "access_token" in login_verify.json()
+
+
+@patch("app.api.v1.endpoints.auth.webauthn.verify_authentication_response")
+@patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
+def test_webauthn_login_verify_rejects_when_authenticator_did_not_verify_user(
+    mock_reg_verify, mock_auth_verify, client, db_session
+):
+    # Mirrors the register-side rejection test: user_verification=REQUIRED
+    # (webauthn_login_options) only *requests* the gate -- this confirms the
+    # server checks the assertion's own user_verified flag rather than
+    # trusting that the request was honored. This matters specifically
+    # because a discoverable credential lets physical device access log in
+    # with zero typed input -- the authenticator's biometric/PIN check is the
+    # only thing standing in for a password here.
+    mock_reg_verify.return_value = _FakeVerifiedRegistration()
+    mock_auth_verify.return_value = _FakeVerifiedAuthentication(user_verified=False)
+
+    headers = get_auth_headers(client, email="webauthn5b@example.com")
+    options_resp = client.post("/api/v1/auth/webauthn/register/options", headers=headers)
+    client.post("/api/v1/auth/webauthn/register/verify", headers=headers, json={
+        "challenge_token": options_resp.json()["challenge_token"],
+        "credential": {"id": "fake-credential-id-1"},
+    })
+
+    login_options = client.post("/api/v1/auth/webauthn/login/options", json={"username": "webauthn5b"})
+    challenge_token = login_options.json()["challenge_token"]
+
+    from webauthn.helpers import bytes_to_base64url
+    stored_credential_id = bytes_to_base64url(_FakeVerifiedRegistration().credential_id)
+
+    login_verify = client.post("/api/v1/auth/webauthn/login/verify", json={
+        "username": "webauthn5b",
+        "challenge_token": challenge_token,
+        "credential": {"id": stored_credential_id},
+    })
+    assert login_verify.status_code == 401
+    assert "access_token" not in login_verify.json()
 
 
 def test_webauthn_login_verify_unknown_credential_returns_generic_error(client):
