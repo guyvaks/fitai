@@ -67,6 +67,31 @@ def test_webauthn_register_verify_persists_credential(mock_verify, client):
     assert creds[0]["transports"] == "internal"
 
 
+@patch("app.services.email.settings.RESEND_API_KEY", "test-key")
+@patch("app.services.email.resend.Emails.send")
+@patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
+def test_webauthn_register_verify_sends_new_device_email(mock_verify, mock_send, client):
+    # A stolen-password-then-register-a-device attack should leave a signal
+    # for the account owner -- see send_new_device_email's docstring.
+    mock_verify.return_value = _FakeVerifiedRegistration()
+    headers = get_auth_headers(client, email="webauthn2b@example.com")
+    mock_send.reset_mock()  # clear the registration's own verification-code send
+
+    options_resp = client.post("/api/v1/auth/webauthn/register/options", headers=headers)
+    challenge_token = options_resp.json()["challenge_token"]
+
+    verify_resp = client.post("/api/v1/auth/webauthn/register/verify", headers=headers, json={
+        "challenge_token": challenge_token,
+        "credential": {"id": "fake-id-2b", "response": {"transports": ["internal"]}},
+    })
+    assert verify_resp.status_code == 200
+
+    assert mock_send.called
+    sent_kwargs = mock_send.call_args[0][0]
+    assert sent_kwargs["to"] == ["webauthn2b@example.com"]
+    assert "מכשיר חדש" in sent_kwargs["subject"]
+
+
 @patch("app.api.v1.endpoints.auth.webauthn.verify_registration_response")
 def test_webauthn_register_verify_rejects_challenge_token_for_different_user(mock_verify, client):
     mock_verify.return_value = _FakeVerifiedRegistration()
