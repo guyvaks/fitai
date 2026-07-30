@@ -3,13 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authAPI } from "../services/api";
 import { isConditionalMediationAvailable, isWebAuthnPlatformAvailable } from "../services/webauthn";
-import { Zap, Loader2, Fingerprint } from "lucide-react";
+import { Zap, Loader2, Fingerprint, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login, loginWithToken } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
@@ -215,16 +216,32 @@ export default function Login() {
                   שכחתי שם משתמש / סיסמה
                 </Link>
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="input-volt"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                dir="ltr"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="input-volt"
+                  // .input-volt's own `padding` shorthand (index.css) wins over a
+                  // pr-10 utility class at equal specificity/source order, so the
+                  // toggle button's reserved space has to be forced via inline
+                  // style instead of relying on the utility-class cascade -- same
+                  // pattern as UsernameField.jsx's status icon.
+                  style={{ paddingRight: "2.5rem" }}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  dir="ltr"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-mid hover:text-text-hi transition"
+                  aria-label={showPassword ? "הסתר סיסמה" : "הצג סיסמה"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
