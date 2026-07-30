@@ -657,13 +657,17 @@ test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', 
   test.beforeAll(async () => {
     const ts = Date.now()
     p6Email = `e2e-priority6-${ts}@example.com`
+    const p6Username = `e2epriority6${ts}`
     p6Password = 'E2ePriority6#2026'
 
+    // Register/login require `username` now (2026-07-29 username-based
+    // auth feature) -- this test predates that feature, updated here just
+    // enough to keep registering/logging in, not otherwise touched.
     await api(null, '/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         email: p6Email, password: p6Password, full_name: 'E2E Priority6',
-        consent_given: true, preferred_language: 'he',
+        username: p6Username, consent_given: true, preferred_language: 'he',
       }),
     })
 
@@ -678,7 +682,7 @@ test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', 
 
     const loginRes = await api(null, '/api/v1/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email: p6Email, password: p6Password }),
+      body: JSON.stringify({ username: p6Username, password: p6Password }),
     })
     p6Token = loginRes.access_token
 
@@ -744,6 +748,146 @@ test.describe('ManualWorkoutBuilder sets table does not overflow horizontally', 
         return inputs.some((i) => i.value === '100.5')
       }, { timeout: 15000 })
 
+      const overflow = await page.evaluate(() => {
+        const main = document.querySelector('main')
+        return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth }
+      })
+      expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth)
+
+      await context.close()
+    })
+  }
+})
+
+// Regression test (2026-07-29) for a different overflow bug than the one
+// above: LiveWorkout.jsx's in-session sets table used a fixed w-16 (64px)
+// box for the weight/reps <input type="number"> elements inside a
+// grid-cols-5 (equal-width) row. That never produced a page-level
+// horizontal scrollbar (unlike the ManualWorkoutBuilder bug above) -- the
+// <input> itself silently clipped its own value instead, rendering e.g.
+// "999.9" as "|9.9" with the leading digits scrolled out of view inside the
+// box. Fixed by widening the weight/reps columns (grid-cols-[1.6rem_1fr_
+// 1.3fr_1.3fr_2rem] instead of equal fifths) and switching the inputs to
+// w-full min-w-0 (the same pattern as the ManualWorkoutBuilder fix).
+//
+// input.scrollWidth/clientWidth is not a reliable clipping signal for
+// <input> elements (unlike block elements, browsers don't consistently
+// expose the internal text-scroll state through those DOM properties), so
+// this asserts something deterministic instead: the input's content-box
+// width (clientWidth minus its own padding/border) must be at least as wide
+// as the rendered pixel width of the longest realistic value, measured with
+// a canvas using the input's own computed font.
+test.describe('LiveWorkout sets table: weight/reps inputs do not clip long values', () => {
+  let p7Email
+  let p7Password
+  let p7Token
+  let p7UserId
+
+  test.beforeAll(async () => {
+    const ts = Date.now()
+    p7Email = `e2e-priority7-${ts}@example.com`
+    const p7Username = `e2epriority7${ts}`
+    p7Password = 'E2ePriority7#2026'
+
+    await api(null, '/api/v1/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: p7Email, password: p7Password, full_name: 'E2E Priority7',
+        username: p7Username, consent_given: true, preferred_language: 'he',
+      }),
+    })
+
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    const { rows } = await client.query(
+      'UPDATE users SET is_verified = true, ai_access_approved = true WHERE email = $1 RETURNING id',
+      [p7Email]
+    )
+    p7UserId = rows[0].id
+    await client.end()
+
+    const loginRes = await api(null, '/api/v1/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: p7Username, password: p7Password }),
+    })
+    p7Token = loginRes.access_token
+
+    await api(p7Token, '/api/v1/users/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        age: 30, gender: 'male', height_cm: 180, weight_kg: 80,
+        goal: 'muscle_gain', activity_level: 'moderately_active',
+        meals_per_day: 4, equipment: ['bodyweight', 'dumbbell'],
+      }),
+    })
+
+    // A 3-digit decimal (weight) and a 3-digit integer (reps) -- unrealistic
+    // as a real workout number, but exactly the class of value (>=3 digits +
+    // decimal point) that a fixed 64px box can't fit at any of the widths below.
+    await api(p7Token, '/api/v1/workouts/plan/manual', {
+      method: 'POST',
+      body: JSON.stringify({
+        week: {
+          sunday: [{
+            name: 'סקוואט',
+            muscle_group: 'רגליים',
+            notes: null,
+            sets: [{ weight_kg: 999.9, reps: 999 }],
+          }],
+        },
+      }),
+    })
+  })
+
+  test.afterAll(async () => {
+    if (!p7UserId) return
+    const client = new pg.Client({ connectionString: DATABASE_URL })
+    await client.connect()
+    for (const table of ['weight_logs', 'workout_sessions', 'workout_plans', 'user_profiles', 'consent_records', 'email_verification_codes']) {
+      await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [p7UserId])
+    }
+    await client.query('DELETE FROM users WHERE id = $1', [p7UserId])
+    await client.end()
+  })
+
+  for (const width of [375, 390, 414]) {
+    test(`weight input fits "999.9" without clipping at ${width}px`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 1200 } })
+      const page = await context.newPage()
+
+      await page.goto('/dashboard')
+      await page.evaluate(({ token, email }) => {
+        localStorage.setItem('fitai_token', token)
+        localStorage.setItem('fitai_user', JSON.stringify({ id: 'e2e-p7', email, full_name: 'E2E Priority7', is_admin: false }))
+      }, { token: p7Token, email: p7Email })
+
+      await page.goto('/live-workout?day=sunday')
+      const weightInput = page.locator('input[type="number"]').first()
+      await expect(weightInput).toHaveValue('999.9', { timeout: 15000 })
+
+      const fits = await weightInput.evaluate(async (el) => {
+        // Custom webfonts (Rubik/Heebo) load async -- measuring before
+        // document.fonts.ready resolves can silently fall back to a
+        // narrower system font and under-report textWidth.
+        await document.fonts.ready
+        const style = getComputedStyle(el)
+        const paddingH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+        const contentWidth = el.clientWidth - paddingH
+
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+        const textWidth = ctx.measureText(el.value).width
+
+        return { contentWidth, textWidth }
+      })
+
+      // A couple of px of slack for the text cursor/caret, not a tolerance
+      // for actual clipping.
+      expect(fits.textWidth).toBeLessThanOrEqual(fits.contentWidth + 2)
+
+      // Also confirm no page-level regression, same check as the
+      // ManualWorkoutBuilder suite above.
       const overflow = await page.evaluate(() => {
         const main = document.querySelector('main')
         return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth }

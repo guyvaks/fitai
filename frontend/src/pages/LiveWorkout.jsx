@@ -478,7 +478,15 @@ export default function LiveWorkout() {
 
         {/* Sets table */}
         <div className="space-y-2">
-          <div className="grid grid-cols-5 text-center text-xs text-text-mid px-2">
+          {/* Unequal columns (not grid-cols-5's equal 1/5 split) -- סט and
+              בוצע only ever hold a 1-2 digit number or a small badge, so
+              giving משקל/חזרות more of the row's width is what actually lets
+              a realistic 3-digit decimal like 999.9 render without being
+              visually clipped inside its own box (same min-w-0 class of fix
+              as eebc011, but that alone doesn't help when the track itself
+              is too narrow to begin with). קודם is read-only reference data,
+              free to truncate. */}
+          <div className="grid grid-cols-[1.6rem_1fr_1.3fr_1.3fr_2rem] gap-1 text-center text-xs text-text-mid px-2">
             <span>סט</span>
             <span>קודם</span>
             <span>משקל</span>
@@ -493,7 +501,7 @@ export default function LiveWorkout() {
               <div
                 key={i}
                 onClick={() => { if (!done) setCurrentSetIdx(i) }}
-                className={`grid grid-cols-5 items-center rounded-xl border-2 py-2 px-2 cursor-pointer transition-all ${
+                className={`grid grid-cols-[1.6rem_1fr_1.3fr_1.3fr_2rem] gap-1 items-center rounded-xl border-2 py-2 px-2 cursor-pointer transition-all ${
                   done
                     ? 'bg-volt-soft border-volt/25'
                     : isCurrent
@@ -501,8 +509,8 @@ export default function LiveWorkout() {
                     : 'bg-white/4 border-transparent'
                 }`}
               >
-                <span className={`text-center font-medium tabular-nums ${isCurrent ? 'text-volt' : 'text-text-mid'}`}>{i + 1}</span>
-                <span className="text-center text-text-low text-xs tabular-nums" dir="ltr">
+                <span className={`min-w-0 text-center font-medium tabular-nums ${isCurrent ? 'text-volt' : 'text-text-mid'}`}>{i + 1}</span>
+                <span className="min-w-0 truncate text-center text-text-low text-xs tabular-nums" dir="ltr">
                   {previousData?.last_weight_kg ? `${previousData.last_weight_kg}kg x ${previousData.last_reps}` : '—'}
                 </span>
                 {isCurrent ? (
@@ -512,10 +520,10 @@ export default function LiveWorkout() {
                     value={weightInput}
                     onChange={e => setWeightInput(e.target.value)}
                     onClick={e => e.stopPropagation()}
-                    className="w-16 mx-auto bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-center font-bold focus:outline-none focus:border-volt/60"
+                    className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
                   />
                 ) : (
-                  <span className="text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? `${completedData.weight_kg}kg` : '-'}</span>
+                  <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? `${completedData.weight_kg}kg` : '-'}</span>
                 )}
                 {isCurrent ? (
                   <input
@@ -524,12 +532,12 @@ export default function LiveWorkout() {
                     value={repsInput}
                     onChange={e => setRepsInput(e.target.value)}
                     onClick={e => e.stopPropagation()}
-                    className="w-16 mx-auto bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-center font-bold focus:outline-none focus:border-volt/60"
+                    className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
                   />
                 ) : (
-                  <span className="text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? completedData.reps : '-'}</span>
+                  <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? completedData.reps : '-'}</span>
                 )}
-                <span className="flex justify-center">
+                <span className="min-w-0 flex justify-center">
                   {done && completedData.set_type === 'failure' ? (
                     <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-coral text-ink text-[10px] font-extrabold anim-pop" title="כשל">
                       F
