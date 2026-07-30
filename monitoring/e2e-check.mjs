@@ -40,6 +40,7 @@ if (!DATABASE_URL) throw new Error('DATABASE_URL env var is required')
 if (!E2E_MONITOR_SECRET) throw new Error('E2E_MONITOR_SECRET env var is required')
 
 const email = `e2e-monitor-${Date.now()}@example.com`
+const username = `e2emonitor${Date.now()}`
 const password = 'Monitor123456!'
 const NAV_TIMEOUT_MS = 30000
 const URL_WAIT_TIMEOUT_MS = 15000
@@ -119,7 +120,14 @@ async function main() {
       waitUntil: 'networkidle0',
       timeout: NAV_TIMEOUT_MS,
     })
-    await registerPage.type('input[type="text"]', 'E2E Monitor')
+    // Register.jsx has two `type="text"` inputs since the 2026-07-29
+    // username-login feature (full name, then UsernameField) -- a plain
+    // `input[type="text"]` selector grabs the first one and leaves the
+    // required username field empty, which silently blocks native form
+    // submission client-side (no request ever reaches the backend). Target
+    // each by a distinguishing attribute instead of relying on DOM order.
+    await registerPage.type('input[type="text"]:not([autocomplete="username"])', 'E2E Monitor')
+    await registerPage.type('input[autocomplete="username"]', username)
     await registerPage.type('input[type="email"]', email)
     await registerPage.type('input[type="password"]', password)
     await registerPage.click('input[type="checkbox"]')
@@ -153,7 +161,10 @@ async function main() {
       waitUntil: 'networkidle0',
       timeout: NAV_TIMEOUT_MS,
     })
-    await page.type('input[type="email"]', email)
+    // Login.jsx is username-based since the 2026-07-29 feature -- no
+    // `input[type="email"]` exists on this page at all, only a
+    // `type="text"` username field.
+    await page.type('input[type="text"]', username)
     await page.type('input[type="password"]', password)
     await page.click('button[type="submit"]')
     await page.waitForFunction(
