@@ -82,9 +82,24 @@ def _to_float(value):
     return float(value) if value else None
 
 
+def _to_required_float(value):
+    """Like _to_float, but for the 4 NOT NULL macro columns
+    (calories/protein/carbs/fat_per_100g) -- some legitimate USDA rows (e.g.
+    plain table salt) have no value for these, and the columns don't accept
+    NULL, so a missing value defaults to 0 rather than failing the insert
+    (Guy's explicit call, not a data-quality assumption). Returns
+    (value, was_defaulted) so callers can report which rows got the
+    substitution."""
+    parsed = _to_float(value)
+    if parsed is None:
+        return 0.0, True
+    return parsed, False
+
+
 def _upsert_food_master(db, master_csv_path):
     created, updated = 0, 0
     names_he = []
+    zero_defaulted = []  # (fdc_id, name_he, field) for rows missing a required macro
     with open(master_csv_path, newline="", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             fdc_id = row["מזהה_FDC"].strip()
@@ -95,15 +110,28 @@ def _upsert_food_master(db, master_csv_path):
             if mapped_category is None:
                 raise ValueError(f"No CATEGORY_MAP entry for {category_he_raw!r} (fdc_id={fdc_id})")
 
+            calories, calories_defaulted = _to_required_float(row["קלוריות"])
+            protein, protein_defaulted = _to_required_float(row["חלבון_גרם"])
+            fat, fat_defaulted = _to_required_float(row["שומן_גרם"])
+            carbs, carbs_defaulted = _to_required_float(row["פחמימות_גרם"])
+            for field_name, was_defaulted in (
+                ("calories_per_100g", calories_defaulted),
+                ("protein_per_100g", protein_defaulted),
+                ("fat_per_100g", fat_defaulted),
+                ("carbs_per_100g", carbs_defaulted),
+            ):
+                if was_defaulted:
+                    zero_defaulted.append((fdc_id, name_he, field_name))
+
             fields = dict(
                 canonical_name_he=name_he,
                 canonical_name_en=row["שם_המזון_באנגלית"].strip(),
                 category=mapped_category,
                 category_en=category_en_raw,
-                calories_per_100g=_to_float(row["קלוריות"]),
-                protein_per_100g=_to_float(row["חלבון_גרם"]),
-                fat_per_100g=_to_float(row["שומן_גרם"]),
-                carbs_per_100g=_to_float(row["פחמימות_גרם"]),
+                calories_per_100g=calories,
+                protein_per_100g=protein,
+                fat_per_100g=fat,
+                carbs_per_100g=carbs,
                 fiber_per_100g=_to_float(row["סיבים_גרם"]),
                 sugar_g=_to_float(row["סוכרים_גרם"]),
                 sodium_mg=_to_float(row["נתרן_מג"]),
@@ -125,7 +153,7 @@ def _upsert_food_master(db, master_csv_path):
                 db.add(FoodMaster(fdc_id=fdc_id, aliases=[], created_by_user_id=None, **fields))
                 created += 1
 
-    return created, updated, names_he
+    return created, updated, names_he, zero_defaulted
 
 
 def _reload_food_portions(db, portions_csv_path):
@@ -196,7 +224,7 @@ def seed(master_csv_path: str, portions_csv_path: str, dry_run: bool = False, db
     if db is None:
         db = SessionLocal()
     try:
-        created, updated, new_names_he = _upsert_food_master(db, master_csv_path)
+        created, updated, new_names_he, zero_defaulted = _upsert_food_master(db, master_csv_path)
         portions_created, portion_fdc_ids = _reload_food_portions(db, portions_csv_path)
 
         preserved, deactivated, log_lines = _resolve_legacy_rows(db, new_names_he)
@@ -209,6 +237,13 @@ def seed(master_csv_path: str, portions_csv_path: str, dry_run: bool = False, db
         print(f"food_master: created={created} updated={updated}")
         print(f"food_portions: created={portions_created} rows across {portion_fdc_ids} fdc_id(s)")
         print(f"legacy rows: preserved={preserved} deactivated={deactivated}")
+        distinct_foods = len({fdc_id for fdc_id, _, _ in zero_defaulted})
+        print(f"zero-defaulted required macros: {len(zero_defaulted)} field(s) across {distinct_foods} food(s)")
+        preview_limit = 20
+        for fdc_id, name_he, field_name in zero_defaulted[:preview_limit]:
+            print(f"  ZERO-DEFAULT  fdc_id={fdc_id}  {name_he}  {field_name}")
+        if len(zero_defaulted) > preview_limit:
+            print(f"  ... and {len(zero_defaulted) - preview_limit} more (showing first {preview_limit})")
         print()
         for line in log_lines:
             print(line)

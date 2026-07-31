@@ -21,6 +21,10 @@ MASTER_ROWS = [
      "17.2", "20", "0", "", "", "72", "270", "18", "2.1", "8.1", "78"],
 ]
 
+SALT_ROW = ["1003", "Salt, table, iodized", "מלח, שולחני, מיודד", "מזון יסוד",
+            "תבלינים ועשבי תיבול", "Spices and Herbs", "100", "", "", "", "",
+            "", "", "38758", "8", "24", "0.33", "", ""]
+
 PORTIONS_HEADER = ["מזהה_FDC", "כמות", "יחידה_בעברית", "יחידה_באנגלית", "תיאור_מנה", "משקל_בגרמים"]
 PORTIONS_ROWS = [
     ["1001", "1", "כוס", "cup", "", "180"],
@@ -74,6 +78,24 @@ def test_seed_creates_food_master_rows_with_mapped_category(tmp_path, db_session
     assert beef.category == "חלבונים"
     assert beef.saturated_fat_g == 8.1
     assert beef.cholesterol_mg == 78.0
+
+
+def test_seed_defaults_null_required_macros_to_zero(tmp_path, db_session):
+    master_csv = _write_csv(tmp_path / "master.csv", MASTER_HEADER, MASTER_ROWS + [SALT_ROW])
+    portions_csv = _write_csv(tmp_path / "portions.csv", PORTIONS_HEADER, PORTIONS_ROWS)
+
+    seed(master_csv, portions_csv, db=db_session)
+
+    salt = db_session.query(FoodMaster).filter(FoodMaster.fdc_id == "1003").first()
+    assert salt is not None
+    assert salt.calories_per_100g == 0.0
+    assert salt.protein_per_100g == 0.0
+    assert salt.fat_per_100g == 0.0
+    assert salt.carbs_per_100g == 0.0
+    # Nullable micronutrient fields must stay None, not also default to 0 --
+    # the zero-default is specific to the 4 NOT NULL macro columns.
+    assert salt.sugar_g is None
+    assert salt.sodium_mg == 38758.0
 
 
 def test_seed_is_idempotent_on_rerun(tmp_path, db_session):
