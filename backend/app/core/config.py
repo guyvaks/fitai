@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     # switch, only a "don't spend a real Resend send" switch for a request
     # whose caller already knows this value.
     E2E_MONITOR_SECRET: Optional[str] = None
+    # Supabase project used for file storage only (avatars bucket) -- the
+    # main app DB stays on Railway Postgres, this is a separate, otherwise-
+    # unused Supabase project. Service role key is required server-side to
+    # read/write a private bucket; never expose it to the frontend.
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
+    SUPABASE_AVATARS_BUCKET: str = "avatars"
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds
