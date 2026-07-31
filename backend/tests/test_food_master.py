@@ -27,7 +27,22 @@ def _make_admin(db_session, email="test@example.com"):
     db_session.commit()
 
 
-def _seed_food(db_session, name_he, is_active, name_en=None, created_by_user_id=None):
+def _seed_food(
+    db_session,
+    name_he,
+    is_active,
+    name_en=None,
+    created_by_user_id=None,
+    fdc_id=None,
+    category_en=None,
+    sugar_g=None,
+    sodium_mg=None,
+    potassium_mg=None,
+    calcium_mg=None,
+    iron_mg=None,
+    saturated_fat_g=None,
+    cholesterol_mg=None,
+):
     food = FoodMaster(
         id=uuid.uuid4(),
         canonical_name_he=name_he,
@@ -41,6 +56,15 @@ def _seed_food(db_session, name_he, is_active, name_en=None, created_by_user_id=
         created_by_user_id=created_by_user_id,
         aliases=[],
         is_active=is_active,
+        fdc_id=fdc_id,
+        category_en=category_en,
+        sugar_g=sugar_g,
+        sodium_mg=sodium_mg,
+        potassium_mg=potassium_mg,
+        calcium_mg=calcium_mg,
+        iron_mg=iron_mg,
+        saturated_fat_g=saturated_fat_g,
+        cholesterol_mg=cholesterol_mg,
     )
     db_session.add(food)
     db_session.commit()
@@ -210,6 +234,56 @@ def test_check_similar_empty_when_no_match(client, db_session):
     )
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_check_similar_includes_usda_fields_when_set(client, db_session):
+    _seed_food(
+        db_session,
+        "חומוס",
+        is_active=True,
+        fdc_id="321358",
+        category_en="Legumes and Legume Products",
+        sugar_g=None,
+        sodium_mg=438.0,
+        potassium_mg=289.0,
+        calcium_mg=41.0,
+        iron_mg=2.41,
+        saturated_fat_g=2.22,
+        cholesterol_mg=None,
+    )
+    headers = get_auth_headers(client)
+
+    response = client.get(
+        "/api/v1/food-master/check-similar",
+        params={"name_he": "חומוס"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["fdc_id"] == "321358"
+    assert row["category_en"] == "Legumes and Legume Products"
+    assert row["sodium_mg"] == 438.0
+    assert row["saturated_fat_g"] == 2.22
+
+
+def test_admin_pending_includes_usda_fields_when_set(client, db_session):
+    pending = _seed_food(
+        db_session,
+        "מוצר עם נתוני USDA",
+        is_active=False,
+        fdc_id="999999",
+        category_en="Test Category",
+        sodium_mg=100.0,
+    )
+    admin_headers = get_auth_headers(client)
+    _make_admin(db_session)
+
+    response = client.get("/api/v1/admin/food-master/pending", headers=admin_headers)
+    assert response.status_code == 200
+    row = next(r for r in response.json() if r["id"] == str(pending.id))
+    assert row["fdc_id"] == "999999"
+    assert row["category_en"] == "Test Category"
+    assert row["sodium_mg"] == 100.0
 
 
 def test_admin_pending_includes_created_by_email_when_present(client, db_session):

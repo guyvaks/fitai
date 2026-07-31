@@ -32,6 +32,15 @@ def search(
             "carbs": f.carbs_per_100g,
             "fat": f.fat_per_100g,
             "category": f.category,
+            "category_en": f.category_en,
+            "sugar_g": f.sugar_g,
+            "sodium_mg": f.sodium_mg,
+            "potassium_mg": f.potassium_mg,
+            "calcium_mg": f.calcium_mg,
+            "iron_mg": f.iron_mg,
+            "saturated_fat_g": f.saturated_fat_g,
+            "cholesterol_mg": f.cholesterol_mg,
+            "fdc_id": f.fdc_id,
         }
         for f in foods
     ]
