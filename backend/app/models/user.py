@@ -63,6 +63,12 @@ class User(Base):
     avatar_data = Column(LargeBinary, nullable=True)
     avatar_content_type = Column(String, nullable=True)
     avatar_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Supabase Storage object path (e.g. "{user_id}/avatar.jpg"), not a full
+    # URL -- signed URLs expire, so the path is resolved to a fresh signed
+    # URL on each read instead of being cached here. avatar_data/
+    # avatar_content_type are kept temporarily for the pre-migration rows;
+    # new uploads only populate avatar_url.
+    avatar_url = Column(String, nullable=True)
 
     profile = relationship("UserProfile", back_populates="user", uselist=False)
     nutrition_plans = relationship("NutritionPlan", back_populates="user")

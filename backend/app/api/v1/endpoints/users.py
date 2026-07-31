@@ -4,7 +4,8 @@ import io
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from app.schemas.user import (
     UserProfileResponse,
     UserProfileUpdate,
 )
+from app.services import storage as avatar_storage
 from app.services.metrics import calculate_all_metrics
 
 router = APIRouter()
@@ -213,8 +215,9 @@ def upload_avatar(
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=85)
 
-    current_user.avatar_data = buffer.getvalue()
-    current_user.avatar_content_type = "image/jpeg"
+    path = avatar_storage.upload_avatar(current_user.id, buffer.getvalue(), "image/jpeg")
+
+    current_user.avatar_url = path
     current_user.avatar_updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
     db.refresh(current_user)
@@ -230,20 +233,24 @@ def get_avatar(user_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Avatar not found")
 
     user = db.query(User).filter(User.id == parsed_id).first()
-    if not user or not user.avatar_data:
+    if not user or not user.avatar_url:
         raise HTTPException(status_code=404, detail="Avatar not found")
 
-    return Response(
-        content=user.avatar_data,
-        media_type=user.avatar_content_type or "image/jpeg",
-        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    signed_url = avatar_storage.get_signed_url(user.avatar_url)
+    # Bucket is private -- the signed URL itself expires (see get_signed_url),
+    # so it must not be cached past that window.
+    return RedirectResponse(
+        url=signed_url,
+        status_code=307,
+        headers={"Cache-Control": "private, max-age=300"},
     )
 
 
 @router.delete("/avatar")
 def delete_avatar(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    current_user.avatar_data = None
-    current_user.avatar_content_type = None
+    if current_user.avatar_url:
+        avatar_storage.delete_avatar(current_user.id)
+    current_user.avatar_url = None
     current_user.avatar_updated_at = None
     db.commit()
     return {"detail": "Avatar removed"}
