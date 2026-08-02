@@ -42,6 +42,7 @@ def _seed_food(
     iron_mg=None,
     saturated_fat_g=None,
     cholesterol_mg=None,
+    aliases=None,
 ):
     food = FoodMaster(
         id=uuid.uuid4(),
@@ -54,7 +55,7 @@ def _seed_food(
         fat_per_100g=1,
         fiber_per_100g=None,
         created_by_user_id=created_by_user_id,
-        aliases=[],
+        aliases=aliases or [],
         is_active=is_active,
         fdc_id=fdc_id,
         category_en=category_en,
@@ -214,6 +215,22 @@ def test_check_similar_returns_above_threshold_excludes_below(client, db_session
     assert all(row["similarity"] >= 0.6 for row in body)
     similarities = [row["similarity"] for row in body]
     assert similarities == sorted(similarities, reverse=True)
+
+
+def test_check_similar_matches_on_alias_not_just_canonical_name(client, db_session):
+    chicken = _seed_food(
+        db_session, "עוף, חזה, ללא עצם, ללא עור, נא", is_active=True, aliases=["חזה עוף"]
+    )
+    headers = get_auth_headers(client)
+
+    response = client.get(
+        "/api/v1/food-master/check-similar",
+        params={"name_he": "חזה עוף"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    ids = [row["id"] for row in response.json()]
+    assert str(chicken.id) in ids
 
 
 def test_check_similar_requires_auth_401(client):

@@ -105,7 +105,11 @@ def check_similar_food(
             if food.canonical_name_en
             else 0.0
         )
-        best = max(ratio_he, ratio_en)
+        ratio_alias = max(
+            (SequenceMatcher(None, query, alias).ratio() for alias in (food.aliases or []) if alias),
+            default=0.0,
+        )
+        best = max(ratio_he, ratio_en, ratio_alias)
         if best >= 0.6:
             scored.append((best, food))
 

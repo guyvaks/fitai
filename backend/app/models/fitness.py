@@ -306,6 +306,15 @@ class FoodMaster(Base):
     cholesterol_mg = Column(Float, nullable=True)
     saturated_fat_g = Column(Float, nullable=True)
     sugar_g = Column(Float, nullable=True)
+    # Israeli-catalog reseed fields (2026-08-01, seed_food_master_israel_v3.py).
+    # macros_estimated: True when one or more of the 4 required macro columns
+    # was derived (Atwater calculation from the food's own protein/fat/carbs,
+    # or substituted from a different-but-equivalent USDA reference record)
+    # rather than taken from this food's own lab-measured USDA data. False
+    # for every pre-existing row (measured or simply unknown either way).
+    macros_estimated = Column(Boolean, default=False, nullable=False)
+    source_url = Column(String, nullable=True)
+    barcode = Column(String, nullable=True)
 
 
 class FoodPortion(Base):

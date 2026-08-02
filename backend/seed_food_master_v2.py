@@ -62,6 +62,18 @@ CATEGORY_MAP = {
     "מרקים, רטבים ורוטבי צלי": "ירקות",
 }
 
+# Extra searchable aliases (in addition to canonical_name_he, never
+# replacing it) for USDA items whose full/reordered name differs from the
+# simple term users are used to from the old food_master. Currently just the
+# chicken-breast items -- the USDA names are all "עוף, ..." variants, not the
+# "חזה עוף" users search for.
+ALIAS_OVERRIDES = {
+    "331960": ["חזה עוף"],
+    "2646170": ["חזה עוף"],
+    "2727569": ["חזה עוף"],
+    "2759004": ["חזה עוף"],
+}
+
 # Israeli processed/prepared foods with no USDA Foundation Foods equivalent
 # -- must never be deactivated by this script, regardless of dataset changes.
 PRESERVED_HE_NAMES = {
@@ -140,6 +152,7 @@ def _upsert_food_master(db, master_csv_path):
                 iron_mg=_to_float(row["ברזל_מג"]),
                 saturated_fat_g=_to_float(row["שומן_רווי_גרם"]),
                 cholesterol_mg=_to_float(row["כולסטרול_מג"]),
+                aliases=ALIAS_OVERRIDES.get(fdc_id, []),
                 is_active=True,
             )
 
@@ -150,7 +163,7 @@ def _upsert_food_master(db, master_csv_path):
                     setattr(existing, key, value)
                 updated += 1
             else:
-                db.add(FoodMaster(fdc_id=fdc_id, aliases=[], created_by_user_id=None, **fields))
+                db.add(FoodMaster(fdc_id=fdc_id, created_by_user_id=None, **fields))
                 created += 1
 
     return created, updated, names_he, zero_defaulted

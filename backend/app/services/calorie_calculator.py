@@ -10,7 +10,6 @@ import json
 
 import anthropic
 from fastapi import HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -97,14 +96,24 @@ def calculate_from_text(query: str, db: Session) -> list[dict]:
     if not query:
         raise HTTPException(status_code=400, detail="Query must not be empty")
 
-    # Internal DB first — exact values, no AI cost/latency
-    matches = (
+    # Internal DB first — exact values, no AI cost/latency. Matches on
+    # canonical_name_he OR aliases (e.g. "חזה עוף" for a USDA item whose
+    # canonical name is the fuller "עוף, חזה, ללא עצם, ללא עור, נא") --
+    # in Python rather than SQL since JSON-array containment isn't portable
+    # across the SQLite test engine and Postgres, and food_master is small
+    # enough (~460 rows) for this to cost nothing meaningful.
+    needle = query.lower()
+    candidates = (
         db.query(FoodMaster)
         .filter(FoodMaster.is_active.is_(True))
-        .filter(func.lower(FoodMaster.canonical_name_he).contains(query.lower()))
         .order_by(FoodMaster.canonical_name_he)
         .all()
     )
+    matches = [
+        f for f in candidates
+        if needle in (f.canonical_name_he or "").lower()
+        or any(needle in (alias or "").lower() for alias in (f.aliases or []))
+    ]
     if matches:
         best = min(matches, key=lambda f: len(f.canonical_name_he))
         return [{

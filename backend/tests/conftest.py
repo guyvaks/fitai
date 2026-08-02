@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
@@ -71,6 +73,38 @@ def get_auth_headers(client, email="test@example.com", username=None):
     })
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(autouse=True)
+def _block_real_resend_calls():
+    """Local runs load a real RESEND_API_KEY from backend/.env.local (see
+    Settings.Config.env_file) -- every email function's own
+    `if not settings.RESEND_API_KEY: skip` guard is a no-op here, so any test
+    that reaches register()/forgot-password/forgot-access/resend-verification/
+    a new-device WebAuthn registration/etc. without its own explicit
+    `@patch("app.services.email.resend.Emails.send")` was sending a real
+    email through the shared free-tier Resend account (100/day, shared with
+    staging+production) -- get_auth_headers() alone (conftest.py, used by
+    nearly every other test file to log in) does this on every call. Patches
+    the single call every send in app/services/email.py ultimately goes
+    through, same target the handful of tests asserting on email
+    content/recipient already patch explicitly -- those keep working
+    unchanged, since mock.patch nests cleanly over an already-patched
+    attribute and each test's own patch is what it asserts against.
+
+    Also defaults RESEND_SANDBOX_OVERRIDE_EMAIL to None: if a developer's
+    local .env.local has it set (needed for real sends to work at all, since
+    Resend's sandbox sender can only deliver to the account owner), every
+    test asserting on a literal recipient/subject was failing against
+    whatever real address is configured there instead of the test's own
+    email -- a pre-existing local-only flakiness, not a code bug (see
+    Known_Bugs.md). Tests covering the override behavior itself already
+    patch this setting explicitly and are unaffected -- their own patch
+    wins over this default while they run."""
+    with patch("app.services.email.resend.Emails.send") as mock_send, \
+            patch("app.services.email.settings.RESEND_SANDBOX_OVERRIDE_EMAIL", None):
+        mock_send.return_value = {"id": "test-mocked-email-id"}
+        yield mock_send
 
 
 @pytest.fixture()

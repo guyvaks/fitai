@@ -4,7 +4,7 @@ param) rather than the real SessionLocal it uses when run as a script."""
 import csv
 
 from app.models.fitness import FoodMaster, FoodPortion
-from seed_food_master_v2 import PRESERVED_HE_NAMES, seed
+from seed_food_master_v2 import ALIAS_OVERRIDES, PRESERVED_HE_NAMES, seed
 
 MASTER_HEADER = [
     "מזהה_FDC", "שם_המזון_באנגלית", "שם_המזון_בעברית", "סוג_המזון",
@@ -24,6 +24,11 @@ MASTER_ROWS = [
 SALT_ROW = ["1003", "Salt, table, iodized", "מלח, שולחני, מיודד", "מזון יסוד",
             "תבלינים ועשבי תיבול", "Spices and Herbs", "100", "", "", "", "",
             "", "", "38758", "8", "24", "0.33", "", ""]
+
+CHICKEN_BREAST_ROW = ["2646170", "Chicken, breast, boneless, skinless, raw",
+                       "עוף, חזה, ללא עצם, ללא עור, נא", "מזון יסוד",
+                       "מוצרי עוף", "Poultry Products", "100", "120",
+                       "22.5", "2.6", "0", "", "", "45", "220", "11", "0.4", "0.7", "64"]
 
 PORTIONS_HEADER = ["מזהה_FDC", "כמות", "יחידה_בעברית", "יחידה_באנגלית", "תיאור_מנה", "משקל_בגרמים"]
 PORTIONS_ROWS = [
@@ -96,6 +101,22 @@ def test_seed_defaults_null_required_macros_to_zero(tmp_path, db_session):
     # the zero-default is specific to the 4 NOT NULL macro columns.
     assert salt.sugar_g is None
     assert salt.sodium_mg == 38758.0
+
+
+def test_seed_applies_alias_overrides_to_chicken_breast_items(tmp_path, db_session):
+    assert "2646170" in ALIAS_OVERRIDES
+    master_csv = _write_csv(tmp_path / "master.csv", MASTER_HEADER, MASTER_ROWS + [CHICKEN_BREAST_ROW])
+    portions_csv = _write_csv(tmp_path / "portions.csv", PORTIONS_HEADER, PORTIONS_ROWS)
+
+    seed(master_csv, portions_csv, db=db_session)
+
+    chicken = db_session.query(FoodMaster).filter(FoodMaster.fdc_id == "2646170").first()
+    assert chicken.canonical_name_he == "עוף, חזה, ללא עצם, ללא עור, נא"
+    assert chicken.aliases == ["חזה עוף"]
+
+    # An item not in ALIAS_OVERRIDES gets no aliases, same as before.
+    tomato = db_session.query(FoodMaster).filter(FoodMaster.fdc_id == "1001").first()
+    assert tomato.aliases == []
 
 
 def test_seed_is_idempotent_on_rerun(tmp_path, db_session):
