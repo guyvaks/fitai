@@ -28,11 +28,40 @@
 //                 (no self-service flow exists for either) and to clean up
 //                 the throwaway user afterward. Point this at staging or a
 //                 local DB, never at production.
+//
+// Every register() call below hits a real backend, which -- with a real
+// RESEND_API_KEY loaded from backend/.env.local -- sends a real email
+// through the shared free-tier Resend account (100/day, shared with
+// staging+production) for each throwaway test user. To avoid that, this
+// file reads E2E_MONITOR_SECRET out of backend/.env.local (a local-only
+// value, separate from the GitHub Actions E2E_MONITOR_SECRET secret/Railway
+// env var used by monitoring/e2e-check.mjs -- not touched here) and sends it
+// as X-E2E-Monitor-Key, the same header register() already recognises to
+// dry-run the email send (see auth.py's _is_e2e_monitor_request()). If
+// backend/.env.local has no E2E_MONITOR_SECRET set, this silently falls
+// back to real sends -- add the var locally to opt in.
 import { test, expect } from '@playwright/test'
 import pg from 'pg'
+import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
 const API_URL = process.env.E2E_API_URL || 'http://localhost:8000'
 const DATABASE_URL = process.env.DATABASE_URL
+
+function readLocalE2EMonitorSecret() {
+  if (process.env.E2E_MONITOR_SECRET) return process.env.E2E_MONITOR_SECRET
+  try {
+    const envLocalPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'backend', '.env.local')
+    const contents = readFileSync(envLocalPath, 'utf-8')
+    const match = contents.match(/^E2E_MONITOR_SECRET=(.+)$/m)
+    return match ? match[1].trim() : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const E2E_MONITOR_SECRET = readLocalE2EMonitorSecret()
 
 test.skip(!DATABASE_URL, 'DATABASE_URL env var is required for this test (see file header)')
 
@@ -54,6 +83,7 @@ async function api(authToken, path, options = {}) {
     headers: {
       'Content-Type': 'application/json',
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      ...(E2E_MONITOR_SECRET ? { 'X-E2E-Monitor-Key': E2E_MONITOR_SECRET } : {}),
       ...options.headers,
     },
   })

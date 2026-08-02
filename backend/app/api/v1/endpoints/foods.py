@@ -1,11 +1,21 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.fitness import FoodMaster
 
 router = APIRouter()
+
+
+def _matches_query(food: FoodMaster, needle: str) -> bool:
+    """needle is already lowercased. Primary path is canonical_name_he
+    (unchanged); aliases is an additional OR, not a replacement -- checked
+    in Python rather than SQL since JSON-array containment isn't portable
+    across the SQLite test engine and Postgres, and the table is small
+    enough (~460 rows) that this costs nothing meaningful."""
+    if needle in (food.canonical_name_he or "").lower():
+        return True
+    return any(needle in (alias or "").lower() for alias in (food.aliases or []))
 
 
 @router.get("/search")
@@ -16,13 +26,17 @@ def search(
 ):
     query = db.query(FoodMaster).filter(FoodMaster.is_active.is_(True))
 
-    q = q.strip()
-    if q:
-        query = query.filter(func.lower(FoodMaster.canonical_name_he).contains(q.lower()))
     if category and category != "כל הקטגוריות":
         query = query.filter(FoodMaster.category == category)
 
-    foods = query.order_by(FoodMaster.canonical_name_he).limit(200).all()
+    candidates = query.order_by(FoodMaster.canonical_name_he).all()
+
+    q = q.strip()
+    if q:
+        needle = q.lower()
+        candidates = [f for f in candidates if _matches_query(f, needle)]
+
+    foods = candidates[:200]
     return [
         {
             "id": str(f.id),

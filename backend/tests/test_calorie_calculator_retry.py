@@ -9,11 +9,14 @@ identified HTTPException — not swallow it or return an empty/fake result.
 This is the "(א)" classification from the retry-path mapping: already
 correct, previously untested.
 """
+import uuid
+
 import httpx
 import pytest
 import anthropic
 from fastapi import HTTPException
 
+from app.models.fitness import FoodMaster
 from app.services import calorie_calculator
 
 _REQUEST = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
@@ -92,6 +95,39 @@ def test_ask_claude_raises_visible_502_on_persistent_connection_error(monkeypatc
     with pytest.raises(HTTPException) as exc_info:
         calorie_calculator._ask_claude("system", "תפוח")
     assert exc_info.value.status_code == 502
+
+
+def test_calculate_from_text_matches_alias_uses_internal_db_not_claude(client, db_session, monkeypatch):
+    """A query matching only an alias (not canonical_name_he) must still hit
+    the internal_db path, not fall through to the Claude fallback."""
+    db_session.add(FoodMaster(
+        id=uuid.uuid4(),
+        canonical_name_he="עוף, חזה, ללא עצם, ללא עור, נא",
+        category="חלבונים",
+        calories_per_100g=120,
+        protein_per_100g=22.5,
+        carbs_per_100g=0,
+        fat_per_100g=2.6,
+        aliases=["חזה עוף"],
+        is_active=True,
+    ))
+    db_session.commit()
+
+    def _fail_if_called(*args, **kwargs):
+        raise AssertionError("Claude fallback should not be called when an alias matches")
+
+    monkeypatch.setattr(calorie_calculator, "_ask_claude", _fail_if_called)
+
+    from tests.conftest import get_auth_headers
+    headers = get_auth_headers(client)
+    response = client.post(
+        "/api/v1/nutrition/calculate-calories",
+        headers=headers,
+        json={"type": "text", "query": "חזה עוף"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"][0]["source"] == "internal_db"
 
 
 def test_calculate_calories_endpoint_surfaces_429_not_silent_fallback(client, monkeypatch):
