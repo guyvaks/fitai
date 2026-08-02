@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { nutritionAPI } from '../services/api'
 import FoodSearch from './FoodSearch'
-import { X, Plus, Loader2, Sunrise, Sun, Moon, Apple } from 'lucide-react'
+import { X, Plus, Loader2, Sunrise, Sun, Moon, Apple, Pencil, List } from 'lucide-react'
+
+const PRESET_QUANTITIES = [50, 100, 150, 200, 250, 300]
 
 const DAYS = [
   { key: 'sunday', label: 'ראשון' },
@@ -30,6 +32,7 @@ export default function ManualPlanModal({ onClose, onSaved }) {
   const [week, setWeek] = useState({}) // { [day]: { [mealType]: items[] } }
   const [selectedFood, setSelectedFood] = useState(null)
   const [qty, setQty] = useState('100')
+  const [qtyMode, setQtyMode] = useState('dropdown') // 'dropdown' | 'manual'
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -88,6 +91,7 @@ export default function ManualPlanModal({ onClose, onSaved }) {
     })
     setSelectedFood(null)
     setQty('100')
+    setQtyMode('dropdown')
   }
 
   const handleRemoveItem = (idx) => {
@@ -183,13 +187,36 @@ export default function ManualPlanModal({ onClose, onSaved }) {
               <span className="text-text-mid text-xs">לכל 100ג׳: <span dir="ltr">{selectedFood.calories}</span> קק״ל</span>
               <div className="flex items-center gap-2 mr-auto">
                 <label className="text-text-mid text-xs">כמות (גרם)</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={qty}
-                  onChange={e => setQty(e.target.value)}
-                  className="w-20 bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-sm focus:outline-none focus:border-volt/60"
-                />
+                {qtyMode === 'dropdown' ? (
+                  <select
+                    value={PRESET_QUANTITIES.includes(Number(qty)) ? qty : ''}
+                    onChange={e => setQty(e.target.value)}
+                    className="w-20 bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-sm focus:outline-none focus:border-volt/60"
+                  >
+                    {PRESET_QUANTITIES.map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    autoFocus
+                    value={qty}
+                    onChange={e => setQty(e.target.value)}
+                    className="w-20 bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-sm focus:outline-none focus:border-volt/60"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setQtyMode(m => (m === 'dropdown' ? 'manual' : 'dropdown'))}
+                  className="text-text-mid hover:text-volt transition p-1"
+                  aria-label={qtyMode === 'dropdown' ? 'הזנה ידנית של כמות' : 'חזרה לבחירה מרשימה'}
+                  title={qtyMode === 'dropdown' ? 'הזנה ידנית (למספרים לא עגולים)' : 'חזרה לרשימה'}
+                >
+                  {qtyMode === 'dropdown' ? <Pencil className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
+                </button>
                 <button
                   type="button"
                   onClick={handleAddItem}
