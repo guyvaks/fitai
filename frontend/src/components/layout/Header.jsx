@@ -12,6 +12,7 @@ const pageTitles = {
   "/profile": "פרופיל",
   "/metrics": "ניתוח מדדים",
   "/nutrition": "תזונה",
+  "/calorie-calculator": "מחשבון קלוריות",
   "/workouts": "אימונים",
   "/live-workout": "אימון חי",
   "/progress": "התקדמות",
