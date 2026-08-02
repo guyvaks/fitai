@@ -9,6 +9,7 @@ import ActivateAccount from "./pages/ActivateAccount";
 import ResetPassword from "./pages/ResetPassword";
 import VerifyEmail from "./pages/VerifyEmail";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import SpotifyCallback from "./pages/SpotifyCallback";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Metrics from "./pages/Metrics";
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/callback/spotify" element={<SpotifyCallback />} />
         <Route
           path="/"
           element={

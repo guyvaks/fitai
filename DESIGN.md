@@ -102,3 +102,24 @@ re-deriving the column widths:
 Full implementation-order details are in the accompanying screen inventory
 and phasing plan (reported separately, not committed to the repo — see
 Obsidian `08_Next_Session_Context` session log for this planning session).
+
+## 7. Status (as of Phase 4)
+
+All 4 phases shipped to `dev`/`origin/dev`: tokens (`76d9c33`), `LiveWorkout.jsx`
+(`5b409d0`), `ManualWorkoutBuilder.jsx` (`0a339b7`), and `Workouts.jsx`'s 4
+primary CTAs (uncommitted as of this note — see git log for the actual
+commit once pushed). The `Workouts.jsx` "בנה ידנית" (edit) button was
+deliberately left non-pill per §5.2's primary-only rule.
+
+## 8. Unrelated feature note — Spotify in-workout playback
+
+Not part of this visual redesign, but touches the same `LiveWorkout.jsx`
+screen: an in-workout Spotify playback integration is being built as a
+**personal-use/small-testing feature only**, not a general FitAI feature.
+Spotify's Development Mode caps apps at 5 authorized users, and Extended
+Quota Mode has been closed to individual developers since May 15, 2025
+(organizations with 250k+ MAU only) — there is no upgrade path for a
+solo project. See the Obsidian session log for the full corrected findings
+and implementation notes; this is flagged here only so a future redesign
+pass on `LiveWorkout.jsx` doesn't miss that a music widget now lives there
+too.
