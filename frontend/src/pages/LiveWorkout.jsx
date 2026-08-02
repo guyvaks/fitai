@@ -469,7 +469,7 @@ export default function LiveWorkout() {
           onClick={() => setIsFailureCurrent(v => !v)}
           className={`w-full py-2 rounded-elem text-xs font-medium border transition inline-flex items-center justify-center gap-1.5 ${
             isFailureCurrent
-              ? 'bg-coral-soft border-coral/40 text-coral'
+              ? 'bg-orange-soft border-orange/40 text-orange'
               : 'bg-white/4 border-line text-text-mid hover:text-text-hi'
           }`}
         >
@@ -539,7 +539,7 @@ export default function LiveWorkout() {
                 )}
                 <span className="min-w-0 flex justify-center">
                   {done && completedData.set_type === 'failure' ? (
-                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-coral text-ink text-[10px] font-extrabold anim-pop" title="כשל">
+                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-orange text-ink text-[10px] font-extrabold anim-pop" title="כשל">
                       F
                     </span>
                   ) : done ? (
@@ -566,7 +566,7 @@ export default function LiveWorkout() {
         <button
           onClick={handleCompleteSet}
           disabled={saving}
-          className="btn-volt w-full py-4 text-lg min-h-[56px] flex items-center justify-center gap-2"
+          className="btn-volt btn-pill w-full py-4 text-lg min-h-[56px] flex items-center justify-center gap-2"
         >
           {saving && <Loader2 className="w-5 h-5 animate-spin" />}
           {saving ? 'שומר...' : 'השלם תרגיל'}
