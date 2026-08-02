@@ -463,3 +463,127 @@ def get_session_detail(
         "estimated_calories": _estimate_calories(weight_kg, duration_seconds),
         "muscle_split": muscle_split,
     }
+
+
+# --- Weekly / monthly workout reports ---
+
+def _week_start(d: datetime.date) -> datetime.date:
+    """Sunday of the week containing d (Sunday-Saturday weeks, matching the
+    day-of-week convention already used across the plan/day endpoints)."""
+    days_since_sunday = (d.weekday() + 1) % 7  # Python weekday(): Mon=0..Sun=6
+    return d - datetime.timedelta(days=days_since_sunday)
+
+
+def _last_closed_week() -> tuple:
+    """The most recently completed Sunday-Saturday week (not the current,
+    still-in-progress one)."""
+    this_week_start = _week_start(datetime.date.today())
+    start = this_week_start - datetime.timedelta(days=7)
+    end = this_week_start - datetime.timedelta(days=1)
+    return start, end
+
+
+def _last_closed_month() -> tuple:
+    """The most recently completed calendar month."""
+    first_of_this_month = datetime.date.today().replace(day=1)
+    end = first_of_this_month - datetime.timedelta(days=1)
+    start = end.replace(day=1)
+    return start, end
+
+
+def _period_stats(db: Session, user_id, start_date: datetime.date, end_date: datetime.date) -> dict:
+    start_dt = datetime.datetime.combine(start_date, datetime.time.min, tzinfo=datetime.timezone.utc)
+    end_dt = datetime.datetime.combine(end_date, datetime.time.max, tzinfo=datetime.timezone.utc)
+
+    sessions = db.query(WorkoutSession).filter(
+        WorkoutSession.user_id == user_id,
+        WorkoutSession.status == "completed",
+        WorkoutSession.completed_at >= start_dt,
+        WorkoutSession.completed_at <= end_dt,
+    ).all()
+
+    total_duration_seconds = sum(_session_duration_seconds(s) or 0 for s in sessions)
+
+    total_volume_kg = 0.0
+    session_ids = [s.id for s in sessions]
+    if session_ids:
+        total_volume_kg = db.query(
+            func.coalesce(func.sum(ExerciseLog.weight_kg * ExerciseLog.reps), 0.0)
+        ).filter(
+            ExerciseLog.session_id.in_(session_ids),
+            ExerciseLog.completed.is_(True),
+        ).scalar() or 0.0
+
+    prs = db.query(PersonalRecord).filter(
+        PersonalRecord.user_id == user_id,
+        PersonalRecord.achieved_at >= start_dt,
+        PersonalRecord.achieved_at <= end_dt,
+    ).order_by(PersonalRecord.achieved_at.desc()).all()
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    weight_kg = profile.weight_kg if profile else None
+
+    return {
+        "sessions_completed": len(sessions),
+        "total_duration_seconds": total_duration_seconds,
+        "total_volume_kg": round(total_volume_kg, 1),
+        "estimated_calories": _estimate_calories(weight_kg, total_duration_seconds),
+        "personal_records": [
+            {
+                "exercise_name": pr.exercise_name,
+                "record_weight_kg": pr.record_weight_kg,
+                "record_reps": pr.record_reps,
+                "achieved_at": pr.achieved_at,
+            }
+            for pr in prs
+        ],
+    }
+
+
+@router.get("/reports/pending")
+def get_pending_reports(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Weekly/monthly report(s) for the most recently closed period(s), if not
+    already marked seen. Both can come back at once (e.g. first login of a
+    new month). A period with zero completed sessions is skipped -- an empty
+    report isn't worth surfacing."""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    reports = []
+
+    week_start, week_end = _last_closed_week()
+    if not profile or profile.last_weekly_report_seen != week_start:
+        stats = _period_stats(db, current_user.id, week_start, week_end)
+        if stats["sessions_completed"] > 0:
+            reports.append({"period": "weekly", "period_start": week_start, "period_end": week_end, **stats})
+
+    month_start, month_end = _last_closed_month()
+    if not profile or profile.last_monthly_report_seen != month_start:
+        stats = _period_stats(db, current_user.id, month_start, month_end)
+        if stats["sessions_completed"] > 0:
+            reports.append({"period": "monthly", "period_start": month_start, "period_end": month_end, **stats})
+
+    return reports
+
+
+class ReportDismiss(BaseModel):
+    period: str  # "weekly" | "monthly"
+    period_start: datetime.date
+
+
+@router.post("/reports/dismiss")
+def dismiss_report(payload: ReportDismiss, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # A user can complete workouts and dismiss a report before ever filling
+    # out the profile onboarding form -- UserProfile rows are created lazily
+    # everywhere else in this app (see PUT /profile), so this must too rather
+    # than 404ing on a legitimate case.
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if not profile:
+        profile = UserProfile(id=uuid.uuid4(), user_id=current_user.id)
+        db.add(profile)
+    if payload.period == "weekly":
+        profile.last_weekly_report_seen = payload.period_start
+    elif payload.period == "monthly":
+        profile.last_monthly_report_seen = payload.period_start
+    else:
+        raise HTTPException(status_code=400, detail="Invalid period")
+    db.commit()
+    return {"status": "ok"}

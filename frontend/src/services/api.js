@@ -90,6 +90,9 @@ export const workoutsAPI = {
   getVolumeHistory: () => api.get('/api/v1/workouts/volume-history'),
   getSessionsHistory: () => api.get('/api/v1/workouts/sessions/history'),
   getSessionDetail: (sessionId) => api.get(`/api/v1/workouts/sessions/${sessionId}/detail`),
+  getPendingReports: () => api.get('/api/v1/workouts/reports/pending'),
+  dismissReport: (period, periodStart) =>
+    api.post('/api/v1/workouts/reports/dismiss', { period, period_start: periodStart }),
 }
 
 export const usersAPI = {
