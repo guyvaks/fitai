@@ -7,6 +7,7 @@ import { isWebAuthnPlatformAvailable, runWebAuthnRegistration } from "../service
 import {
   Sun,
   Moon,
+  SunMoon,
   Dumbbell,
   User as UserIcon,
   Activity,
@@ -267,7 +268,7 @@ function ComingSoonCard({ icon: Icon, title, description }) {
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { themePreference, resolvedTheme, setThemePreference } = useTheme();
   const [restTimerOverride, setRestTimerOverride] = useState("");
   const [autoStartRest, setAutoStartRest] = useState(true);
   const [savingWorkoutPrefs, setSavingWorkoutPrefs] = useState(false);
@@ -328,25 +329,34 @@ export default function Settings() {
         <p className="text-text-mid mt-1">התאמה אישית של האפליקציה והחשבון שלך</p>
       </div>
 
-      <SectionCard icon={theme === "dark" ? Moon : Sun} title="מראה">
-        <div className="flex gap-2">
+      <SectionCard icon={resolvedTheme === "dark" ? Moon : Sun} title="מראה">
+        <div className="flex gap-1.5">
           <button
             type="button"
-            onClick={() => toggleTheme("dark")}
-            className={`flex-1 py-2.5 rounded-elem text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${
-              theme === "dark" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+            onClick={() => setThemePreference("dark")}
+            className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+              themePreference === "dark" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
             }`}
           >
-            <Moon className="w-4 h-4" /> כהה
+            <Moon className="w-3.5 h-3.5" /> כהה
           </button>
           <button
             type="button"
-            onClick={() => toggleTheme("light")}
-            className={`flex-1 py-2.5 rounded-elem text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${
-              theme === "light" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+            onClick={() => setThemePreference("light")}
+            className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+              themePreference === "light" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
             }`}
           >
-            <Sun className="w-4 h-4" /> בהיר
+            <Sun className="w-3.5 h-3.5" /> בהיר
+          </button>
+          <button
+            type="button"
+            onClick={() => setThemePreference("auto")}
+            className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+              themePreference === "auto" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+            }`}
+          >
+            <SunMoon className="w-3.5 h-3.5" /> אוטומטי
           </button>
         </div>
       </SectionCard>

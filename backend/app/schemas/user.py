@@ -62,6 +62,7 @@ class Gender(str, Enum):
 class ThemePreference(str, Enum):
     dark = "dark"
     light = "light"
+    auto = "auto"
 
 
 class UserProfileCreate(BaseModel):
