@@ -170,6 +170,27 @@ export default function FoodLog() {
       setError('כמות חייבת להיות גדולה מ-0')
       return
     }
+    // Explicit validation (rather than relying on the <input>'s native HTML5
+    // constraint validation) so decimal macro values -- the normal case,
+    // e.g. 24.8g protein from an auto-filled selected food -- are always
+    // accepted, and any genuine invalid entry blocks the save with a visible
+    // in-app error instead of a native browser tooltip the user may not see.
+    const macroFields = [
+      { key: 'calories', label: 'קלוריות' },
+      { key: 'protein',  label: 'חלבון' },
+      { key: 'carbs',    label: 'פחמימות' },
+      { key: 'fat',      label: 'שומן' },
+    ]
+    const macros = {}
+    for (const { key, label } of macroFields) {
+      const raw = form[key]
+      const num = parseFloat(raw)
+      if (raw !== '' && (!Number.isFinite(num) || num < 0)) {
+        setError(`ערך לא תקין בשדה "${label}"`)
+        return
+      }
+      macros[key] = Number.isFinite(num) ? num : 0
+    }
     setSubmitting(true)
     try {
       await nutritionAPI.logFood({
@@ -177,10 +198,10 @@ export default function FoodLog() {
         meal_type:  form.meal_type,
         food_name:  form.food_name,
         quantity_g,
-        calories:   Math.max(0, parseFloat(form.calories) || 0),
-        protein:    Math.max(0, parseFloat(form.protein)  || 0),
-        carbs:      Math.max(0, parseFloat(form.carbs)    || 0),
-        fat:        Math.max(0, parseFloat(form.fat)      || 0),
+        calories:   macros.calories,
+        protein:    macros.protein,
+        carbs:      macros.carbs,
+        fat:        macros.fat,
       })
       setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: form.meal_type })
       setSelectedFood(null)
@@ -384,7 +405,12 @@ export default function FoodLog() {
             </div>
             {error && <p className="text-coral text-sm">{error}</p>}
 
-            <form onSubmit={handleSubmit} className="space-y-3">
+            {/* noValidate: validation is handled explicitly in handleSubmit so
+                decimal macro values (e.g. 24.8g protein) are never silently
+                blocked by the browser's native step-mismatch check, which
+                defaults to whole numbers only and gives no visible in-app
+                feedback when it fires. */}
+            <form onSubmit={handleSubmit} className="space-y-3" noValidate>
               <div className="grid grid-cols-2 gap-3">
                 <FoodSearch onSelect={handleFoodSelect} />
 
@@ -420,7 +446,9 @@ export default function FoodLog() {
                     <label className="text-text-mid text-xs mb-1 block">{field.label}</label>
                     <input
                       type="number"
+                      inputMode="decimal"
                       min="0"
+                      step="0.1"
                       placeholder={field.placeholder}
                       value={form[field.key]}
                       onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}

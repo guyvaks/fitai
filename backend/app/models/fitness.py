@@ -294,3 +294,31 @@ class FoodMaster(Base):
     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     aliases = Column(JSON, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
+    # USDA Foundation Foods reseed fields (all nullable -- unpopulated for
+    # pre-USDA rows and for user-submitted suggestions). fdc_id is the
+    # natural upsert key used by seed_food_master_v2.py.
+    fdc_id = Column(String, nullable=True, unique=True, index=True)
+    category_en = Column(String, nullable=True)
+    sodium_mg = Column(Float, nullable=True)
+    potassium_mg = Column(Float, nullable=True)
+    calcium_mg = Column(Float, nullable=True)
+    iron_mg = Column(Float, nullable=True)
+    cholesterol_mg = Column(Float, nullable=True)
+    saturated_fat_g = Column(Float, nullable=True)
+    sugar_g = Column(Float, nullable=True)
+
+
+class FoodPortion(Base):
+    """USDA-style serving-size reference data, keyed by fdc_id (not an FK --
+    food_master's PK is a UUID, not the FDC id). Zero or many portions per
+    food; only populated for rows seeded from the USDA dataset."""
+
+    __tablename__ = "food_portions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fdc_id = Column(String, nullable=False, index=True)
+    quantity = Column(Float, nullable=False)
+    unit_he = Column(String, nullable=True)
+    unit_en = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    weight_grams = Column(Float, nullable=False)
