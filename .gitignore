@@ -16,10 +16,13 @@ build/
 # Node
 node_modules/
 frontend/dist/
-frontend/.vite/
+.vite/
 
 # macOS
 .DS_Store
+
+# Local tooling (not part of the project)
+.codex/
 
 # IDE
 .vscode/

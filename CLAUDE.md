@@ -26,16 +26,7 @@
 ## 🔄 Workflow
 
 - עבודה על `dev`, merge ל-`main` רק עם אישור מפורש
-- Railway לא מריץ migrations אוטומטית! אחרי כל merge שכולל migration חדשה:
-  1. `cd ~/fitai/backend`
-  2. `railway link` → project fitai → **production** → **Postgres**
-  3. `railway run bash -c 'DATABASE_URL="$DATABASE_PUBLIC_URL" ENVIRONMENT=production alembic upgrade head'`
-  4. אמת: `railway run bash -c 'psql "$DATABASE_PUBLIC_URL" -c "SELECT * FROM alembic_version;"'`
-  5. חזור על שלבים 2-4 גם עבור **staging** (אם לא הורצה שם קודם)
-  - הערה: `ENVIRONMENT=production` נדרש כדי לעקוף את ה-guard ב-config.py שמונע חיבור dev→production
-  - חשוב: railway link ל-**Postgres** (לא fitai backend) כי `DATABASE_PUBLIC_URL` נמצא שם
-
-  > ⚠️ רצף זה דורש אישור מפורש בכל פעם לפי כלל הברזל — הוא לא הרשאה עומדת.
+- Railway לא מריץ migrations אוטומטית! אחרי כל merge שכולל migration חדשה יש להריץ אותה ידנית מול staging+production — ראה skill `railway-migration-deploy` לרצף המדויק. **גם הרצף הזה דורש אישור מפורש בכל פעם לפי כלל הברזל — הוא לא הרשאה עומדת.**
 
 ## 📊 exercises_master
 
