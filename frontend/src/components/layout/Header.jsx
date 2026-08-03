@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
-import { Menu, Home, Sun, Moon, Bell } from "lucide-react";
+import { Menu, Home, Sun, Moon, Bell, ChevronDown, Settings as SettingsIcon, LogOut } from "lucide-react";
 import Avatar from "../Avatar";
 import api from "../../services/api";
 import { PENDING_COUNT_CHANGED_EVENT } from "../../utils/pendingUpdates";
@@ -30,6 +30,37 @@ export default function Header({ onToggleSidebar }) {
   const [pendingExerciseCount, setPendingExerciseCount] = useState(0);
   const [pendingFoodCount, setPendingFoodCount] = useState(0);
   const [pendingAiAccessCount, setPendingAiAccessCount] = useState(0);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [accountMenuOpen]);
+
+  // Closes the menu on navigation (e.g. after clicking "Account & Settings"
+  // the route changes, but a raw Link click doesn't otherwise reset local state).
+  useEffect(() => {
+    setAccountMenuOpen(false);
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
+  };
 
   useEffect(() => {
     if (!user?.is_admin) return;
@@ -77,9 +108,75 @@ export default function Header({ onToggleSidebar }) {
         >
           <Menu className="w-6 h-6" />
         </button>
-        <Link to="/profile" className="md:hidden shrink-0" title="הפרופיל שלי">
-          <Avatar user={user} className="w-7 h-7 text-[10px] shrink-0" />
-        </Link>
+        {/* Account dropdown -- md:hidden here matches the rest of this cluster,
+            but note md: never actually activates in this app (breakpoints
+            neutralized to 9999px in index.css for the mobile-only frame), so
+            this is effectively always rendered; it's just following the same
+            convention as its siblings. */}
+        <div className="relative md:hidden shrink-0" ref={accountMenuRef}>
+          <button
+            type="button"
+            onClick={() => setAccountMenuOpen((o) => !o)}
+            className="flex items-center gap-1 shrink-0"
+            title="החשבון שלי"
+            aria-haspopup="menu"
+            aria-expanded={accountMenuOpen}
+          >
+            <Avatar user={user} className="w-7 h-7 text-[10px] shrink-0" />
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-text-mid transition-transform ${accountMenuOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+
+          {accountMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-2 w-64 rounded-[var(--radius-card)] border border-line-strong bg-surface-2/95 backdrop-blur-xl shadow-[0_8px_28px_rgba(0,0,0,0.35)] overflow-hidden z-30 anim-rise"
+            >
+              <div className="px-4 py-3">
+                <p className="text-[10px] font-bold tracking-wider text-text-low uppercase">מחובר/ת כ</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <Avatar user={user} className="w-10 h-10 text-sm shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-text-hi font-bold text-sm truncate">{user?.full_name}</p>
+                    {user?.username && (
+                      <span
+                        className="inline-block mt-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-violet-soft text-violet"
+                        dir="auto"
+                      >
+                        {user.username}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-line" />
+
+              <Link
+                to="/settings"
+                role="menuitem"
+                onClick={() => setAccountMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-3 bg-violet-soft text-violet font-bold text-sm hover:brightness-110 transition"
+              >
+                <SettingsIcon className="w-4 h-4 shrink-0" />
+                חשבון והגדרות
+              </Link>
+
+              <div className="border-t border-line" />
+
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-coral font-bold text-sm hover:bg-coral-soft transition"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                התנתקות
+              </button>
+            </div>
+          )}
+        </div>
         <h1 className="hidden md:block text-lg font-bold text-text-hi">{title}</h1>
       </div>
 
