@@ -4,9 +4,13 @@ import { useWorkoutSession } from '../hooks/useWorkoutSession'
 import { workoutsAPI } from '../services/api'
 import api from '../services/api'
 import ExerciseSearch, { MUSCLE_GROUPS } from '../components/ExerciseSearch'
+import spotifyIconGreen from '../assets/spotify-icon-green.svg'
+import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer'
+import { startAuth, isConnected, disconnect as disconnectSpotify } from '../services/spotifyAuth'
 import {
   Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft,
   Clock, StickyNote, Plus, X, Search, Type, Settings, Flame,
+  Music, Play, Pause, SkipBack, SkipForward, Unlink,
 } from 'lucide-react'
 
 const FREE_MUSCLE_GROUPS = MUSCLE_GROUPS.filter(g => g !== 'כל הקבוצות')
@@ -119,6 +123,90 @@ function formatDuration(seconds) {
   const m = Math.floor(seconds / 60)
   const s = seconds % 60
   return `${m}min ${s}s`
+}
+
+// In-workout Spotify playback -- personal-use/small-testing feature only
+// (Spotify Development Mode caps this at 5 authorized users, see DESIGN.md
+// §8). Not part of the visual redesign; lives here because LiveWorkout is
+// the only screen with a persistent in-progress session to attach it to.
+function MusicWidget() {
+  const [connected, setConnected] = useState(isConnected())
+  const { ready, track, isPaused, error, togglePlay, nextTrack, previousTrack } = useSpotifyPlayer()
+
+  if (!connected) {
+    return (
+      // Spotify's own brand colors/mark, not FitAI's theme tokens -- their
+      // guidelines require the green mark to sit only on a black or white
+      // field (developer.spotify.com/documentation/design), so this button
+      // stays black-on-white-text in both FitAI light and dark mode rather
+      // than following card-glass/theme tokens like the rest of the screen.
+      // Icon is the official downloaded asset (Primary_Logo_Green_RGB.svg,
+      // fill #1ed760 -- matches developer.spotify.com's own listed palette),
+      // not a redrawn approximation. No official prebuilt "Connect with
+      // Spotify" button template exists, so padding/radius/wording below are
+      // our own choices within their exclusion-zone and color rules, not a
+      // copied spec.
+      <button
+        onClick={() => startAuth().catch(() => {})}
+        className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-[var(--radius-pill)] bg-[#121212] text-white text-sm font-bold hover:bg-[#282828] active:scale-[0.98] transition"
+        style={{ minHeight: 48 }}
+      >
+        <img src={spotifyIconGreen} alt="" className="w-6 h-6 shrink-0" />
+        התחבר עם Spotify
+      </button>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="w-full flex items-center justify-between gap-2 py-2 px-3 rounded-elem border border-coral/30 bg-coral-soft text-coral text-xs">
+        <span className="flex items-center gap-1.5 min-w-0"><Music className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{error}</span></span>
+        <button
+          onClick={() => { disconnectSpotify(); setConnected(false) }}
+          className="shrink-0 hover:text-coral/70 transition"
+          aria-label="נתק Spotify"
+        >
+          <Unlink className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card-glass px-3 py-2 flex items-center gap-2 anim-rise">
+      <span className="w-9 h-9 rounded-lg bg-volt-soft text-volt flex items-center justify-center shrink-0 overflow-hidden">
+        {track?.image ? <img src={track.image} alt="" className="w-full h-full object-cover" /> : <Music className="w-4 h-4" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-text-hi text-xs font-bold truncate">
+          {track?.name || (ready ? 'בחר שיר מתוך אפליקציית Spotify' : 'מתחבר...')}
+        </p>
+        {track?.artists && <p className="text-text-mid text-[11px] truncate">{track.artists}</p>}
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">
+        <button onClick={previousTrack} className="p-1.5 text-text-mid hover:text-text-hi transition" aria-label="הקודם">
+          <SkipBack className="w-4 h-4" />
+        </button>
+        <button
+          onClick={togglePlay}
+          className="p-2 rounded-full bg-volt text-ink hover:brightness-105 active:scale-95 transition"
+          aria-label={isPaused ? 'נגן' : 'השהה'}
+        >
+          {isPaused ? <Play className="w-3.5 h-3.5" fill="currentColor" /> : <Pause className="w-3.5 h-3.5" fill="currentColor" />}
+        </button>
+        <button onClick={nextTrack} className="p-1.5 text-text-mid hover:text-text-hi transition" aria-label="הבא">
+          <SkipForward className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => { disconnectSpotify(); setConnected(false) }}
+          className="p-1.5 text-text-low hover:text-coral transition"
+          aria-label="נתק Spotify"
+        >
+          <Unlink className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export default function LiveWorkout() {
@@ -433,6 +521,9 @@ export default function LiveWorkout() {
         />
       </div>
 
+      {/* In-workout music — personal-use feature, see DESIGN.md §8 */}
+      <MusicWidget />
+
       {/* Exercise stepper — preview of all exercises in this workout */}
       <ExerciseStepper
         exercises={exercises}
@@ -469,7 +560,7 @@ export default function LiveWorkout() {
           onClick={() => setIsFailureCurrent(v => !v)}
           className={`w-full py-2 rounded-elem text-xs font-medium border transition inline-flex items-center justify-center gap-1.5 ${
             isFailureCurrent
-              ? 'bg-coral-soft border-coral/40 text-coral'
+              ? 'bg-orange-soft border-orange/40 text-orange'
               : 'bg-white/4 border-line text-text-mid hover:text-text-hi'
           }`}
         >
@@ -539,7 +630,7 @@ export default function LiveWorkout() {
                 )}
                 <span className="min-w-0 flex justify-center">
                   {done && completedData.set_type === 'failure' ? (
-                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-coral text-ink text-[10px] font-extrabold anim-pop" title="כשל">
+                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-orange text-ink text-[10px] font-extrabold anim-pop" title="כשל">
                       F
                     </span>
                   ) : done ? (
@@ -566,7 +657,7 @@ export default function LiveWorkout() {
         <button
           onClick={handleCompleteSet}
           disabled={saving}
-          className="btn-volt w-full py-4 text-lg min-h-[56px] flex items-center justify-center gap-2"
+          className="btn-volt btn-pill w-full py-4 text-lg min-h-[56px] flex items-center justify-center gap-2"
         >
           {saving && <Loader2 className="w-5 h-5 animate-spin" />}
           {saving ? 'שומר...' : 'השלם תרגיל'}

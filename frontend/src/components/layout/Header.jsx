@@ -24,7 +24,7 @@ export default function Header({ onToggleSidebar }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { resolvedTheme, setThemePreference } = useTheme();
   const title = pageTitles[location.pathname] || "FitAI";
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingExerciseCount, setPendingExerciseCount] = useState(0);
@@ -95,13 +95,16 @@ export default function Header({ onToggleSidebar }) {
       {/* Right cluster */}
       <div className="flex items-center gap-1 md:gap-3 shrink-0">
         {/* Theme toggle — always visible */}
+        {/* Explicit manual override -- always sets a concrete light/dark
+            preference (never "auto"), even if the current preference was
+            auto, matching Settings' rule that a manual choice takes priority. */}
         <button
-          onClick={() => toggleTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setThemePreference(resolvedTheme === "dark" ? "light" : "dark")}
           className="text-text-mid hover:text-volt p-2 rounded-elem hover:bg-white/5 transition-colors"
-          title={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
-          aria-label={theme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+          title={resolvedTheme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
+          aria-label={resolvedTheme === "dark" ? "עבור למצב בהיר" : "עבור למצב כהה"}
         >
-          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          {resolvedTheme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
 
         {/* WhatsApp contact — visible to everyone, always in this slot so the

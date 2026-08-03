@@ -395,7 +395,7 @@ export default function ManualWorkoutBuilder() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="btn-volt flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
+          className="btn-volt btn-pill flex-1 py-3 text-sm flex items-center justify-center gap-1.5"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           {saving ? 'שומר...' : <>שמור תוכנית (<span dir="ltr">{totalExerciseCount}</span> תרגילים)</>}

@@ -51,6 +51,8 @@
   --color-amber-soft: rgba(251, 191, 36, 0.14);
   --color-violet: #A78BFA;
   --color-violet-soft: rgba(167, 139, 250, 0.14);
+  --color-orange: #F97316;
+  --color-orange-soft: rgba(249, 115, 22, 0.14);
 
   /* Macro-specific colors (protein/carbs/fat) -- deliberately distinct from
      the brand accent (--color-volt) and same in both themes, so a macro's
@@ -80,6 +82,7 @@
 
   --radius-card: 20px;
   --radius-elem: 12px;
+  --radius-pill: 9999px;
 
   /*
    * Mobile-only app. In Tailwind v4 the `sm:`/`md:`/… variants are
@@ -120,6 +123,8 @@
   --color-amber-soft: rgba(180, 83, 9, 0.10);
   --color-violet: #7C3AED;
   --color-violet-soft: rgba(124, 58, 237, 0.10);
+  --color-orange: #EA580C;
+  --color-orange-soft: rgba(234, 88, 12, 0.10);
 
   --color-text-hi: #0F172A;
   --color-text-mid: #475569;
@@ -226,6 +231,13 @@ body {
   box-shadow: 0 8px 28px rgba(14, 165, 233, 0.32);
 }
 
+/* Full-width pill modifier for primary CTAs (Strong-app-style redesign) --
+   combine with .btn-volt: class="btn-volt btn-pill". Kept separate from
+   .btn-volt itself so secondary buttons elsewhere keep the 14px radius. */
+.btn-pill {
+  border-radius: var(--radius-pill);
+}
+
 .text-gradient-volt {
   background: linear-gradient(90deg, var(--color-volt-tint), #22D3EE);
   -webkit-background-clip: text;
@@ -306,6 +318,21 @@ select:-webkit-autofill {
   -webkit-text-fill-color: #0F172A !important;
   caret-color: #0F172A;
   border-color: rgba(15, 23, 42, 0.12);
+}
+
+/*
+ * Suppress native up/down spinner arrows on number inputs (Strong-app-style
+ * compact SET/KG/REPS rows don't have room for them, and they're inconsistent
+ * across browsers anyway). Applies to every type="number" input in the app.
+ */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* ---- Motion ---- */

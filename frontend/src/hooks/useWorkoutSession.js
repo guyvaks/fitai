@@ -1,6 +1,28 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import api from '../services/api'
 
+// Two-tone completion chime, generated via Web Audio rather than a shipped
+// audio file -- no asset to source/host. Browsers apply the device's
+// silent/mute state to Web Audio output the same as any other audio source,
+// so no special handling is needed for that.
+function playRestEndChime(audioCtx) {
+  const duration = 0.15
+  const now = audioCtx.currentTime
+  ;[880, 1108].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = freq
+    gain.gain.setValueAtTime(0.0001, now + i * duration)
+    gain.gain.exponentialRampToValueAtTime(0.3, now + i * duration + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * duration + duration)
+    osc.connect(gain)
+    gain.connect(audioCtx.destination)
+    osc.start(now + i * duration)
+    osc.stop(now + i * duration + duration)
+  })
+}
+
 export function useWorkoutSession() {
   const [session, setSession] = useState(null)
   const [exercises, setExercises] = useState([])
@@ -10,9 +32,29 @@ export function useWorkoutSession() {
   const [restActive, setRestActive] = useState(false)
   const [saving, setSaving] = useState(false)
   const timerRef = useRef(null)
+  const audioCtxRef = useRef(null)
+
+  const getAudioContext = () => {
+    if (!audioCtxRef.current) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext
+      audioCtxRef.current = new AudioContextClass()
+    }
+    return audioCtxRef.current
+  }
+
+  useEffect(() => {
+    return () => { audioCtxRef.current?.close().catch(() => {}) }
+  }, [])
 
   // Start rest timer
   const startRestTimer = useCallback((seconds) => {
+    // Resume/unlock the audio context here, inside the click handler chain
+    // that triggers this (completeSet <- a button's onClick), so the
+    // completion chime -- which fires later, asynchronously, once the
+    // countdown reaches zero -- is allowed to play under browsers' autoplay
+    // policies (audio contexts otherwise need a user-gesture call stack).
+    const ctx = getAudioContext()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     setRestTimer(seconds)
     setRestActive(true)
   }, [])
@@ -21,7 +63,11 @@ export function useWorkoutSession() {
     if (restActive && restTimer > 0) {
       timerRef.current = setTimeout(() => setRestTimer(t => t - 1), 1000)
     } else if (restActive && restTimer === 0) {
+      // Natural completion only -- skipRest() flips restActive/restTimer to
+      // false/0 together in one batched update, so this branch never runs
+      // for a manual skip, only when the countdown actually reaches zero.
       setRestActive(false)
+      playRestEndChime(getAudioContext())
     }
     return () => clearTimeout(timerRef.current)
   }, [restActive, restTimer])

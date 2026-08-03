@@ -200,7 +200,7 @@ export default function Workouts() {
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="btn-volt px-4 py-2 text-sm flex items-center gap-2"
+            className="btn-volt btn-pill px-4 py-2 text-sm flex items-center gap-2"
           >
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
             {generating ? 'יוצר תכנית...' : 'בנה לי עם AI'}
@@ -310,7 +310,7 @@ export default function Workouts() {
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="btn-volt px-6 py-3 text-sm inline-flex items-center gap-2"
+            className="btn-volt btn-pill px-6 py-3 text-sm inline-flex items-center gap-2"
           >
             <Bot className="w-4 h-4" /> בנה עם AI
           </button>
@@ -336,7 +336,7 @@ export default function Workouts() {
           <button
             onClick={handleGenerateAI}
             disabled={generating}
-            className="btn-volt px-6 py-3 text-sm inline-flex items-center gap-2"
+            className="btn-volt btn-pill px-6 py-3 text-sm inline-flex items-center gap-2"
           >
             <Bot className="w-4 h-4" /> בנה תכנית ליום זה עם AI
           </button>
@@ -349,7 +349,7 @@ export default function Workouts() {
             )}
             <button
               onClick={() => navigate(`/live-workout?day=${activeDay}`)}
-              className="btn-volt px-5 py-2.5 text-sm flex items-center gap-2"
+              className="btn-volt btn-pill px-5 py-2.5 text-sm flex items-center gap-2"
             >
               <Play className="w-4 h-4" fill="currentColor" /> התחל אימון
             </button>

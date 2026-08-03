@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   Loader2,
   Lightbulb,
+  Clock,
+  X,
 } from "lucide-react";
 import {
   LineChart,
@@ -85,6 +87,85 @@ function ActivityRings({ workoutPct, proteinPct, caloriesPct }) {
   );
 }
 
+function formatReportDuration(totalSeconds) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return hours === 0 ? `${minutes} דק'` : `${hours} שע' ${minutes} דק'`;
+}
+
+function formatReportPeriodLabel(report) {
+  const start = new Date(report.period_start);
+  if (report.period === "monthly") {
+    return start.toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+  }
+  const end = new Date(report.period_end);
+  const fmt = (d) => d.toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+// Hevy-style "your report is ready" card -- dismissible, non-blocking (not a
+// modal), matches the existing AI-suggestion banner pattern on this page.
+function WorkoutReportCard({ report, onDismiss }) {
+  const title = report.period === "weekly" ? "הדוח השבועי שלך מוכן!" : "הדוח החודשי שלך מוכן!";
+  const stats = [
+    { label: "אימונים", value: report.sessions_completed, Icon: Dumbbell },
+    { label: "זמן אימון", value: formatReportDuration(report.total_duration_seconds), Icon: Clock },
+    { label: "נפח כולל", value: `${report.total_volume_kg.toLocaleString()} ק"ג`, Icon: Weight },
+  ];
+  if (report.estimated_calories != null) {
+    stats.push({ label: "קלוריות (הערכה)", value: `~${report.estimated_calories}`, Icon: Flame });
+  }
+
+  return (
+    <div className="anim-rise card-glass p-4 space-y-3" style={{ borderColor: "rgba(163,230,53,0.35)" }} dir="rtl">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-9 h-9 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
+            <Trophy className="w-4.5 h-4.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-text-hi font-bold text-sm truncate">{title}</p>
+            <p className="text-text-mid text-xs">{formatReportPeriodLabel(report)}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => onDismiss(report)}
+          className="text-text-mid hover:text-text-hi transition p-1 shrink-0"
+          aria-label="סגור"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {stats.map((s) => (
+          <div key={s.label} className="bg-white/4 rounded-elem px-3 py-2 flex items-center gap-2 min-w-0">
+            <s.Icon className="w-3.5 h-3.5 text-volt shrink-0" />
+            <div className="min-w-0">
+              <p className="text-text-hi text-sm font-bold tabular-nums truncate" dir="ltr">{s.value}</p>
+              <p className="text-text-mid text-[10px] truncate">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {report.personal_records.length > 0 && (
+        <div className="space-y-1 pt-1 border-t border-line">
+          <p className="text-text-mid text-xs font-medium pt-2">שיאים אישיים חדשים</p>
+          {report.personal_records.map((pr, i) => (
+            <div key={i} className="flex items-center justify-between text-xs gap-2">
+              <span className="text-text-hi truncate">{pr.exercise_name}</span>
+              <span className="text-volt font-bold tabular-nums shrink-0" dir="ltr">
+                {pr.record_weight_kg}kg × {pr.record_reps}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +179,7 @@ export default function Dashboard() {
   const [hasPlan, setHasPlan] = useState(false);
   const [records, setRecords] = useState([]);
   const [weightHistory, setWeightHistory] = useState([]);
+  const [pendingReports, setPendingReports] = useState([]);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
   const today = new Date();
   const todayDayKey = DAY_KEYS[today.getDay()];
@@ -139,8 +221,17 @@ export default function Dashboard() {
     usersAPI.getWeightHistory()
       .then(({ data }) => setWeightHistory(data || []))
       .catch(() => setWeightHistory([]));
+
+    workoutsAPI.getPendingReports()
+      .then(({ data }) => setPendingReports(data || []))
+      .catch(() => setPendingReports([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const dismissReport = (report) => {
+    setPendingReports(prev => prev.filter(r => r.period !== report.period));
+    workoutsAPI.dismissReport(report.period, report.period_start).catch(() => {});
+  };
 
   // The banner's own hasPendingSuggestion only refreshes on route change
   // (see the effect above) -- it never re-checks while the user just sits
@@ -234,6 +325,11 @@ export default function Dashboard() {
         </h2>
         <p className="text-text-mid mt-1">{dateLabel}</p>
       </div>
+
+      {/* Weekly/monthly workout reports */}
+      {pendingReports.map((report) => (
+        <WorkoutReportCard key={report.period} report={report} onDismiss={dismissReport} />
+      ))}
 
       {/* AI pending suggestion banner */}
       {hasPendingSuggestion && (

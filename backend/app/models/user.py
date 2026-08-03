@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import relationship
 
@@ -111,6 +111,13 @@ class UserProfile(Base):
     tdee = Column(Float)
     target_calories = Column(Float)
     theme_preference = Column(String, nullable=False, default="dark", server_default="dark")
+    # Date of the period's *start* (Sunday for weekly, 1st-of-month for
+    # monthly) last shown to the user, not a boolean -- lets /reports/pending
+    # compare directly against the most recently closed period without a
+    # separate "which period" lookup. NULL means never seen, so the first
+    # ever pending report always shows.
+    last_weekly_report_seen = Column(Date, nullable=True)
+    last_monthly_report_seen = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 

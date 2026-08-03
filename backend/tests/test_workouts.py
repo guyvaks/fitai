@@ -481,3 +481,91 @@ def test_session_detail_calories_computed_with_profile_weight(client, db_session
     response = client.get(f"/api/v1/workouts/sessions/{session['id']}/detail", headers=headers)
     assert response.json()["estimated_calories"] is not None
     assert response.json()["estimated_calories"] > 0
+
+
+def _complete_session_and_backdate(client, db_session, headers, session_id, completed_at):
+    client.post(f"/api/v1/workouts/sessions/{session_id}/complete", headers=headers)
+    row = db_session.query(WorkoutSession).filter(WorkoutSession.id == uuid.UUID(session_id)).first()
+    row.started_at = completed_at - datetime.timedelta(minutes=30)
+    row.completed_at = completed_at
+    db_session.commit()
+
+
+def test_pending_reports_empty_with_no_sessions(client):
+    headers = get_auth_headers(client)
+    response = client.get("/api/v1/workouts/reports/pending", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_pending_reports_excludes_current_week_session(client, db_session):
+    """A session completed today (this week, still in progress) must not
+    show up as a 'weekly report' -- only the most recently CLOSED week does."""
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press")
+    client.post(f"/api/v1/workouts/sessions/{session['id']}/complete", headers=headers)
+
+    response = client.get("/api/v1/workouts/reports/pending", headers=headers)
+    assert response.json() == []
+
+
+def test_pending_reports_includes_last_closed_week(client, db_session):
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press", weight_kg=60, reps=10)
+
+    today = datetime.date.today()
+    last_week_end = today - datetime.timedelta(days=(today.weekday() + 1) % 7 + 1)
+    last_week_completed_at = datetime.datetime.combine(
+        last_week_end, datetime.time(12, 0), tzinfo=datetime.timezone.utc
+    )
+    _complete_session_and_backdate(client, db_session, headers, session["id"], last_week_completed_at)
+
+    response = client.get("/api/v1/workouts/reports/pending", headers=headers)
+    assert response.status_code == 200
+    reports = response.json()
+    weekly = [r for r in reports if r["period"] == "weekly"]
+    assert len(weekly) == 1
+    assert weekly[0]["sessions_completed"] == 1
+    assert weekly[0]["total_volume_kg"] == 600.0
+
+
+def test_dismiss_report_removes_it_from_pending(client, db_session):
+    headers = get_auth_headers(client)
+    session = _create_plan_and_start_session(client, headers)
+    _complete_a_set(client, headers, session["id"], "Bench Press")
+
+    today = datetime.date.today()
+    last_week_end = today - datetime.timedelta(days=(today.weekday() + 1) % 7 + 1)
+    last_week_completed_at = datetime.datetime.combine(
+        last_week_end, datetime.time(12, 0), tzinfo=datetime.timezone.utc
+    )
+    _complete_session_and_backdate(client, db_session, headers, session["id"], last_week_completed_at)
+
+    reports = client.get("/api/v1/workouts/reports/pending", headers=headers).json()
+    weekly = next(r for r in reports if r["period"] == "weekly")
+
+    dismiss = client.post(
+        "/api/v1/workouts/reports/dismiss",
+        headers=headers,
+        json={"period": "weekly", "period_start": weekly["period_start"]},
+    )
+    assert dismiss.status_code == 200
+
+    reports_after = client.get("/api/v1/workouts/reports/pending", headers=headers).json()
+    assert [r for r in reports_after if r["period"] == "weekly"] == []
+
+
+def test_dismiss_report_invalid_period_rejected(client):
+    headers = get_auth_headers(client)
+    client.post("/api/v1/users/profile", headers=headers, json={
+        "age": 30, "gender": "male", "height_cm": 180, "weight_kg": 80,
+        "activity_level": "moderately_active", "goal": "muscle_gain", "meals_per_day": 4,
+    })
+    response = client.post(
+        "/api/v1/workouts/reports/dismiss",
+        headers=headers,
+        json={"period": "yearly", "period_start": str(datetime.date.today())},
+    )
+    assert response.status_code == 400

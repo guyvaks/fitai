@@ -7,6 +7,7 @@ import { isWebAuthnPlatformAvailable, runWebAuthnRegistration } from "../service
 import {
   Sun,
   Moon,
+  SunMoon,
   Dumbbell,
   User as UserIcon,
   Activity,
@@ -18,8 +19,15 @@ import {
   ChevronLeft,
   Languages,
   Fingerprint,
+  Shield,
   Trash2,
 } from "lucide-react";
+
+const SETTINGS_TABS = [
+  { id: "profile", label: "פרופיל", icon: UserIcon },
+  { id: "security", label: "אבטחה", icon: Shield },
+  { id: "notifications", label: "התראות", icon: Bell },
+];
 
 function SectionCard({ icon: Icon, title, children }) {
   return (
@@ -267,7 +275,8 @@ function ComingSoonCard({ icon: Icon, title, description }) {
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { themePreference, resolvedTheme, setThemePreference } = useTheme();
+  const [activeTab, setActiveTab] = useState("profile");
   const [restTimerOverride, setRestTimerOverride] = useState("");
   const [autoStartRest, setAutoStartRest] = useState(true);
   const [savingWorkoutPrefs, setSavingWorkoutPrefs] = useState(false);
@@ -328,125 +337,166 @@ export default function Settings() {
         <p className="text-text-mid mt-1">התאמה אישית של האפליקציה והחשבון שלך</p>
       </div>
 
-      <SectionCard icon={theme === "dark" ? Moon : Sun} title="מראה">
-        <div className="flex gap-2">
+      <div className="anim-rise flex gap-1.5 card-glass p-1.5">
+        {SETTINGS_TABS.map(({ id, label, icon: Icon }) => (
           <button
+            key={id}
             type="button"
-            onClick={() => toggleTheme("dark")}
-            className={`flex-1 py-2.5 rounded-elem text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${
-              theme === "dark" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 py-2 rounded-elem text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${
+              activeTab === id ? "bg-volt text-ink" : "text-text-mid hover:text-text-hi"
             }`}
           >
-            <Moon className="w-4 h-4" /> כהה
+            <Icon className="w-4 h-4" /> {label}
           </button>
-          <button
-            type="button"
-            onClick={() => toggleTheme("light")}
-            className={`flex-1 py-2.5 rounded-elem text-sm font-medium transition inline-flex items-center justify-center gap-1.5 ${
-              theme === "light" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
-            }`}
-          >
-            <Sun className="w-4 h-4" /> בהיר
-          </button>
-        </div>
-      </SectionCard>
+        ))}
+      </div>
 
-      <SectionCard icon={Languages} title="שפה">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-text-mid text-sm">שפה מועדפת</label>
-          <select
-            value={user?.preferred_language ?? "he"}
-            onChange={(e) => handleChangeLanguage(e.target.value)}
-            disabled={savingLanguage}
-            className="input-volt disabled:opacity-50"
-          >
-            <option value="he">עברית</option>
-            <option value="en">English</option>
-          </select>
-          <p className="text-text-low text-xs">
-            שינוי זה שומר את ההעדפה שלך בלבד — ממשק האפליקציה עדיין יוצג בעברית בשלב זה
-          </p>
-          {languageError && <p className="text-coral text-xs">{languageError}</p>}
-        </div>
-      </SectionCard>
+      {activeTab === "profile" && (
+        <>
+          <SectionCard icon={resolvedTheme === "dark" ? Moon : Sun} title="מראה">
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setThemePreference("dark")}
+                className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+                  themePreference === "dark" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5" /> כהה
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemePreference("light")}
+                className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+                  themePreference === "light" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5" /> בהיר
+              </button>
+              <button
+                type="button"
+                onClick={() => setThemePreference("auto")}
+                className={`flex-1 py-2 rounded-elem text-xs font-medium transition inline-flex items-center justify-center gap-1 ${
+                  themePreference === "auto" ? "bg-volt text-ink" : "bg-white/4 border border-line text-text-mid hover:text-text-hi"
+                }`}
+              >
+                <SunMoon className="w-3.5 h-3.5" /> אוטומטי
+              </button>
+            </div>
+          </SectionCard>
 
-      <SectionCard icon={Dumbbell} title="העדפות אימון">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-text-mid text-sm">זמן מנוחה ברירת מחדל (שניות)</label>
-          <input
-            type="number"
-            min="0"
-            placeholder="לפי התוכנית (ברירת מחדל)"
-            value={restTimerOverride}
-            onChange={(e) => setRestTimerOverride(e.target.value)}
-            className="input-volt"
-            dir="ltr"
-          />
-          <p className="text-text-low text-xs">השאר ריק כדי להשתמש בזמן המנוחה שמוגדר לכל תרגיל בתוכנית</p>
-        </div>
+          <SectionCard icon={Languages} title="שפה">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-text-mid text-sm">שפה מועדפת</label>
+              <select
+                value={user?.preferred_language ?? "he"}
+                onChange={(e) => handleChangeLanguage(e.target.value)}
+                disabled={savingLanguage}
+                className="input-volt disabled:opacity-50"
+              >
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+              </select>
+              <p className="text-text-low text-xs">
+                שינוי זה שומר את ההעדפה שלך בלבד — ממשק האפליקציה עדיין יוצג בעברית בשלב זה
+              </p>
+              {languageError && <p className="text-coral text-xs">{languageError}</p>}
+            </div>
+          </SectionCard>
 
-        <label className="flex items-center justify-between gap-3 cursor-pointer">
-          <span className="text-text-mid text-sm">התחלה אוטומטית של טיימר מנוחה</span>
-          <button
-            type="button"
-            onClick={() => setAutoStartRest((v) => !v)}
-            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoStartRest ? "bg-volt" : "bg-white/15"}`}
-          >
-            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoStartRest ? "right-0.5" : "right-5.5"}`} />
-          </button>
-        </label>
+          <SectionCard icon={Dumbbell} title="העדפות אימון">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-text-mid text-sm">זמן מנוחה ברירת מחדל (שניות)</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="לפי התוכנית (ברירת מחדל)"
+                value={restTimerOverride}
+                onChange={(e) => setRestTimerOverride(e.target.value)}
+                className="input-volt"
+                dir="ltr"
+              />
+              <p className="text-text-low text-xs">השאר ריק כדי להשתמש בזמן המנוחה שמוגדר לכל תרגיל בתוכנית</p>
+            </div>
 
-        <button
-          type="button"
-          onClick={handleSaveWorkoutPrefs}
-          disabled={savingWorkoutPrefs}
-          className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
-        >
-          {savingWorkoutPrefs && <Loader2 className="w-4 h-4 animate-spin" />}
-          {savingWorkoutPrefs ? "שומר..." : workoutPrefsSaved ? "נשמר ✓" : "שמור העדפות"}
-        </button>
-      </SectionCard>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span className="text-text-mid text-sm">התחלה אוטומטית של טיימר מנוחה</span>
+              <button
+                type="button"
+                onClick={() => setAutoStartRest((v) => !v)}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoStartRest ? "bg-volt" : "bg-white/15"}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoStartRest ? "right-0.5" : "right-5.5"}`} />
+              </button>
+            </label>
 
-      <SectionCard icon={UserIcon} title="חשבון">
-        <p className="text-text-hi text-sm font-medium" dir="auto">{user?.username}</p>
-        <p className="text-text-mid text-sm" dir="ltr">{user?.email}</p>
-        <div className="flex flex-col gap-1">
-          <NavLink
-            to="/profile"
-            className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
-          >
-            עריכת פרטים אישיים
-            <ChevronLeft className="w-4 h-4" />
-          </NavLink>
-          <NavLink
-            to="/metrics"
-            className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
-          >
-            <span className="inline-flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> ניתוח מדדים</span>
-            <ChevronLeft className="w-4 h-4" />
-          </NavLink>
-          <NavLink
-            to="/privacy-policy"
-            className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
-          >
-            מדיניות פרטיות
-            <ChevronLeft className="w-4 h-4" />
-          </NavLink>
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="w-full text-coral hover:text-coral/80 transition text-sm font-medium py-2.5 rounded-elem hover:bg-coral-soft inline-flex items-center justify-center gap-1.5"
-        >
-          <LogOut className="w-4 h-4" /> התנתקות
-        </button>
-      </SectionCard>
+            <button
+              type="button"
+              onClick={handleSaveWorkoutPrefs}
+              disabled={savingWorkoutPrefs}
+              className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
+            >
+              {savingWorkoutPrefs && <Loader2 className="w-4 h-4 animate-spin" />}
+              {savingWorkoutPrefs ? "שומר..." : workoutPrefsSaved ? "נשמר ✓" : "שמור העדפות"}
+            </button>
+          </SectionCard>
 
-      <WebAuthnSettings />
+          <SectionCard icon={UserIcon} title="חשבון">
+            <p className="text-text-hi text-sm font-medium" dir="auto">{user?.username}</p>
+            <p className="text-text-mid text-sm" dir="ltr">{user?.email}</p>
+            <div className="flex flex-col gap-1">
+              <NavLink
+                to="/profile"
+                className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
+              >
+                עריכת פרטים אישיים
+                <ChevronLeft className="w-4 h-4" />
+              </NavLink>
+              <NavLink
+                to="/metrics"
+                className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
+              >
+                <span className="inline-flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> ניתוח מדדים</span>
+                <ChevronLeft className="w-4 h-4" />
+              </NavLink>
+            </div>
+          </SectionCard>
+        </>
+      )}
 
-      {user?.is_admin && <AdminPushNotifications />}
+      {activeTab === "security" && (
+        <>
+          <WebAuthnSettings />
 
-      <ComingSoonCard icon={Bell} title="התראות" description="עדכונים על תוכניות ותזכורות אימון" />
+          <SectionCard icon={Shield} title="פרטיות וחשבון">
+            <div className="flex flex-col gap-1">
+              <NavLink
+                to="/privacy-policy"
+                className="flex items-center justify-between text-text-mid hover:text-volt transition py-2 text-sm"
+              >
+                מדיניות פרטיות
+                <ChevronLeft className="w-4 h-4" />
+              </NavLink>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="w-full text-coral hover:text-coral/80 transition text-sm font-medium py-2.5 rounded-elem hover:bg-coral-soft inline-flex items-center justify-center gap-1.5"
+            >
+              <LogOut className="w-4 h-4" /> התנתקות
+            </button>
+          </SectionCard>
+        </>
+      )}
+
+      {activeTab === "notifications" && (
+        <>
+          {user?.is_admin && <AdminPushNotifications />}
+          <ComingSoonCard icon={Bell} title="התראות" description="עדכונים על תוכניות ותזכורות אימון" />
+        </>
+      )}
+
       <ComingSoonCard icon={Download} title="ייצוא וגיבוי נתונים" description="הורדת כל הנתונים שלך כקובץ" />
       <ComingSoonCard icon={HelpCircle} title="עזרה ותמיכה" description="שאלות נפוצות ויצירת קשר" />
     </div>
