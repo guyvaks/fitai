@@ -73,47 +73,41 @@ function RestTimerBar({ restTimer, restActive, initialRest, skipRest, addTime })
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 bg-surface-2/95 backdrop-blur-xl border-t border-line-strong anim-rise">
-      <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3" dir="rtl">
-        <span className="text-text-mid text-xs font-medium shrink-0">זמן מנוחה</span>
-        <button
-          onClick={() => addTime(-15)}
-          className="bg-white/6 border border-line text-text-mid px-2.5 py-2 rounded-elem text-xs hover:text-text-hi hover:bg-white/10 transition min-h-[40px] tabular-nums shrink-0"
-          dir="ltr"
-        >
-          -15s
-        </button>
-
-        <div className="relative w-14 h-14 shrink-0">
-          <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
-            <circle
-              cx="28" cy="28" r="24" fill="none" stroke="#22D3EE" strokeWidth="4"
-              strokeLinecap="round"
-              strokeDasharray={2 * Math.PI * 24}
-              strokeDashoffset={2 * Math.PI * 24 * (1 - progress)}
-              style={{ transition: 'stroke-dashoffset 1s linear' }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-sm font-extrabold text-text-hi tabular-nums" dir="ltr">
-              {Math.floor(restTimer / 60)}:{String(restTimer % 60).padStart(2, '0')}
-            </span>
-          </div>
+      <div className="max-w-lg mx-auto" dir="rtl">
+        <div className="h-1.5 bg-white/10 overflow-hidden">
+          <div
+            className="h-full bg-volt origin-left"
+            style={{ width: '100%', transform: `scaleX(${progress})`, transition: 'transform 1s linear' }}
+          />
         </div>
 
-        <button
-          onClick={() => addTime(15)}
-          className="bg-white/6 border border-line text-text-mid px-2.5 py-2 rounded-elem text-xs hover:text-text-hi hover:bg-white/10 transition min-h-[40px] tabular-nums shrink-0"
-          dir="ltr"
-        >
-          +15s
-        </button>
-        <button
-          onClick={skipRest}
-          className="bg-cyan text-ink px-4 py-2 rounded-elem text-sm font-bold min-h-[40px] hover:brightness-105 active:scale-95 transition shrink-0 mr-auto"
-        >
-          דלג
-        </button>
+        <div className="px-4 py-3 flex items-center gap-3">
+          <button
+            onClick={() => addTime(-15)}
+            className="bg-white/6 border border-line text-text-mid px-3.5 py-2.5 rounded-[var(--radius-pill)] text-sm hover:text-text-hi hover:bg-white/10 transition min-h-[48px] tabular-nums shrink-0"
+            dir="ltr"
+          >
+            -15s
+          </button>
+
+          <span className="text-3xl font-extrabold text-text-hi tabular-nums flex-1 text-center" dir="ltr">
+            {Math.floor(restTimer / 60)}:{String(restTimer % 60).padStart(2, '0')}
+          </span>
+
+          <button
+            onClick={() => addTime(15)}
+            className="bg-white/6 border border-line text-text-mid px-3.5 py-2.5 rounded-[var(--radius-pill)] text-sm hover:text-text-hi hover:bg-white/10 transition min-h-[48px] tabular-nums shrink-0"
+            dir="ltr"
+          >
+            +15s
+          </button>
+          <button
+            onClick={skipRest}
+            className="bg-cyan text-ink px-4 py-2.5 rounded-[var(--radius-pill)] text-sm font-bold min-h-[48px] hover:brightness-105 active:scale-95 transition shrink-0"
+          >
+            דלג
+          </button>
+        </div>
       </div>
     </div>
   )
