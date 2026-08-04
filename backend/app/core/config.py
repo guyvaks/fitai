@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_AVATARS_BUCKET: str = "avatars"
+    # Exercise animation/thumbnail media (lifelike v3 reseed, 2026-08-04) --
+    # same Supabase project as avatars, but this bucket is public (generic
+    # exercise demo content, not user-specific), so URLs are built directly
+    # rather than via signed-URL redirects like avatar_storage does.
+    SUPABASE_EXERCISE_MEDIA_BUCKET: str = "exercise-media"
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds

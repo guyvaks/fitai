@@ -277,6 +277,18 @@ class ExerciseMaster(Base):
     equipment = Column(String, nullable=True, default="none")
     aliases = Column(JSON, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Lifelike v3 media reseed (2026-08-04, seed_exercises_master_v2.py).
+    # exercise_id is the natural upsert key from the CSV (a stable slug, e.g.
+    # "goblet-squat-dumbbell") -- nullable because pre-reseed rows never had
+    # one and matching against them relies on canonical_name_en instead.
+    exercise_id = Column(String, nullable=True, unique=True, index=True)
+    animation_template = Column(String, nullable=True)
+    # Storage object paths (relative, e.g. "animations/webp/<id>.webp"), not
+    # signed/public URLs -- resolved to an actual URL at read time the same
+    # way avatar_url is (see app/services/storage.py).
+    animation_webp_path = Column(String, nullable=True)
+    thumbnail_png_path = Column(String, nullable=True)
+    visual_group_id = Column(String, nullable=True)
 
 
 class FoodMaster(Base):
