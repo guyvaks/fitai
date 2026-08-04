@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { workoutsAPI } from '../services/api'
-import ExerciseSearch, { MUSCLE_GROUP_COLOR, MUSCLE_GROUPS } from '../components/ExerciseSearch'
+import ExerciseSearch from '../components/ExerciseSearch'
+import { MUSCLE_GROUP_COLOR, MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
 import { Dumbbell, Search, Type, Plus, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 
 const DAYS = [
@@ -14,7 +15,7 @@ const DAYS = [
   { key: 'saturday', label: 'שבת' },
 ]
 
-const FREE_MUSCLE_GROUPS = MUSCLE_GROUPS.filter(g => g !== 'כל הקבוצות')
+const FREE_MUSCLE_GROUPS = Object.values(MUSCLE_GROUP_LABELS)
 const DAY_KEYS = DAYS.map(d => d.key)
 
 // Two different exercise shapes can show up in plan_data, depending on

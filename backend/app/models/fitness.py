@@ -134,6 +134,10 @@ class ExerciseLog(Base):
     set_type = Column(String, nullable=False, default="normal", server_default="normal")
     completed = Column(Boolean, default=False)
     completed_at = Column(DateTime(timezone=True))
+    # Reps in Reserve -- how many more reps the user felt they could have
+    # done. Nullable: optional per set, most existing logged sets predate
+    # this field entirely.
+    rir = Column(Integer, nullable=True)
 
     session = relationship("WorkoutSession", back_populates="exercise_logs")
 
@@ -289,6 +293,12 @@ class ExerciseMaster(Base):
     animation_webp_path = Column(String, nullable=True)
     thumbnail_png_path = Column(String, nullable=True)
     visual_group_id = Column(String, nullable=True)
+    # Numbered form-cue strings for the Tips tab. Nullable/empty for every
+    # row on purpose -- populating real, accurate per-exercise coaching cues
+    # is a content-sourcing decision (manual authoring vs. AI-generated vs.
+    # licensed content), not something to invent here. The frontend shows a
+    # placeholder until this is populated for real.
+    tips = Column(JSON, nullable=True)
 
 
 class FoodMaster(Base):

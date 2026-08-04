@@ -62,6 +62,7 @@ def list_master_exercises(
             "visual_group_id": e.visual_group_id,
             "animation_webp_url": _public_media_url(e.animation_webp_path),
             "thumbnail_png_url": _public_media_url(e.thumbnail_png_path),
+            "tips": e.tips,
         }
         for e in exercises
     ]

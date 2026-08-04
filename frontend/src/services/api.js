@@ -87,6 +87,9 @@ export const workoutsAPI = {
   abandonSession: (sessionId) => api.delete(`/api/v1/workouts/sessions/${sessionId}`),
   getPersonalRecords: () => api.get('/api/v1/workouts/personal-records'),
   getExerciseMemory: (name) => api.get(`/api/v1/workouts/exercise-memory/${encodeURIComponent(name)}`),
+  getExerciseHistory: (name) => api.get(`/api/v1/workouts/exercise-history/${encodeURIComponent(name)}`),
+  getExerciseStats: (name, range = '3m') =>
+    api.get(`/api/v1/workouts/exercise-stats/${encodeURIComponent(name)}`, { params: { range } }),
   getVolumeHistory: () => api.get('/api/v1/workouts/volume-history'),
   getSessionsHistory: () => api.get('/api/v1/workouts/sessions/history'),
   getSessionDetail: (sessionId) => api.get(`/api/v1/workouts/sessions/${sessionId}/detail`),
@@ -111,6 +114,10 @@ export const foodsAPI = {
 
 export const exercisesAPI = {
   search: (q, muscle_group = '') => api.get('/api/v1/exercises/search', { params: { q, muscle_group } }),
+  // Full exercises_master catalog (384 canonical exercises with resolved
+  // animation/thumbnail URLs) -- distinct from `search` above, which still
+  // hits the small separate app/data/exercises.py autocomplete list.
+  getMaster: () => api.get('/api/v1/exercises/master'),
 }
 
 export const foodMasterAPI = {

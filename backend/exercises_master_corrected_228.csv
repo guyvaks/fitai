@@ -1,0 +1,229 @@
+canonical_name_en,canonical_name_he,category,muscle_group_primary,equipment,is_active
+Shrug (Smith Machine),הרמת כתפיים במכונת סמית׳,back,Traps,machine,True
+Single Arm Cable Crossover,קרוסאובר בכבל ביד אחת,chest,Chest,machine,True
+Single Arm Cable Row,חתירה בכבל ביד אחת,back,Upper Back,machine,True
+Single Arm Curl (Cable),כפיפת מרפק בכבל ביד אחת,arms,Biceps,machine,True
+Single Arm Lat Pulldown,משיכת פולי עליון ביד אחת,back,Lats,machine,True
+Single Arm Lateral Raise (Cable),הרחקת כתף לצד בכבל ביד אחת,shoulders,Shoulders,machine,True
+Single Arm Triceps Pushdown (Cable),פשיטת מרפק בכבל ביד אחת,arms,Triceps,machine,True
+Single Leg Extensions,פשיטת ברך במכונה ברגל אחת,legs,Quadriceps,machine,True
+Single Leg Press (Machine),לחיצת רגל במכונה (רגל אחת),legs,Quadriceps,machine,True
+Seated Chest Flys (Cable),פרפר חזה בישיבה בכבלים,chest,Chest,machine,True
+Seated Dip Machine,פשיטת מרפקים במכונת מקבילים בישיבה,arms,Triceps,machine,True
+Seated Leg Curl (Machine),כפיפת ברכיים בישיבה במכונה,legs,Hamstrings,machine,True
+Seated Row (Machine),חתירה בישיבה במכונה,back,Upper Back,machine,True
+Seated Shoulder Press (Machine),לחיצת כתפיים בישיבה במכונה,shoulders,Shoulders,machine,True
+Seated Triceps Press,לחיצת טרייספס בישיבה,arms,Triceps,machine,True
+Shoulder Press (Machine Plates),לחיצת כתפיים במכונה טעונת פלטות,shoulders,Shoulders,machine,True
+Shrug (Cable),הרמת כתפיים בכבל,back,Traps,machine,True
+Shrug (Machine),הרמת כתפיים במכונה,back,Traps,machine,True
+Reverse Grip Lat Pulldown (Cable),משיכת פולי עליון בכבל באחיזה הפוכה,back,Lats,machine,True
+Reverse Hyperextension,היפראקסטנשן הפוך,legs,Glutes,machine,True
+Rope Cable Curl,כפיפת מרפקים בכבל עם חבל,arms,Biceps,machine,True
+Rope Straight Arm Pulldown,משיכת פולי עליון בידיים ישרות עם חבל,back,Lats,machine,True
+Rowing Machine,מכשיר חתירה,cardio,Cardio,machine,True
+Seated Cable Row - Bar Grip,חתירה בישיבה בכבל באחיזת מוט,back,Upper Back,machine,True
+Seated Cable Row - Bar Wide Grip,חתירה בישיבה בכבל באחיזה רחבה,back,Upper Back,machine,True
+Seated Cable Row - V Grip (Cable),חתירה בישיבה בכבל באחיזת V,back,Upper Back,machine,True
+Seated Calf Raise,עליות עקב בישיבה,legs,Calves,machine,True
+Pull Up,מתח,back,Lats,machine,True
+Pull Up (Assisted),מתח בסיוע,back,Lats,machine,True
+Pull Up (Weighted),מתח עם משקל,back,Lats,machine,True
+Pullover (Machine),פולאובר במכונה,back,Lats,machine,True
+Rear Delt Reverse Fly (Cable),פרפר הפוך לכתף אחורית בכבל,shoulders,Shoulders,machine,True
+Rear Delt Reverse Fly (Machine),פרפר הפוך לכתף אחורית במכונה,shoulders,Shoulders,machine,True
+Rear Kick (Machine),בעיטת ישבן לאחור במכונה,legs,Glutes,machine,True
+Reverse Curl (Cable),כפיפת מרפקים באחיזה הפוכה בכבל,arms,Biceps,machine,True
+Reverse Fly Single Arm (Cable),פרפר הפוך בכבל ביד אחת,shoulders,Shoulders,machine,True
+Leg Raise Parallel Bars,הרמת רגליים במקבילים,core,Abdominals,machine,True
+Low Cable Fly Crossovers,קרוסאובר בכבלים מלמטה,chest,Chest,machine,True
+Lying Leg Curl (Machine),כפיפת ברכיים בשכיבה במכונה,legs,Hamstrings,machine,True
+Muscle Up,מאסל־אפ,full_body,Full Body,machine,True
+Overhead Curl (Cable),כפיפת מרפקים מעל הראש בכבל,arms,Biceps,machine,True
+Overhead Press (Smith Machine),לחיצת כתפיים מעל הראש במכונת סמית׳,shoulders,Shoulders,machine,True
+Overhead Triceps Extension (Cable),פשיטת מרפקים מעל הראש בכבל,arms,Triceps,machine,True
+Pendulum Squat (Machine),סקוואט מטוטלת במכונה,legs,Quadriceps,machine,True
+Preacher Curl (Machine),כפיפת מרפקים על ספסל כומר במכונה,arms,Biceps,machine,True
+Single Leg Standing Calf Raise (Machine),עליית עקב בעמידה על רגל אחת במכונה,legs,Calves,machine,True
+Ski Erg,מכשיר סקי ארגומטרי (SkiErg),cardio,Cardio,machine,True
+Squat (Machine),סקוואט במכונה,legs,Quadriceps,machine,True
+Squat (Smith Machine),סקוואט במכונת סמית׳,legs,Quadriceps,machine,True
+Squat Row,סקוואט עם חתירה,full_body,Full Body,machine,True
+Standing Cable Glute Kickbacks,בעיטת ישבן לאחור בעמידה בכבל,legs,Glutes,machine,True
+Standing Calf Raise (Machine),עליות עקב בעמידה במכונה,legs,Calves,machine,True
+Standing Calf Raise (Smith),עליות עקב בעמידה במכונת סמית׳,legs,Calves,machine,True
+Standing Leg Curls,כפיפת ברך בעמידה,legs,Hamstrings,machine,True
+Sternum Pull up (Gironda),מתח לחזה בסגנון ג׳ירונדה,back,Lats,machine,True
+Straight Arm Lat Pulldown (Cable),משיכת פולי עליון בכבל בידיים ישרות,back,Lats,machine,True
+Triceps Extension (Cable),פשיטת מרפקים בכבל,arms,Triceps,machine,True
+Triceps Extension (Machine),פשיטת מרפקים במכונה,arms,Triceps,machine,True
+Triceps Kickback (Cable),פשיטת מרפק לאחור בכבל,arms,Triceps,machine,True
+Triceps Pressdown,פשיטת מרפקים בפולי עליון,arms,Triceps,machine,True
+Triceps Pushdown,פשיטת מרפקים בכבל כלפי מטה,arms,Triceps,machine,True
+Triceps Rope Pushdown,פשיטת מרפקים בכבל עם חבל,arms,Triceps,machine,True
+Upright Row (Cable),חתירה אנכית בכבל,shoulders,Shoulders,machine,True
+Vertical Traction (Machine),משיכה אנכית במכונה,back,Lats,machine,True
+Wide Pull Up,מתח באחיזה רחבה,back,Lats,machine,True
+Wrist Roller,גלגלת לאמות ולשורש כף היד,arms,Forearms,machine,True
+Kneeling Pulldown (band),משיכת גומייה מלמעלה בכריעה,back,Lats,machine,True
+Lat Pulldown - Close Grip (Cable),משיכת פולי עליון בכבל באחיזה צרה,back,Lats,machine,True
+Lat Pulldown (Cable),משיכת פולי עליון בכבל,back,Lats,machine,True
+Lat Pulldown (Machine),משיכת פולי עליון במכונה,back,Lats,machine,True
+Lateral Raise (Cable),הרחקת כתפיים לצדדים בכבל,shoulders,Shoulders,machine,True
+Lateral Raise (Machine),הרחקת כתפיים לצדדים במכונה,shoulders,Shoulders,machine,True
+Leg Extension (Machine),פשיטת ברכיים במכונה,legs,Quadriceps,machine,True
+Leg Press (Machine),לחיצת רגליים במכונה,legs,Quadriceps,machine,True
+Leg Press Horizontal (Machine),לחיצת רגליים אופקית במכונה,legs,Quadriceps,machine,True
+Incline Bench Press (Smith Machine),לחיצת חזה בשיפוע חיובי במכונת סמית׳,chest,Chest,machine,True
+Incline Chest Press (Machine),לחיצת חזה בשיפוע חיובי במכונה,chest,Chest,machine,True
+Inverted Row,חתירה הפוכה,back,Upper Back,machine,True
+Iso-Lateral Chest Press (Machine),לחיצת חזה איזו־לטרלית במכונה,chest,Chest,machine,True
+Iso-Lateral High Row (Machine),חתירה גבוהה איזו־לטרלית במכונה,back,Lats,machine,True
+Iso-Lateral Low Row,חתירה נמוכה איזו־לטרלית,back,Upper Back,machine,True
+Iso-Lateral Row (Machine),חתירה איזו־לטרלית במכונה,back,Upper Back,machine,True
+Kipping Pull Up,מתח קיפינג,back,Lats,machine,True
+Knee Raise Parallel Bars,הרמת ברכיים במקבילים,core,Abdominals,machine,True
+Front Raise (Cable),הרמת ידיים לפנים בכבל,shoulders,Shoulders,machine,True
+Glute Kickback (Machine),בעיטת ישבן לאחור במכונה,legs,Glutes,machine,True
+Hack Squat (Machine),האק סקוואט במכונה,legs,Quadriceps,machine,True
+Hammer Curl (Cable),כפיפת מרפקים באחיזת פטיש בכבל,arms,Biceps,machine,True
+Hip Abduction (Machine),הרחקת ירכיים במכונה,legs,Abductors,machine,True
+Hip Adduction (Machine),קירוב ירכיים במכונה,legs,Adductors,machine,True
+Hip Thrust (Machine),היפ תראסט במכונה,legs,Glutes,machine,True
+Hip Thrust (Smith Machine),היפ תראסט במכונת סמית׳,legs,Glutes,machine,True
+Chin Up (Assisted),מתח באחיזה תחתית בסיוע,back,Lats,machine,True
+Chin Up (Weighted),מתח באחיזה תחתית עם משקל,back,Lats,machine,True
+Crunch (Machine),כפיפות בטן במכונה,core,Abdominals,machine,True
+Deadlift (Smith Machine),דדליפט במכונת סמית׳,legs,Glutes,machine,True
+Decline Bench Press (Machine),לחיצת חזה בשיפוע שלילי במכונה,chest,Chest,machine,True
+Decline Bench Press (Smith Machine),לחיצת חזה בשיפוע שלילי במכונת סמית׳,chest,Chest,machine,True
+Face Pull,משיכת חבל לפנים (פייס פול),shoulders,Shoulders,machine,True
+Cable Twist (Up to down),סיבוב גו בכבל מלמעלה למטה,core,Abdominals,machine,True
+Calf Extension (Machine),עליות עקב במכונה,legs,Calves,machine,True
+Calf Press (Machine),לחיצת תאומים במכונה,legs,Calves,machine,True
+Chest Dip,מקבילים בדגש חזה,chest,Chest,machine,True
+Chest Dip (Assisted),מקבילים בדגש חזה בסיוע,chest,Chest,machine,True
+Chest Dip (Weighted),מקבילים בדגש חזה עם משקל,chest,Chest,machine,True
+Chest Fly (Machine),פרפר חזה במכונה,chest,Chest,machine,True
+Chest Press (Machine),לחיצת חזה במכונה,chest,Chest,machine,True
+Chin Up,מתח באחיזה תחתית,back,Lats,machine,True
+Lying Neck Curls (Weighted),כפיפת צוואר בשכיבה עם משקל,neck,Neck,plate,True
+Lying Neck Extension (Weighted),פשיטת צוואר בשכיבה עם משקל,neck,Neck,plate,True
+Overhead Plate Raise,הרמת פלטה מעל הראש,shoulders,Shoulders,plate,True
+Plate Curl,כפיפת מרפקים עם פלטה,arms,Biceps,plate,True
+Plate Front Raise,הרמת פלטה לפנים,shoulders,Shoulders,plate,True
+Plate Press,לחיצת פלטה,chest,Chest,plate,True
+Plate Squeeze (Svend Press),לחיצת סוונד עם פלטות,chest,Chest,plate,True
+Ab Wheel,גלגלת בטן,core,Abdominals,other,True
+Bench Dip,מקבילים על ספסל,arms,Triceps,other,True
+Decline Push Up,שכיבות סמיכה בשיפוע שלילי,chest,Chest,other,True
+Ring Pull Up,מתח על טבעות,back,Lats,other,True
+Walking Lunge (Dumbbell),לאנג׳ הליכה עם משקולות יד,legs,Quadriceps,dumbbell,True
+Wide-Elbow Triceps Press (Dumbbell),לחיצת טרייספס במרפקים רחבים עם משקולות יד,arms,Triceps,dumbbell,True
+Zottman Curl (Dumbbell),כפיפת מרפקים זוטמן עם משקולות יד,arms,Biceps,dumbbell,True
+Spider Curl (Dumbbell),כפיפת מרפקים ספיידר עם משקולות יד,arms,Biceps,dumbbell,True
+Split Squat (Dumbbell),ספליט סקוואט עם משקולות יד,legs,Quadriceps,dumbbell,True
+Squat (Dumbbell),סקוואט עם משקולות יד,legs,Quadriceps,dumbbell,True
+Standing Calf Raise (Dumbbell),עליות עקב בעמידה עם משקולות יד,legs,Calves,dumbbell,True
+Sumo Squat (Dumbbell),סקוואט סומו עם משקולות יד,legs,Quadriceps,dumbbell,True
+Triceps Extension (Dumbbell),פשיטת מרפקים עם משקולות יד,arms,Triceps,dumbbell,True
+Triceps Kickback (Dumbbell),פשיטת מרפקים לאחור עם משקולות יד,arms,Triceps,dumbbell,True
+Upright Row (Dumbbell),חתירה אנכית עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Waiter Curl (Dumbbell),כפיפת מרפקים באחיזת מלצר עם משקולת יד,arms,Biceps,dumbbell,True
+Seated Palms Up Wrist Curl,"כפיפת שורש כף היד בישיבה, כפות ידיים כלפי מעלה",arms,Forearms,dumbbell,True
+Shoulder Press (Dumbbell),לחיצת כתפיים עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Shrug (Dumbbell),הרמת כתפיים עם משקולות יד,back,Traps,dumbbell,True
+Side Bend (Dumbbell),כפיפת גו לצד עם משקולת יד,core,Abdominals,dumbbell,True
+Single Arm Tricep Extension (Dumbbell),פשיטת מרפק ביד אחת עם משקולת יד,arms,Triceps,dumbbell,True
+Single Leg Hip Thrust (Dumbbell),היפ תראסט על רגל אחת עם משקולת יד,legs,Glutes,dumbbell,True
+Single Leg Romanian Deadlift (Dumbbell),דדליפט רומני על רגל אחת עם משקולות יד,legs,Hamstrings,dumbbell,True
+Single Leg Standing Calf Raise (Dumbbell),עליית עקב בעמידה על רגל אחת עם משקולת יד,legs,Calves,dumbbell,True
+Skullcrusher (Dumbbell),פשיטת מרפקים בשכיבה (סקאל קראשר) עם משקולות יד,arms,Triceps,dumbbell,True
+Rear Delt Reverse Fly (Dumbbell),פרפר הפוך לכתף אחורית עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Renegade Row (Dumbbell),חתירת רנגייד עם משקולות יד,back,Upper Back,dumbbell,True
+Reverse Curl (Dumbbell),כפיפת מרפקים באחיזה הפוכה עם משקולות יד,arms,Biceps,dumbbell,True
+Reverse Grip Concentration Curl,כפיפת מרפק בריכוז באחיזה הפוכה,arms,Biceps,dumbbell,True
+Reverse Lunge (Dumbbell),לאנג׳ לאחור עם משקולות יד,legs,Quadriceps,dumbbell,True
+Romanian Deadlift (Dumbbell),דדליפט רומני עם משקולות יד,legs,Hamstrings,dumbbell,True
+Seated Incline Curl (Dumbbell),כפיפת מרפקים בישיבה בשיפוע עם משקולות יד,arms,Biceps,dumbbell,True
+Seated Lateral Raise (Dumbbell),הרחקת כתפיים לצדדים בישיבה עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Seated Overhead Press (Dumbbell),לחיצת כתפיים מעל הראש בישיבה עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Incline Bench Press (Dumbbell),לחיצת חזה בשיפוע חיובי עם משקולות יד,chest,Chest,dumbbell,True
+Incline Chest Fly (Dumbbell),פרפר חזה בשיפוע חיובי עם משקולות יד,chest,Chest,dumbbell,True
+Lateral Raise (Dumbbell),הרחקת כתפיים לצדדים עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Lunge (Dumbbell),לאנג׳ עם משקולות יד,legs,Quadriceps,dumbbell,True
+Overhead Dumbbell Lunge,לאנג׳ עם משקולות יד מעל הראש,legs,Quadriceps,dumbbell,True
+Overhead Press (Dumbbell),לחיצת כתפיים מעל הראש עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Pinwheel Curl (Dumbbell),כפיפת מרפקים פינוויל עם משקולות יד,arms,Biceps,dumbbell,True
+Preacher Curl (Dumbbell),כפיפת מרפקים על ספסל כומר עם משקולות יד,arms,Biceps,dumbbell,True
+Pullover (Dumbbell),פולאובר עם משקולת יד,back,Lats,dumbbell,True
+Dumbbell Snatch,סנאץ׳ עם משקולת יד,full_body,Full Body,dumbbell,True
+Dumbbell Squeeze Press,לחיצת חזה בהצמדת משקולות יד,chest,Chest,dumbbell,True
+Dumbbell Step Up,עלייה למדרגה עם משקולות יד,legs,Quadriceps,dumbbell,True
+Floor Press (Dumbbell),לחיצת חזה בשכיבה על הרצפה עם משקולות יד,chest,Chest,dumbbell,True
+Frog Pumps (Dumbbell),לחיצות גשר צפרדע עם משקולת יד,legs,Glutes,dumbbell,True
+Front Raise (Dumbbell),הרמת משקולות יד לפנים,shoulders,Shoulders,dumbbell,True
+Hammer Curl (Dumbbell),כפיפת מרפקים באחיזת פטיש עם משקולות יד,arms,Biceps,dumbbell,True
+Hex Press (Dumbbell),לחיצת חזה בהצמדת משקולות (Hex Press),chest,Chest,dumbbell,True
+Chest Supported Reverse Fly (Dumbbell),פרפר הפוך בתמיכת חזה עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Chest Supported Y Raise (Dumbbell),הרמת ידיים לצורת Y בתמיכת חזה עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Concentration Curl,כפיפת מרפק בריכוז,arms,Biceps,dumbbell,True
+Cross Body Hammer Curl,כפיפת מרפק באחיזת פטיש לרוחב הגוף,arms,Biceps,dumbbell,True
+Curtsy Lunge (Dumbbell),לאנג׳ קידה עם משקולות יד,legs,Quadriceps,dumbbell,True
+Deadlift (Dumbbell),דדליפט עם משקולות יד,legs,Glutes,dumbbell,True
+Decline Bench Press (Dumbbell),לחיצת חזה בשיפוע שלילי עם משקולות יד,chest,Chest,dumbbell,True
+Decline Chest Fly (Dumbbell),פרפר חזה בשיפוע שלילי עם משקולות יד,chest,Chest,dumbbell,True
+Dumbbell Row,חתירה עם משקולת יד,back,Lats,dumbbell,True
+Arnold Press (Dumbbell),לחיצת ארנולד עם משקולות יד,shoulders,Shoulders,dumbbell,True
+Around The World,תנועת ״מסביב לעולם״ עם משקולות יד,chest,Chest,dumbbell,True
+Bench Press (Dumbbell),לחיצת חזה עם משקולות יד,chest,Chest,dumbbell,True
+Bent Over Row (Dumbbell),חתירה בכפיפה עם משקולות יד,back,Upper Back,dumbbell,True
+Bicep Curl (Dumbbell),כפיפת מרפקים עם משקולות יד,arms,Biceps,dumbbell,True
+Bulgarian Split Squat,ספליט סקוואט בולגרי,legs,Quadriceps,dumbbell,True
+Chest Fly (Dumbbell),פרפר חזה עם משקולות יד,chest,Chest,dumbbell,True
+Chest Supported Incline Row (Dumbbell),חתירה בשיפוע בתמיכת חזה עם משקולות יד,back,Upper Back,dumbbell,True
+Bench Press (Cable),לחיצת חזה בכבלים,chest,Chest,machine,True
+Bench Press (Smith Machine),לחיצת חזה במכונת סמית׳,chest,Chest,machine,True
+Bicep Curl (Cable),כפיפת מרפקים בכבל,arms,Biceps,machine,True
+Bicep Curl (Machine),כפיפת מרפקים במכונה,arms,Biceps,machine,True
+Butterfly (Pec Deck),פרפר חזה במכונת פק־דק,chest,Chest,machine,True
+Cable Core Pallof Press,לחיצת פאלוף בכבל,core,Abdominals,machine,True
+Cable Crunch,כפיפות בטן בכבל,core,Abdominals,machine,True
+Standing Military Press (Barbell),לחיצת כתפיים צבאית בעמידה עם מוט,shoulders,Shoulders,barbell,True
+Straight Leg Deadlift,דדליפט ברגליים ישרות,legs,Hamstrings,barbell,True
+Sumo Squat (Barbell),סקוואט סומו עם מוט,legs,Quadriceps,barbell,True
+T Bar Row,חתירת T-Bar,back,Upper Back,barbell,True
+Thruster (Barbell),ת׳ראסטר עם מוט,full_body,Full Body,barbell,True
+Triceps Extension (Barbell),פשיטת מרפקים עם מוט,arms,Triceps,barbell,True
+Upright Row (Barbell),חתירה אנכית עם מוט,shoulders,Shoulders,barbell,True
+Single Arm Landmine Press (Barbell),לחיצת לנדמיין ביד אחת עם מוט,shoulders,Shoulders,barbell,True
+Single Leg Romanian Deadlift (Barbell),דדליפט רומני על רגל אחת עם מוט,legs,Hamstrings,barbell,True
+Single Leg Standing Calf Raise (Barbell),עליית עקב בעמידה על רגל אחת עם מוט,legs,Calves,barbell,True
+Skullcrusher (Barbell),פשיטת מרפקים בשכיבה (סקאל קראשר) עם מוט,arms,Triceps,barbell,True
+Spider Curl (Barbell),כפיפת מרפקים ספיידר עם מוט,arms,Biceps,barbell,True
+Squat (Barbell),סקוואט עם מוט,legs,Quadriceps,barbell,True
+Standing Calf Raise (Barbell),עליות עקב בעמידה עם מוט,legs,Calves,barbell,True
+Reverse Curl (Barbell),כפיפת מרפקים באחיזה הפוכה עם מוט,arms,Biceps,barbell,True
+Reverse Lunge (Barbell),לאנג׳ לאחור עם מוט,legs,Quadriceps,barbell,True
+Romanian Deadlift (Barbell),דדליפט רומני עם מוט,legs,Hamstrings,barbell,True
+Seated Overhead Press (Barbell),לחיצת כתפיים מעל הראש בישיבה עם מוט,shoulders,Shoulders,barbell,True
+Seated Wrist Extension (Barbell),פשיטת שורש כף היד בישיבה עם מוט,arms,Forearms,barbell,True
+Shrug (Barbell),הרמת כתפיים עם מוט,back,Traps,barbell,True
+Lying Knee Raise,הרמת ברכיים בשכיבה,core,Abdominals,none,True
+Lying Leg Raise,הרמת רגליים בשכיבה,core,Abdominals,none,True
+Lying Neck Curls,כפיפת צוואר בשכיבה,neck,Neck,none,True
+Lying Neck Extension,פשיטת צוואר בשכיבה,neck,Neck,none,True
+Negative Pull Up,מתח שלילי,back,Lats,none,True
+Nordic Hamstrings Curls,כפיפות ברך נורדיות,legs,Hamstrings,none,True
+Oblique Crunch,כפיפות בטן אלכסוניות,core,Abdominals,none,True
+One Arm Push Up,שכיבת סמיכה ביד אחת,chest,Chest,none,True
+Pike Pushup,שכיבות סמיכה פייק,shoulders,Shoulders,none,True
+Plank,פלאנק,core,Abdominals,none,True
+Plank Pushup,מעבר מפלאנק לשכיבת סמיכה,chest,Chest,none,True
+Push Up,שכיבות סמיכה,chest,Chest,none,True
+Push Up - Close Grip,שכיבות סמיכה באחיזה צרה,chest,Chest,none,True
+Push Up (Weighted),שכיבות סמיכה עם משקל,chest,Chest,none,True
+Reverse Crunch,כפיפות בטן הפוכות,core,Abdominals,none,True
+Sit Up (Weighted),עליות בטן עם משקל,core,Abdominals,none,True
+Squat (Bodyweight),סקוואט במשקל גוף,legs,Quadriceps,none,True
+V Up,כפיפות בטן V,core,Abdominals,none,True
