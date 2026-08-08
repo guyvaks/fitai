@@ -958,6 +958,7 @@ export default function LiveWorkout() {
           name={currentExercise.name}
           animationWebpUrl={currentExerciseMedia.animation_webp_url}
           thumbnailPngUrl={currentExerciseMedia.thumbnail_png_url}
+          videoMp4Url={currentExerciseMedia.video_mp4_url}
           tips={currentExerciseMedia.tips}
           onClose={() => setShowAnimation(false)}
         />

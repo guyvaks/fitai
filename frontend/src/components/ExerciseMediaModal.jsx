@@ -26,6 +26,36 @@ function CrossfadeCanvas({ src, playing }) {
   return <canvas ref={canvasRef} className="w-full h-64 object-contain" />
 }
 
+// Pilot: single-exercise MP4 support (2026-08-08, triceps-rope-pushdown
+// only -- see exercises_master.video_mp4_path). Autoplay/loop/mute with no
+// native controls; the existing demo-tab pause button still works by
+// driving the <video> element directly. onError hands back to the caller
+// so it can fall back to the existing webp/image path.
+function VideoDemo({ src, poster, playing, onError }) {
+  const videoRef = useRef(null)
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    if (playing) el.play().catch(() => {})
+    else el.pause()
+  }, [playing])
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      onError={onError}
+      className="w-full h-64 object-contain"
+    />
+  )
+}
+
 function formatDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -190,10 +220,12 @@ function HistoryPanel({ name }) {
   )
 }
 
-export default function ExerciseMediaModal({ name, animationWebpUrl, thumbnailPngUrl, tips, onClose }) {
+export default function ExerciseMediaModal({ name, animationWebpUrl, thumbnailPngUrl, videoMp4Url, tips, onClose }) {
   const [playing, setPlaying] = useState(true)
   const [tab, setTab] = useState('demo') // 'demo' | 'tips' | 'history'
+  const [videoFailed, setVideoFailed] = useState(false)
   const supportsImageDecoder = typeof window !== 'undefined' && 'ImageDecoder' in window
+  const showVideo = !!videoMp4Url && !videoFailed
 
   return (
     <div
@@ -234,7 +266,14 @@ export default function ExerciseMediaModal({ name, animationWebpUrl, thumbnailPn
         {tab === 'demo' ? (
           <>
             <div className="rounded-elem overflow-hidden bg-white/4">
-              {supportsImageDecoder ? (
+              {showVideo ? (
+                <VideoDemo
+                  src={videoMp4Url}
+                  poster={thumbnailPngUrl}
+                  playing={playing}
+                  onError={() => setVideoFailed(true)}
+                />
+              ) : supportsImageDecoder ? (
                 <CrossfadeCanvas src={animationWebpUrl} playing={playing} />
               ) : (
                 // Fallback: native <img> at real (unslowed, hard-cut) speed --

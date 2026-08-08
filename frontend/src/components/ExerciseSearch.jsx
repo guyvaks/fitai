@@ -224,6 +224,7 @@ export default function ExerciseSearch({ onSelect, addedNames }) {
           name={previewExercise.canonical_name_he}
           animationWebpUrl={previewExercise.animation_webp_url}
           thumbnailPngUrl={previewExercise.thumbnail_png_url}
+          videoMp4Url={previewExercise.video_mp4_url}
           tips={previewExercise.tips}
           onClose={() => setPreviewExercise(null)}
         />

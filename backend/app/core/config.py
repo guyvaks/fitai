@@ -27,7 +27,12 @@ _ALLOWED_DEV_DB_INTERNAL_SUFFIX = ".railway.internal"
 ALLOWED_DEV_DB_HOSTS = {
     ("localhost", 5432),
     ("127.0.0.1", 5432),
-    ("reseau.proxy.rlwy.net", 58448),  # staging (public proxy, used from a local machine)
+    # staging DB, moved from Railway Postgres to Supabase Postgres 2026-08-07
+    # (see Obsidian vault note "2026-08-07-db-migration-railway-to-supabase").
+    # Production is unaffected -- it's still on postgres.railway.internal,
+    # covered by the internal-suffix check above, not this set.
+    ("aws-1-ap-northeast-1.pooler.supabase.com", 5432),  # staging (Supabase Session Pooler)
+    ("reseau.proxy.rlwy.net", 58448),  # pre-cutover Railway Postgres, now orphaned/rollback-only
 }
 
 

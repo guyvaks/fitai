@@ -293,6 +293,10 @@ class ExerciseMaster(Base):
     animation_webp_path = Column(String, nullable=True)
     thumbnail_png_path = Column(String, nullable=True)
     visual_group_id = Column(String, nullable=True)
+    # Single-exercise MP4 pilot (2026-08-08) -- populated for exactly one row
+    # (triceps-rope-pushdown) to validate video playback before any bulk
+    # migration off the WebP animation pipeline. NULL for every other row.
+    video_mp4_path = Column(String, nullable=True)
     # Numbered form-cue strings for the Tips tab. Nullable/empty for every
     # row on purpose -- populating real, accurate per-exercise coaching cues
     # is a content-sourcing decision (manual authoring vs. AI-generated vs.
