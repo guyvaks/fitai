@@ -22,6 +22,11 @@ import AISuggestion from "./pages/AISuggestion";
 import Progress from "./pages/Progress";
 import Admin from "./pages/Admin";
 import Settings from "./pages/Settings";
+// Dev-only QA gallery for the exercises_master lifelike-v3 reseed --
+// lazy-loaded and gated on import.meta.env.DEV so this chunk is never
+// fetched by a real user regardless.
+import { Suspense, lazy } from "react";
+const ExerciseMediaGallery = lazy(() => import("./dev/ExerciseMediaGallery"));
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -73,6 +78,18 @@ export default function App() {
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/callback/spotify" element={<SpotifyCallback />} />
+        {import.meta.env.DEV && (
+          <Route
+            path="/dev/exercise-media"
+            element={
+              <ProtectedRoute>
+                <Suspense fallback={<p>Loading gallery…</p>}>
+                  <ExerciseMediaGallery />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+        )}
         <Route
           path="/"
           element={

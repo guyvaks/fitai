@@ -81,7 +81,7 @@ export function useWorkoutSession() {
     setRestTimer(t => t + seconds)
   }, [])
 
-  const completeSet = useCallback(async (sessionId, exerciseIdx, setIdx, weightKg, reps, restSeconds, exerciseName, setType = 'normal', autoStartRest = true) => {
+  const completeSet = useCallback(async (sessionId, exerciseIdx, setIdx, weightKg, reps, restSeconds, exerciseName, setType = 'normal', autoStartRest = true, rir = null) => {
     setSaving(true)
     try {
       const { data } = await api.patch(`/api/v1/workouts/sessions/${sessionId}/set-complete`, {
@@ -91,6 +91,7 @@ export function useWorkoutSession() {
         reps: reps,
         exercise_name: exerciseName,
         set_type: setType,
+        rir: rir,
       })
       setSession(data)
       if (autoStartRest) startRestTimer(restSeconds)
@@ -98,6 +99,18 @@ export function useWorkoutSession() {
       setSaving(false)
     }
   }, [startRestTimer])
+
+  const uncompleteSet = useCallback(async (sessionId, exerciseIdx, setIdx, exerciseName) => {
+    setSaving(true)
+    try {
+      const { data } = await api.delete(`/api/v1/workouts/sessions/${sessionId}/set-complete`, {
+        params: { exercise_index: exerciseIdx, set_index: setIdx, exercise_name: exerciseName },
+      })
+      setSession(data)
+    } finally {
+      setSaving(false)
+    }
+  }, [])
 
   const startSession = useCallback(async (dayOfWeek) => {
     const { data } = await api.post(`/api/v1/workouts/sessions/start?day_of_week=${dayOfWeek}`)
@@ -117,6 +130,6 @@ export function useWorkoutSession() {
     restTimer, restActive,
     saving,
     startRestTimer, skipRest, addTime,
-    completeSet, startSession, completeSession,
+    completeSet, uncompleteSet, startSession, completeSession,
   }
 }

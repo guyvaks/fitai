@@ -27,7 +27,12 @@ _ALLOWED_DEV_DB_INTERNAL_SUFFIX = ".railway.internal"
 ALLOWED_DEV_DB_HOSTS = {
     ("localhost", 5432),
     ("127.0.0.1", 5432),
-    ("reseau.proxy.rlwy.net", 58448),  # staging (public proxy, used from a local machine)
+    # staging DB, moved from Railway Postgres to Supabase Postgres 2026-08-07
+    # (see Obsidian vault note "2026-08-07-db-migration-railway-to-supabase").
+    # Production is unaffected -- it's still on postgres.railway.internal,
+    # covered by the internal-suffix check above, not this set.
+    ("aws-1-ap-northeast-1.pooler.supabase.com", 5432),  # staging (Supabase Session Pooler)
+    ("reseau.proxy.rlwy.net", 58448),  # pre-cutover Railway Postgres, now orphaned/rollback-only
 }
 
 
@@ -91,6 +96,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_AVATARS_BUCKET: str = "avatars"
+    # Exercise animation/thumbnail media (lifelike v3 reseed, 2026-08-04) --
+    # same Supabase project as avatars, but this bucket is public (generic
+    # exercise demo content, not user-specific), so URLs are built directly
+    # rather than via signed-URL redirects like avatar_storage does.
+    SUPABASE_EXERCISE_MEDIA_BUCKET: str = "exercise-media"
 
     class Config:
         # .env holds safe placeholder defaults (committed-safe); .env.local holds

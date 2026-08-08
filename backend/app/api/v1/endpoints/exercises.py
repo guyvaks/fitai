@@ -5,6 +5,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.auth import get_current_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.data.exercises import search_exercises
 from app.models.fitness import ExerciseMaster
@@ -13,6 +14,12 @@ from app.schemas.exercises import ExerciseSuggestionCreate
 from app.services.push_notifications import send_push_to_admins
 
 router = APIRouter()
+
+
+def _public_media_url(path: str | None) -> str | None:
+    if not path:
+        return None
+    return f"{settings.SUPABASE_URL}/storage/v1/object/public/{settings.SUPABASE_EXERCISE_MEDIA_BUCKET}/{path}"
 
 
 @router.get("/search")
@@ -26,6 +33,40 @@ def search(
     # list the workout-generation AI agent is constrained to (see
     # app.services.crew_agents.get_canonical_exercises).
     return search_exercises(q, muscle_group)
+
+
+@router.get("/master")
+def list_master_exercises(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Full exercises_master listing with resolved public media URLs, for the
+    dev-only exercise-media gallery (see frontend/src/dev/ExerciseMediaGallery)
+    used to spot-check the lifelike-v3 reseed before it goes to production."""
+    exercises = (
+        db.query(ExerciseMaster)
+        .filter(ExerciseMaster.is_active.is_(True))
+        .order_by(ExerciseMaster.canonical_name_he)
+        .all()
+    )
+    return [
+        {
+            "id": str(e.id),
+            "exercise_id": e.exercise_id,
+            "canonical_name_he": e.canonical_name_he,
+            "canonical_name_en": e.canonical_name_en,
+            "category": e.category,
+            "muscle_group_primary": e.muscle_group_primary,
+            "equipment": e.equipment,
+            "animation_template": e.animation_template,
+            "visual_group_id": e.visual_group_id,
+            "animation_webp_url": _public_media_url(e.animation_webp_path),
+            "thumbnail_png_url": _public_media_url(e.thumbnail_png_path),
+            "video_mp4_url": _public_media_url(e.video_mp4_path),
+            "tips": e.tips,
+        }
+        for e in exercises
+    ]
 
 
 @router.post("/suggest", status_code=status.HTTP_201_CREATED)

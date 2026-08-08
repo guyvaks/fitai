@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { workoutsAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
+import { useExerciseMasterMedia } from '../hooks/useExerciseMasterMedia'
 import { Bot, Loader2, Dumbbell, Pencil, Play, Check, CheckCircle2, Moon, Inbox, ChevronLeft } from 'lucide-react'
 
 const DAYS = [
@@ -49,6 +50,7 @@ function getWeekDates() {
 
 export default function Workouts() {
   const navigate = useNavigate()
+  const { byNameHe: exerciseMediaByName } = useExerciseMasterMedia()
   const [plan, setPlan] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeDay, setActiveDayState] = useState(() => {
@@ -355,16 +357,26 @@ export default function Workouts() {
             </button>
           </div>
           <div className="space-y-2">
-            {getDayExercises(activeDay).map((ex, i) => (
+            {getDayExercises(activeDay).map((ex, i) => {
+              const media = exerciseMediaByName.get(ex.name)
+              return (
               <button
                 key={i}
                 type="button"
                 onClick={() => navigate(`/workouts/manual-builder?day=${activeDay}`)}
                 className="card-glass card-hover p-3 flex items-center gap-3 w-full text-right"
               >
-                <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
-                  <Dumbbell className="w-5 h-5" />
-                </span>
+                {media?.thumbnail_png_url ? (
+                  <img
+                    src={media.thumbnail_png_url}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/6"
+                  />
+                ) : (
+                  <span className="w-10 h-10 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
+                    <Dumbbell className="w-5 h-5" />
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-text-hi text-sm">{ex.name}</p>
                   <p className="text-text-mid text-xs">{ex.muscle_group}{ex.notes ? ` · ${ex.notes}` : ''}</p>
@@ -385,7 +397,8 @@ export default function Workouts() {
                     "tap for detail" visual affordance honest. */}
                 <ChevronLeft className="w-4 h-4 text-text-mid shrink-0" />
               </button>
-            ))}
+              )
+            })}
           </div>
 
           {/* Promo banner */}

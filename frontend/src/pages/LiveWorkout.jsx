@@ -3,17 +3,20 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useWorkoutSession } from '../hooks/useWorkoutSession'
 import { workoutsAPI } from '../services/api'
 import api from '../services/api'
-import ExerciseSearch, { MUSCLE_GROUPS } from '../components/ExerciseSearch'
+import ExerciseSearch from '../components/ExerciseSearch'
+import { MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
+import ExerciseMediaModal from '../components/ExerciseMediaModal'
+import { useExerciseMasterMedia } from '../hooks/useExerciseMasterMedia'
 import spotifyIconGreen from '../assets/spotify-icon-green.svg'
 import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer'
 import { startAuth, isConnected, disconnect as disconnectSpotify } from '../services/spotifyAuth'
 import {
   Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft,
-  Clock, StickyNote, Plus, X, Search, Type, Settings, Flame,
+  Clock, StickyNote, Plus, X, Search, Type, Settings,
   Music, Play, Pause, SkipBack, SkipForward, Unlink,
 } from 'lucide-react'
 
-const FREE_MUSCLE_GROUPS = MUSCLE_GROUPS.filter(g => g !== 'כל הקבוצות')
+const FREE_MUSCLE_GROUPS = Object.values(MUSCLE_GROUP_LABELS)
 
 // Manually-built plans store `sets` as an array of per-set {weight_kg, reps}
 // targets; AI-generated plans still store a flat `sets: <count>` with one
@@ -215,24 +218,28 @@ export default function LiveWorkout() {
     restTimer, restActive,
     saving,
     skipRest, addTime,
-    completeSet, startSession, completeSession,
+    completeSet, uncompleteSet, startSession, completeSession,
   } = useWorkoutSession()
 
   const [loading, setLoading] = useState(true)
-  const [weightInput, setWeightInput] = useState('')
-  const [repsInput, setRepsInput] = useState('')
+  // Per-row draft weight/reps/failure-flag, keyed by `${exerciseIdx}_${setIdx}`
+  // -- replaces the old single weightInput/repsInput bound only to "the
+  // current set". Every not-yet-completed row is independently editable now
+  // (Hevy-style), not just one active row at a time.
+  const [setDrafts, setSetDrafts] = useState({})
   const [initialRest, setInitialRest] = useState(90)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [completedKeys, setCompletedKeys] = useState({})
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [notes, setNotes] = useState({}) // { [exerciseIdx]: string } — session-local only
-  const [previousData, setPreviousData] = useState(null) // { last_weight_kg, last_reps } for currentExercise.name
+  const [previousSets, setPreviousSets] = useState([]) // [{set_number, weight_kg, reps}] for currentExercise.name, most recent other session
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [addExerciseMode, setAddExerciseMode] = useState('search')
   const [freeExName, setFreeExName] = useState('')
   const [freeExMuscleGroup, setFreeExMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
-  const [isFailureCurrent, setIsFailureCurrent] = useState(false)
+  const [showAnimation, setShowAnimation] = useState(false)
+  const { byNameHe: exerciseMediaByName } = useExerciseMasterMedia()
   const [showSettings, setShowSettings] = useState(false)
   const [restTimerOverride, setRestTimerOverride] = useState('') // seconds, empty = use plan default
   const [autoStartRest, setAutoStartRest] = useState(true)
@@ -286,19 +293,6 @@ export default function LiveWorkout() {
     init()
   }, [day])
 
-  // Sync weight/reps inputs with the current set's target — from the per-set
-  // targets array when the exercise came from a manually-built plan, else the
-  // flat per-exercise default (same for every set, as before).
-  useEffect(() => {
-    const ex = exercises[currentExerciseIdx]
-    if (ex) {
-      const target = ex._setTargets?.[currentSetIdx]
-      setWeightInput(String((target ? target.weight_kg : ex.weight_kg) || ''))
-      setRepsInput(String((target ? target.reps : ex.reps) || ''))
-    }
-    setIsFailureCurrent(false)
-  }, [currentExerciseIdx, currentSetIdx, exercises])
-
   // Elapsed workout duration, counting up from session start
   useEffect(() => {
     if (!session?.started_at) return
@@ -309,49 +303,91 @@ export default function LiveWorkout() {
     return () => clearInterval(interval)
   }, [session?.started_at])
 
-  // "Previous" reference (last time this exercise was logged) — per exercise, not per set
+  // "Previous" reference -- per-set breakdown of the most recent other
+  // session that logged this exercise, e.g. set 2 shows what set 2 was
+  // last time (not one repeated aggregate value across every row).
   useEffect(() => {
     const ex = exercises[currentExerciseIdx]
     if (!ex) return
     let cancelled = false
-    setPreviousData(null)
-    workoutsAPI.getExerciseMemory(ex.name)
-      .then(({ data }) => { if (!cancelled) setPreviousData(data) })
-      .catch(() => { if (!cancelled) setPreviousData(null) })
+    setPreviousSets([])
+    workoutsAPI.getExerciseHistory(ex.name)
+      .then(({ data }) => { if (!cancelled) setPreviousSets(data?.sets || []) })
+      .catch(() => { if (!cancelled) setPreviousSets([]) })
     return () => { cancelled = true }
   }, [currentExerciseIdx, exercises])
 
   const currentExercise = exercises[currentExerciseIdx]
   const totalExercises = exercises.length
+  // Match by exact canonical_name_he -- reliable for AI-generated plans
+  // (constrained to exercises_master), absent (no thumbnail shown, by
+  // design) for manually-typed/free-text exercise names that don't match.
+  const currentExerciseMedia = currentExercise ? exerciseMediaByName.get(currentExercise.name) : null
 
   const isSetCompleted = (exIdx, setIdx) => {
     const key = `${exIdx}_${setIdx}`
     return !!completedKeys[key]
   }
 
-  const handleCompleteSet = async () => {
+  // Default draft values for a not-yet-touched row: prefer last session's
+  // same-set-number weight/reps (previousSets), then this plan's per-set
+  // target, then the exercise's flat default.
+  const getSetDraft = (exIdx, setIdx, ex) => {
+    const key = `${exIdx}_${setIdx}`
+    if (setDrafts[key]) return setDrafts[key]
+    const prev = previousSets.find(s => s.set_number === setIdx + 1)
+    const target = ex._setTargets?.[setIdx]
+    const weight = prev?.weight_kg ?? target?.weight_kg ?? ex.weight_kg ?? 0
+    const reps = prev?.reps ?? target?.reps ?? ex.reps ?? 0
+    const rir = prev?.rir
+    return { weight: weight ? String(weight) : '', reps: reps ? String(reps) : '', rir: rir != null ? String(rir) : '', failure: false }
+  }
+
+  const updateSetDraft = (exIdx, setIdx, ex, patch) => {
+    const key = `${exIdx}_${setIdx}`
+    setSetDrafts(prev => ({ ...prev, [key]: { ...getSetDraft(exIdx, setIdx, ex), ...patch } }))
+  }
+
+  const handleToggleFailureDraft = (exIdx, setIdx, ex) => {
+    const draft = getSetDraft(exIdx, setIdx, ex)
+    updateSetDraft(exIdx, setIdx, ex, { failure: !draft.failure })
+  }
+
+  // Checkmark toggle per row -- completes (using that row's own draft
+  // values) or undoes that specific set, independent of every other row.
+  // Replaces the old single-active-row wizard (one global input + one
+  // "השלם תרגיל" button advancing a currentSetIdx pointer).
+  const handleToggleSet = async (setIdx) => {
     if (!currentExercise) return
-    const weight = parseFloat(weightInput) || 0
-    const reps = parseInt(repsInput) || 0
+    const done = isSetCompleted(currentExerciseIdx, setIdx)
+    const key = `${currentExerciseIdx}_${setIdx}`
+
+    if (done) {
+      setCompletedKeys(prev => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+      if (session) {
+        await uncompleteSet(session.id, currentExerciseIdx, setIdx, currentExercise.name)
+      }
+      return
+    }
+
+    const draft = getSetDraft(currentExerciseIdx, setIdx, currentExercise)
+    const weight = parseFloat(draft.weight) || 0
+    const reps = parseInt(draft.reps) || 0
     if (weight < 0 || reps < 0) return
+    const rir = draft.rir !== '' && draft.rir != null ? parseInt(draft.rir) : null
     const restOverride = parseInt(restTimerOverride)
     const rest = Number.isFinite(restOverride) && restOverride > 0 ? restOverride : (currentExercise.rest_seconds || 90)
     setInitialRest(rest)
-    const setType = isFailureCurrent ? 'failure' : 'normal'
+    const setType = draft.failure ? 'failure' : 'normal'
 
-    const key = `${currentExerciseIdx}_${currentSetIdx}`
-    setCompletedKeys(prev => ({ ...prev, [key]: { weight_kg: weight, reps, completed: true, set_type: setType } }))
+    setCompletedKeys(prev => ({ ...prev, [key]: { weight_kg: weight, reps, rir, completed: true, set_type: setType } }))
 
     if (session) {
-      await completeSet(session.id, currentExerciseIdx, currentSetIdx, weight, reps, rest, currentExercise.name, setType, autoStartRest)
-    }
-
-    // Advance set index
-    const nextSet = currentSetIdx + 1
-    if (nextSet >= currentExercise.sets) {
-      setCurrentSetIdx(0)
-    } else {
-      setCurrentSetIdx(nextSet)
+      await completeSet(session.id, currentExerciseIdx, setIdx, weight, reps, rest, currentExercise.name, setType, autoStartRest, rir)
     }
   }
 
@@ -528,9 +564,23 @@ export default function LiveWorkout() {
 
       {/* Exercise card */}
       <div className="card-glass p-6 space-y-5 anim-rise anim-d1">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-text-hi">{currentExercise.name}</h2>
-          <span className="inline-flex items-center gap-1 bg-violet-soft text-violet text-xs font-semibold px-2 py-0.5 rounded-full mt-2">
+        <div className="flex items-center gap-2.5">
+          {currentExerciseMedia && (
+            <button
+              type="button"
+              onClick={() => setShowAnimation(true)}
+              className="shrink-0 rounded-lg overflow-hidden w-9 h-9 border border-volt/40 hover:border-volt transition"
+              aria-label="הצג הדגמת תרגיל"
+            >
+              <img
+                src={currentExerciseMedia.thumbnail_png_url}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </button>
+          )}
+          <h2 className="text-xl font-extrabold text-text-hi truncate flex-1 min-w-0">{currentExercise.name}</h2>
+          <span className="shrink-0 inline-flex items-center gap-1 bg-violet-soft text-violet text-xs font-semibold px-2 py-0.5 rounded-full">
             <span className="opacity-70">סט</span> <span dir="ltr" className="tabular-nums">{currentSetIdx + 1}/{currentExercise.sets}</span>
           </span>
         </div>
@@ -547,97 +597,139 @@ export default function LiveWorkout() {
           />
         </div>
 
-        {/* Mark the current set as a failure attempt — does not affect the
-            "previous" reference for next time, unlike a normal set */}
-        <button
-          type="button"
-          onClick={() => setIsFailureCurrent(v => !v)}
-          className={`w-full py-2 rounded-elem text-xs font-medium border transition inline-flex items-center justify-center gap-1.5 ${
-            isFailureCurrent
-              ? 'bg-orange-soft border-orange/40 text-orange'
-              : 'bg-white/4 border-line text-text-mid hover:text-text-hi'
-          }`}
-        >
-          <Flame className="w-3.5 h-3.5" /> {isFailureCurrent ? 'סומן ככשל (F)' : 'סמן סט זה ככשל (F)'}
-        </button>
-
-        {/* Sets table */}
+        {/* Sets table -- each not-yet-done row has its own always-editable
+            weight/reps inputs (no single "current" row concept anymore) and
+            its own checkmark (complete/undo) + F (failure) toggle, matching
+            the Hevy-style reference instead of the old single-active-row
+            wizard + one "השלם תרגיל" button. */}
         <div className="space-y-2">
-          {/* Unequal columns (not grid-cols-5's equal 1/5 split) -- סט and
-              בוצע only ever hold a 1-2 digit number or a small badge, so
-              giving משקל/חזרות more of the row's width is what actually lets
-              a realistic 3-digit decimal like 999.9 render without being
-              visually clipped inside its own box (same min-w-0 class of fix
-              as eebc011, but that alone doesn't help when the track itself
-              is too narrow to begin with). קודם is read-only reference data,
-              free to truncate. */}
-          <div className="grid grid-cols-[1.6rem_1fr_1.3fr_1.3fr_2rem] gap-1 text-center text-xs text-text-mid px-2">
+          {/* Unequal columns -- סט/✓ only ever hold a 1-2 digit number or a
+              small badge, so ק"ג/חזרות get more of the row's width (a
+              realistic 3-digit decimal like 999.9 needs it, same min-w-0
+              fix as eebc011). קודם is read-only reference data, free to
+              truncate. Last column widened vs the old 2rem to fit both the
+              checkmark and the F toggle side by side on not-done rows. */}
+          <div className="grid grid-cols-[1.6rem_1fr_1fr_1fr_2.6rem] gap-1 text-center text-xs text-text-mid px-2">
             <span>סט</span>
             <span>קודם</span>
-            <span>משקל</span>
+            <span>ק"ג</span>
             <span>חזרות</span>
-            <span>בוצע</span>
+            <span>✓</span>
           </div>
-          {Array.from({ length: currentExercise.sets }).map((_, i) => {
-            const done = isSetCompleted(currentExerciseIdx, i)
-            const isCurrent = i === currentSetIdx && !done
-            const completedData = completedKeys[`${currentExerciseIdx}_${i}`]
-            return (
-              <div
-                key={i}
-                onClick={() => { if (!done) setCurrentSetIdx(i) }}
-                className={`grid grid-cols-[1.6rem_1fr_1.3fr_1.3fr_2rem] gap-1 items-center rounded-xl border-2 py-2 px-2 cursor-pointer transition-all ${
-                  done
-                    ? 'bg-volt-soft border-volt/25'
-                    : isCurrent
-                    ? 'bg-white/4 border-volt'
-                    : 'bg-white/4 border-transparent'
-                }`}
-              >
-                <span className={`min-w-0 text-center font-medium tabular-nums ${isCurrent ? 'text-volt' : 'text-text-mid'}`}>{i + 1}</span>
-                <span className="min-w-0 truncate text-center text-text-low text-xs tabular-nums" dir="ltr">
-                  {previousData?.last_weight_kg ? `${previousData.last_weight_kg}kg x ${previousData.last_reps}` : '—'}
-                </span>
-                {isCurrent ? (
-                  <input
-                    type="number"
-                    min="0"
-                    value={weightInput}
-                    onChange={e => setWeightInput(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
-                  />
-                ) : (
-                  <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? `${completedData.weight_kg}kg` : '-'}</span>
-                )}
-                {isCurrent ? (
-                  <input
-                    type="number"
-                    min="0"
-                    value={repsInput}
-                    onChange={e => setRepsInput(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                    className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
-                  />
-                ) : (
-                  <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">{done ? completedData.reps : '-'}</span>
-                )}
-                <span className="min-w-0 flex justify-center">
-                  {done && completedData.set_type === 'failure' ? (
-                    <span key="failure" className="w-6 h-6 rounded-full flex items-center justify-center bg-orange text-ink text-[10px] font-extrabold anim-pop" title="כשל">
-                      F
-                    </span>
-                  ) : done ? (
-                    <span key="done" className="w-6 h-6 rounded-full flex items-center justify-center bg-volt text-ink anim-pop">
-                      <Check className="w-3.5 h-3.5" strokeWidth={3} />
+          {(() => {
+            const firstIncompleteIdx = Array.from({ length: currentExercise.sets })
+              .findIndex((_, i) => !isSetCompleted(currentExerciseIdx, i))
+            return Array.from({ length: currentExercise.sets }).map((_, i) => {
+              const done = isSetCompleted(currentExerciseIdx, i)
+              const isNext = i === firstIncompleteIdx
+              const completedData = completedKeys[`${currentExerciseIdx}_${i}`]
+              const draft = getSetDraft(currentExerciseIdx, i, currentExercise)
+              const prevForSet = previousSets.find(s => s.set_number === i + 1)
+              return (
+                <div
+                  key={i}
+                  className={`grid grid-cols-[1.6rem_1fr_1fr_1fr_2.6rem] gap-1 items-center rounded-xl border-2 py-2 px-2 transition-all ${
+                    done
+                      ? 'bg-volt-soft border-volt/25'
+                      : isNext
+                      ? 'bg-white/4 border-volt'
+                      : 'bg-white/4 border-transparent'
+                  }`}
+                >
+                  <span className={`min-w-0 text-center font-medium tabular-nums ${isNext ? 'text-volt' : 'text-text-mid'}`}>{i + 1}</span>
+                  <span className="min-w-0 truncate text-center text-text-low text-xs tabular-nums" dir="ltr">
+                    {prevForSet
+                      ? `${prevForSet.weight_kg}kg x ${prevForSet.reps}${prevForSet.rir != null ? ` @ ${prevForSet.rir}` : ''}`
+                      : '—'}
+                  </span>
+                  {done ? (
+                    <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">{completedData.weight_kg}kg</span>
+                  ) : (
+                    <input
+                      type="number"
+                      min="0"
+                      value={draft.weight}
+                      onChange={e => updateSetDraft(currentExerciseIdx, i, currentExercise, { weight: e.target.value })}
+                      className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
+                    />
+                  )}
+                  {done ? (
+                    <span className="min-w-0 truncate text-center font-bold text-text-hi tabular-nums" dir="ltr">
+                      {completedData.reps}{completedData.rir != null ? <span className="text-text-mid font-normal"> @ {completedData.rir}</span> : null}
                     </span>
                   ) : (
-                    <span className="w-6 h-6 rounded-full border-2 border-line-strong" />
+                    // RIR folded into the same cell as REPS ("10 @ 2") rather
+                    // than a 6th always-visible column -- the row is already
+                    // tight on a 430px frame with 5 columns.
+                    <div className="flex items-center gap-0.5 min-w-0" dir="ltr">
+                      <input
+                        type="number"
+                        min="0"
+                        value={draft.reps}
+                        onChange={e => updateSetDraft(currentExerciseIdx, i, currentExercise, { reps: e.target.value })}
+                        className="w-0 flex-1 min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
+                        title="חזרות"
+                      />
+                      <span className="text-text-mid text-xs shrink-0">@</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={draft.rir}
+                        onChange={e => updateSetDraft(currentExerciseIdx, i, currentExercise, { rir: e.target.value })}
+                        placeholder="RIR"
+                        className="w-8 shrink-0 min-w-0 bg-white/6 border border-line-strong rounded-elem px-0.5 py-1 text-text-hi text-center text-xs font-bold focus:outline-none focus:border-volt/60"
+                        title="חזרות בכיס (RIR)"
+                      />
+                    </div>
                   )}
-                </span>
-              </div>
-            )
-          })}
+                  <span className="min-w-0 flex items-center justify-center gap-1">
+                    {done ? (
+                      completedData.set_type === 'failure' ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSet(i)}
+                          className="w-6 h-6 rounded-full flex items-center justify-center bg-orange text-ink text-[10px] font-extrabold anim-pop"
+                          title="כשל — לחץ לביטול"
+                        >
+                          F
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSet(i)}
+                          className="w-6 h-6 rounded-full flex items-center justify-center bg-volt text-ink anim-pop"
+                          title="בוצע — לחץ לביטול"
+                        >
+                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        </button>
+                      )
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFailureDraft(currentExerciseIdx, i, currentExercise)}
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-extrabold border-2 transition ${
+                            draft.failure ? 'bg-orange text-ink border-orange' : 'border-line-strong text-text-mid hover:text-orange hover:border-orange/50'
+                          }`}
+                          title="סמן ככשל"
+                        >
+                          F
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSet(i)}
+                          className="w-6 h-6 rounded-full border-2 border-line-strong hover:border-volt hover:bg-volt-soft transition flex items-center justify-center text-text-mid hover:text-volt"
+                          title="סמן כבוצע"
+                        >
+                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </div>
+              )
+            })
+          })()}
         </div>
 
         <button
@@ -645,16 +737,6 @@ export default function LiveWorkout() {
           className="w-full py-2 rounded-elem text-xs font-medium border border-volt/40 text-volt hover:bg-volt-soft transition inline-flex items-center justify-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" /> הוסף סט
-        </button>
-
-        {/* Complete set button */}
-        <button
-          onClick={handleCompleteSet}
-          disabled={saving}
-          className="btn-volt btn-pill w-full py-4 text-lg min-h-[56px] flex items-center justify-center gap-2"
-        >
-          {saving && <Loader2 className="w-5 h-5 animate-spin" />}
-          {saving ? 'שומר...' : 'השלם תרגיל'}
         </button>
 
         {saving && (
@@ -870,6 +952,17 @@ export default function LiveWorkout() {
         skipRest={skipRest}
         addTime={addTime}
       />
+
+      {showAnimation && currentExerciseMedia && (
+        <ExerciseMediaModal
+          name={currentExercise.name}
+          animationWebpUrl={currentExerciseMedia.animation_webp_url}
+          thumbnailPngUrl={currentExerciseMedia.thumbnail_png_url}
+          videoMp4Url={currentExerciseMedia.video_mp4_url}
+          tips={currentExerciseMedia.tips}
+          onClose={() => setShowAnimation(false)}
+        />
+      )}
     </div>
   )
 }
