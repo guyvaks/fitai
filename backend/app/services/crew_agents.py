@@ -387,11 +387,33 @@ def validate_workout_exercises(result: dict) -> list:
 
 _WORKOUT_EXERCISE_FIELD_SPECS = {
     "sets": (1, 20),
-    "reps": (1, 100),
     "weight_kg": (0, 500),
     "rest_seconds": (0, 600),
 }
 _WORKOUT_DAY_TYPES = {"strength", "cardio", "rest"}
+_REPS_BOUNDS = (1, 100)
+
+
+def _validate_reps_range(reps) -> list:
+    """reps is normally {"min": N, "max": M} (rep-ranges), but a plain number
+    is still accepted here too -- lenient backward compat in case the LLM
+    reverts to the old single-number habit despite the prompt now asking for
+    a range; the guardrail's job is to catch genuinely broken output, not to
+    enforce the exact shape the prompt requests. Returns violation strings,
+    empty means valid."""
+    lo, hi = _REPS_BOUNDS
+    if isinstance(reps, dict):
+        rmin, rmax = reps.get("min"), reps.get("max")
+        violations = []
+        for label, val in (("min", rmin), ("max", rmax)):
+            if not isinstance(val, (int, float)) or isinstance(val, bool) or not (lo <= val <= hi):
+                violations.append(f"reps.{label}={val!r} (מותר {lo}-{hi})")
+        if not violations and rmin > rmax:
+            violations.append(f"reps.min({rmin}) > reps.max({rmax})")
+        return violations
+    if isinstance(reps, (int, float)) and not isinstance(reps, bool) and lo <= reps <= hi:
+        return []
+    return [f"reps={reps!r} לא תקין (צפוי {{'min','max'}} או מספר {lo}-{hi})"]
 
 
 def validate_workout_plan_guardrails(result: dict, allowed_names: set) -> list:
@@ -433,6 +455,7 @@ def validate_workout_plan_guardrails(result: dict, allowed_names: set) -> list:
 
             field_violations = _validate_numeric_fields(ex, _WORKOUT_EXERCISE_FIELD_SPECS)
             violations.extend(f"{day}/{name}: {v}" for v in field_violations)
+            violations.extend(f"{day}/{name}: {v}" for v in _validate_reps_range(ex.get("reps")))
 
     return violations
 
@@ -461,6 +484,7 @@ def build_workout_task(agent, profile: dict, memory: dict, allowed_exercises: Op
 - תרגילים שנדלגו: {', '.join(skipped_ex) if skipped_ex else 'לא צוין'}
 - לכל יום אימון (לא מנוחה) — עד 6 תרגילים בלבד, הערות (notes) קצרות עד 8 מילים. שמור על JSON קומפקטי כדי שהתשובה לא תיחתך.
 - תרגילי משקל-גוף (מתח, שכיבות סמיכה, פלאנק וכו') — weight_kg: 0 הוא ערך תקין ונכון, לא שגיאה.
+- reps הוא תמיד טווח, לא מספר בודד: אובייקט {{"min": X, "max": Y}}, למשל {{"min": 8, "max": 12}}. X חייב להיות קטן-או-שווה ל-Y.
 
 החזר אך ורק את ה-JSON הבא — ללא הסבר, ללא markdown, ללא ```json:
 {{
@@ -473,7 +497,7 @@ def build_workout_task(agent, profile: dict, memory: dict, allowed_exercises: Op
           "name": "שם תרגיל בעברית",
           "muscle_group": "קבוצת שריר",
           "sets": 4,
-          "reps": 10,
+          "reps": {{"min": 8, "max": 12}},
           "weight_kg": 60,
           "rest_seconds": 90,
           "notes": "הערות"

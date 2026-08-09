@@ -530,6 +530,44 @@ def test_validate_workout_plan_guardrails_missing_plan_key():
     assert crew_agents.validate_workout_plan_guardrails({"error": "no output"}, set()) != []
 
 
+# ─── Rep ranges (9.8.2026) — reps: {"min", "max"} instead of a plain number ─
+
+def test_validate_workout_plan_guardrails_accepts_reps_range():
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["reps"] = {"min": 8, "max": 12}
+    assert crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES) == []
+
+
+def test_validate_workout_plan_guardrails_still_accepts_plain_number_reps():
+    """Backward-compat leniency at the guardrail layer itself: the AI prompt
+    now always asks for a range, but a plain number must still be accepted
+    (not rejected/retried) in case the LLM reverts to the old habit --
+    sane_workout_plan() already uses plain numbers, this just makes the
+    intent explicit."""
+    assert crew_agents.validate_workout_plan_guardrails(sane_workout_plan(), _ALLOWED_WORKOUT_NAMES) == []
+
+
+def test_validate_workout_plan_guardrails_rejects_reps_min_greater_than_max():
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["reps"] = {"min": 12, "max": 8}
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("reps.min" in v and "reps.max" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_rejects_reps_range_out_of_bounds():
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["reps"] = {"min": 1, "max": 500}
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("reps.max" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_rejects_missing_reps():
+    plan = sane_workout_plan()
+    del plan["workout_plan"]["sunday"]["exercises"][0]["reps"]
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("reps" in v for v in violations)
+
+
 def sane_nutrition_plan():
     meal = {
         "meal_type": "breakfast", "name": "ארוחת בוקר",

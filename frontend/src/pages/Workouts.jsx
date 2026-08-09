@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { workoutsAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
 import { useExerciseMasterMedia } from '../hooks/useExerciseMasterMedia'
+import { normalizeReps, formatReps } from '../utils/repsRange'
 import { Bot, Loader2, Dumbbell, Pencil, Play, Check, CheckCircle2, Moon, Inbox, ChevronLeft } from 'lucide-react'
 
 const DAYS = [
@@ -22,11 +23,14 @@ const ACTIVE_DAY_STORAGE_KEY = 'fitai_workouts_active_day'
 // with a single `reps` target applied to all sets. Support both display shapes.
 function formatSetsReps(ex) {
   if (Array.isArray(ex.sets)) {
-    const repsValues = ex.sets.map(s => s.reps)
-    const allSameReps = repsValues.every(r => r === repsValues[0])
-    return allSameReps ? `${ex.sets.length} x ${repsValues[0]}` : `${ex.sets.length} סטים (${Math.min(...repsValues)}-${Math.max(...repsValues)})`
+    const ranges = ex.sets.map(s => normalizeReps(s.reps))
+    const overallMin = Math.min(...ranges.map(r => r.min))
+    const overallMax = Math.max(...ranges.map(r => r.max))
+    return overallMin === overallMax
+      ? `${ex.sets.length} x ${overallMin}`
+      : `${ex.sets.length} סטים (${overallMin}-${overallMax})`
   }
-  return `${ex.sets} x ${ex.reps}`
+  return `${ex.sets} x ${formatReps(ex.reps)}`
 }
 
 function lastSetWeight(ex) {

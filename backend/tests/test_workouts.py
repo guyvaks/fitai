@@ -46,6 +46,58 @@ def test_create_manual_plan_success(client):
     assert len(data["plan_data"]["sunday"]["exercises"][0]["sets"]) == 2
 
 
+# ─── Rep ranges (9.8.2026) — reps: {"min", "max"} instead of a plain number ─
+
+def test_create_manual_plan_accepts_reps_range(client):
+    headers = get_auth_headers(client)
+    payload = {
+        "week": {
+            "sunday": [
+                {
+                    "name": "Bench Press",
+                    "muscle_group": "chest",
+                    "notes": None,
+                    "sets": [{"weight_kg": 60, "reps": {"min": 8, "max": 12}}],
+                }
+            ]
+        }
+    }
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=payload)
+    assert response.status_code == 200
+    stored_set = response.json()["plan_data"]["sunday"]["exercises"][0]["sets"][0]
+    assert stored_set["reps"] == {"min": 8, "max": 12}
+
+
+def test_create_manual_plan_still_accepts_plain_number_reps(client):
+    """Backward compat at the write path too, not just read: a plain number
+    (old-shape caller, or a stale frontend bundle mid-rollout) must still be
+    accepted, not rejected -- stored exactly as sent, same as MANUAL_PLAN_PAYLOAD
+    already exercises implicitly in test_create_manual_plan_success."""
+    headers = get_auth_headers(client)
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=MANUAL_PLAN_PAYLOAD)
+    assert response.status_code == 200
+    stored_set = response.json()["plan_data"]["sunday"]["exercises"][0]["sets"][0]
+    assert stored_set["reps"] == 10
+
+
+def test_create_manual_plan_rejects_reps_range_with_min_greater_than_max(client):
+    headers = get_auth_headers(client)
+    payload = {
+        "week": {
+            "sunday": [
+                {
+                    "name": "Bench Press",
+                    "muscle_group": "chest",
+                    "notes": None,
+                    "sets": [{"weight_kg": 60, "reps": {"min": 12, "max": 8}}],
+                }
+            ]
+        }
+    }
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=payload)
+    assert response.status_code == 422
+
+
 def test_create_manual_plan_unauthenticated(client):
     response = client.post("/api/v1/workouts/plan/manual", json=MANUAL_PLAN_PAYLOAD)
     assert response.status_code == 401
