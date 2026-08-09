@@ -62,6 +62,11 @@ def _build_profile_dict(profile) -> dict:
         "equipment": profile.equipment,
         "meals_per_day": profile.meals_per_day,
         "activity_level": profile.activity_level,
+        # Existing rest-timer preference (Settings.jsx / LiveWorkout's own
+        # settings modal, both write workout_preferences.rest_timer_seconds)
+        # -- forwarded as a hint for the workout agent's own rest_seconds
+        # choice per exercise, not previously passed to the crew at all.
+        "default_rest_seconds": (profile.workout_preferences or {}).get("rest_timer_seconds"),
     }
 
 

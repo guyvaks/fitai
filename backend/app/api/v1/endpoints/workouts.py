@@ -63,6 +63,10 @@ class ManualWorkoutExercise(BaseModel):
     muscle_group: str = ""
     notes: Optional[str] = None
     sets: List[ManualWorkoutSet]
+    # Exercise-level (not per-set) -- matches the AI-generated exercise shape's
+    # single rest_seconds field. Default 90 matches ExerciseUpdate's existing
+    # default and LiveWorkout.jsx's `currentExercise.rest_seconds || 90` fallback.
+    rest_seconds: int = Field(90, ge=0, le=600)
 
 class ManualWorkoutPlanCreate(BaseModel):
     # keyed by day_of_week (sunday..saturday) -> list of exercises for that day
@@ -104,6 +108,7 @@ def create_manual_workout_plan(
                 "muscle_group": ex.muscle_group,
                 "notes": ex.notes,
                 "sets": [s.model_dump() for s in ex.sets],
+                "rest_seconds": ex.rest_seconds,
             })
         # Always record the day, even with zero exercises -- an explicitly
         # empty day (a real rest day, or one the user cleared) must override

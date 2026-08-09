@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { workoutsAPI } from '../services/api'
+import api from '../services/api'
 import ExerciseSearch from '../components/ExerciseSearch'
 import { MUSCLE_GROUP_COLOR, MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
 import { normalizeReps } from '../utils/repsRange'
@@ -21,24 +22,26 @@ const DAY_KEYS = DAYS.map(d => d.key)
 
 // Two different exercise shapes can show up in plan_data, depending on
 // origin: AI-generated exercises store a `sets` COUNT plus a single
-// exercise-level reps/weight_kg pair (uniform across all sets) and a
-// rest_seconds field; manually-built exercises store `sets` as an array of
-// independently-editable {weight_kg, reps} rows and have no rest_seconds
-// concept at all. Detect which shape we got (Array.isArray(ex.sets) is
-// enough) and expand the AI shape into N identical editable rows --
-// rest_seconds is intentionally dropped, there's no manual-plan field for
-// it. Passing an already-manual exercise through just re-shapes it
-// defensively (matches the pre-existing behavior).
+// exercise-level reps/weight_kg pair (uniform across all sets); manually-built
+// exercises store `sets` as an array of independently-editable {weight_kg, reps}
+// rows. Both shapes now carry an exercise-level rest_seconds (AI always did;
+// manual plans gained it alongside this default-rest-time feature) -- if a
+// loaded exercise predates that and has none, fall back to the user's current
+// default preference rather than a hardcoded number. Detect which shape we
+// got (Array.isArray(ex.sets) is enough) and expand the AI shape into N
+// identical editable rows. Passing an already-manual exercise through just
+// re-shapes it defensively (matches the pre-existing behavior).
 // Edit-state sets carry reps as separate reps_min/reps_max fields (not the
 // stored {min,max} object) so each is its own bindable <input> -- normalizeReps
 // collapses whatever shape came from plan_data (range object, or a plain
 // number from an old plan) into one consistent {min,max} pair here.
-function normaliseExerciseForEditing(ex) {
+function normaliseExerciseForEditing(ex, defaultRest = 90) {
   if (Array.isArray(ex.sets)) {
     return {
       name: ex.name,
       muscle_group: ex.muscle_group || '',
       notes: ex.notes ?? null,
+      rest_seconds: ex.rest_seconds ?? defaultRest,
       sets: ex.sets.map(s => {
         const { min, max } = normalizeReps(s.reps)
         return { weight_kg: s.weight_kg ?? 0, reps_min: min, reps_max: max }
@@ -52,11 +55,12 @@ function normaliseExerciseForEditing(ex) {
     name: ex.name,
     muscle_group: ex.muscle_group || '',
     notes: ex.notes ?? null,
+    rest_seconds: ex.rest_seconds ?? defaultRest,
     sets: Array.from({ length: setCount }, () => ({ weight_kg, reps_min: min, reps_max: max })),
   }
 }
 
-function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, onMove, canMoveUp, canMoveDown }) {
+function ExerciseCard({ exercise, onUpdateSet, onUpdateRest, onAddSet, onRemoveSet, onRemove, onMove, canMoveUp, canMoveDown }) {
   return (
     <div className="card-glass p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -84,6 +88,21 @@ function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, 
             <X className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Exercise-level (not per-set) rest time -- pre-filled from the
+          user's default rest-time preference (Settings), freely editable
+          per exercise. */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-text-mid">מנוחה בין סטים</span>
+        <input
+          type="number"
+          min="0"
+          value={exercise.rest_seconds}
+          onChange={e => onUpdateRest(e.target.value)}
+          className="w-16 bg-white/6 border border-line-strong rounded-elem px-2 py-1 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
+        />
+        <span className="text-xs text-text-mid">שנ'</span>
       </div>
 
       {/* Sets table */}
@@ -156,7 +175,12 @@ export default function ManualWorkoutBuilder() {
   const [searchParams] = useSearchParams()
   const initialDay = searchParams.get('day')
   const [activeDay, setActiveDay] = useState(DAY_KEYS.includes(initialDay) ? initialDay : 'sunday')
-  const [week, setWeek] = useState({}) // { [day]: [{ name, muscle_group, notes, sets: [{weight_kg, reps_min, reps_max}] }] } -- edit state; saved as reps: {min, max}
+  const [week, setWeek] = useState({}) // { [day]: [{ name, muscle_group, notes, rest_seconds, sets: [{weight_kg, reps_min, reps_max}] }] } -- edit state; saved as reps: {min, max}
+  // User's default rest-time preference (Settings.jsx / LiveWorkout's own
+  // settings modal, both write workout_preferences.rest_timer_seconds) --
+  // used to pre-fill rest_seconds for a newly-added exercise, and as the
+  // fallback when loading an existing exercise that predates this field.
+  const [defaultRestSeconds, setDefaultRestSeconds] = useState(90)
   const [addMode, setAddMode] = useState('search') // 'search' | 'free'
   const [freeName, setFreeName] = useState('')
   const [freeMuscleGroup, setFreeMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
@@ -173,6 +197,20 @@ export default function ManualWorkoutBuilder() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      // Load the rest-time default first so it's available for
+      // normaliseExerciseForEditing below -- an existing exercise with no
+      // rest_seconds should fall back to the user's real preference, not a
+      // hardcoded number that might get overwritten a moment later.
+      let restDefault = 90
+      try {
+        const { data } = await api.get('/api/v1/users/profile')
+        const prefRest = data?.workout_preferences?.rest_timer_seconds
+        if (prefRest != null) restDefault = prefRest
+      } catch (e) {
+        // no profile yet / not loaded -- keep the 90s fallback
+      }
+      if (!cancelled) setDefaultRestSeconds(restDefault)
+
       try {
         const { data } = await workoutsAPI.getPlan()
         const planData = data?.plan_data || {}
@@ -180,7 +218,7 @@ export default function ManualWorkoutBuilder() {
         for (const day of DAY_KEYS) {
           const dayData = planData[day] ?? planData.workout_plan?.[day]
           const exercises = dayData?.exercises || []
-          loaded[day] = exercises.map(normaliseExerciseForEditing)
+          loaded[day] = exercises.map(ex => normaliseExerciseForEditing(ex, restDefault))
         }
         if (!cancelled) setWeek(loaded)
       } catch (e) {
@@ -197,7 +235,7 @@ export default function ManualWorkoutBuilder() {
   const addExerciseToDay = (exercise) => {
     setWeek(w => ({
       ...w,
-      [activeDay]: [...(w[activeDay] || []), { ...exercise, sets: [{ weight_kg: 0, reps_min: 8, reps_max: 12 }] }],
+      [activeDay]: [...(w[activeDay] || []), { ...exercise, rest_seconds: defaultRestSeconds, sets: [{ weight_kg: 0, reps_min: 8, reps_max: 12 }] }],
     }))
   }
 
@@ -222,6 +260,13 @@ export default function ManualWorkoutBuilder() {
       sets[setIdx] = { ...sets[setIdx], [field]: value }
       ex.sets = sets
       exs[exIdx] = ex
+      return exs
+    })
+  }
+
+  const handleUpdateRest = (exIdx, value) => {
+    updateDayExercises(exs => {
+      exs[exIdx] = { ...exs[exIdx], rest_seconds: value }
       return exs
     })
   }
@@ -281,6 +326,7 @@ export default function ManualWorkoutBuilder() {
           name: e.name,
           muscle_group: e.muscle_group || '',
           notes: e.notes || null,
+          rest_seconds: Math.max(0, parseInt(e.rest_seconds) || 0),
           sets: e.sets.map(s => {
             const min = Math.max(1, parseInt(s.reps_min) || 1)
             const max = Math.max(min, parseInt(s.reps_max) || min)
@@ -406,6 +452,7 @@ export default function ManualWorkoutBuilder() {
               key={i}
               exercise={ex}
               onUpdateSet={(si, field, value) => handleUpdateSet(i, si, field, value)}
+              onUpdateRest={(value) => handleUpdateRest(i, value)}
               onAddSet={() => handleAddSet(i)}
               onRemoveSet={(si) => handleRemoveSet(i, si)}
               onRemove={() => handleRemoveExercise(i)}
