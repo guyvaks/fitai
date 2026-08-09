@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
 import { formatReps } from '../utils/repsRange'
+import RestTimeDefaultCard from '../components/RestTimeDefaultCard'
 import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2, CheckCircle2, RefreshCw } from 'lucide-react'
 
 const REGENERATE_FN_BY_TYPE = {
@@ -567,6 +568,10 @@ export default function AISuggestion() {
           </h3>
           <GroceryList items={content.grocery_list} />
         </div>
+      )}
+
+      {hasWorkout && !hasNoContent && suggestion.status === 'pending' && (
+        <RestTimeDefaultCard />
       )}
 
       {/* Action buttons — after full content review */}

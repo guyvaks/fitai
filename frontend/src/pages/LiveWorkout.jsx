@@ -13,7 +13,7 @@ import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer'
 import { startAuth, isConnected, disconnect as disconnectSpotify } from '../services/spotifyAuth'
 import {
   Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft,
-  Clock, StickyNote, Plus, X, Search, Type, Settings,
+  Clock, StickyNote, Plus, X, Search, Type,
   Music, Play, Pause, SkipBack, SkipForward, Unlink, Info,
 } from 'lucide-react'
 
@@ -242,10 +242,14 @@ export default function LiveWorkout() {
   const [showAnimation, setShowAnimation] = useState(false)
   const [showRirInfo, setShowRirInfo] = useState(false)
   const { byNameHe: exerciseMediaByName } = useExerciseMasterMedia()
-  const [showSettings, setShowSettings] = useState(false)
+  // rest_timer_seconds/auto_start_rest are still read here to apply the
+  // override to the live rest timer -- editing them now happens via
+  // Settings.jsx and RestTimeDefaultCard (ManualWorkoutBuilder/AISuggestion
+  // plan-creation moments), not an in-workout modal here anymore (removed:
+  // it only ever controlled these same two fields, and blocked the flow to
+  // do so).
   const [restTimerOverride, setRestTimerOverride] = useState('') // seconds, empty = use plan default
   const [autoStartRest, setAutoStartRest] = useState(true)
-  const [savingSettings, setSavingSettings] = useState(false)
 
   // Load saved workout preferences (rest timer override / auto-start), if any
   useEffect(() => {
@@ -479,22 +483,6 @@ export default function LiveWorkout() {
     addExerciseToSession({ name: freeExName.trim(), muscle_group: freeExMuscleGroup })
   }
 
-  const handleSaveSettings = async () => {
-    setSavingSettings(true)
-    try {
-      const seconds = parseInt(restTimerOverride)
-      await api.put('/api/v1/users/profile', {
-        workout_preferences: {
-          rest_timer_seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : null,
-          auto_start_rest: autoStartRest,
-        },
-      })
-      setShowSettings(false)
-    } finally {
-      setSavingSettings(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 h-64 card-glass">
@@ -538,13 +526,6 @@ export default function LiveWorkout() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettings(true)}
-            aria-label="הגדרות אימון"
-            className="bg-white/4 border border-line text-text-mid p-2 rounded-elem hover:text-text-hi hover:bg-white/8 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <Settings className="w-4.5 h-4.5" />
-          </button>
           <button
             onClick={() => setShowDiscardConfirm(true)}
             className="bg-white/4 border border-line text-text-mid px-3 py-2 rounded-elem text-sm hover:text-coral hover:border-coral/30 transition-colors min-h-[44px]"
@@ -931,59 +912,6 @@ export default function LiveWorkout() {
                 </button>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* In-workout settings — rest timer defaults, not a general app settings screen */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowSettings(false)}>
-          <div
-            className="bg-surface-2 border border-line-strong rounded-card w-full max-w-sm p-5 space-y-4 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-            dir="rtl"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-text-hi font-bold flex items-center gap-2">
-                <Settings className="w-4.5 h-4.5" /> הגדרות אימון
-              </h3>
-              <button onClick={() => setShowSettings(false)} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-text-mid text-sm">זמן מנוחה ברירת מחדל (שניות)</label>
-              <input
-                type="number"
-                min="0"
-                placeholder="לפי התוכנית (ברירת מחדל)"
-                value={restTimerOverride}
-                onChange={e => setRestTimerOverride(e.target.value)}
-                className="input-volt"
-                dir="ltr"
-              />
-              <p className="text-text-low text-xs">השאר ריק כדי להשתמש בזמן המנוחה שמוגדר לכל תרגיל בתוכנית</p>
-            </div>
-
-            <label className="flex items-center justify-between gap-3 cursor-pointer">
-              <span className="text-text-mid text-sm">התחלה אוטומטית של טיימר מנוחה</span>
-              <button
-                type="button"
-                onClick={() => setAutoStartRest(v => !v)}
-                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoStartRest ? 'bg-volt' : 'bg-white/15'}`}
-              >
-                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoStartRest ? 'right-0.5' : 'right-5.5'}`} />
-              </button>
-            </label>
-
-            <button
-              type="button"
-              onClick={handleSaveSettings}
-              disabled={savingSettings}
-              className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
-            >
-              {savingSettings && <Loader2 className="w-4 h-4 animate-spin" />}
-              {savingSettings ? 'שומר...' : 'שמור הגדרות'}
-            </button>
           </div>
         </div>
       )}

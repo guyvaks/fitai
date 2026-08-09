@@ -5,6 +5,7 @@ import api from '../services/api'
 import ExerciseSearch from '../components/ExerciseSearch'
 import { MUSCLE_GROUP_COLOR, MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
 import { normalizeReps } from '../utils/repsRange'
+import RestTimeDefaultCard from '../components/RestTimeDefaultCard'
 import { Dumbbell, Search, Type, Plus, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 
 const DAYS = [
@@ -463,6 +464,8 @@ export default function ManualWorkoutBuilder() {
           ))
         )}
       </div>
+
+      <RestTimeDefaultCard value={defaultRestSeconds} onSaved={(seconds) => setDefaultRestSeconds(seconds ?? 90)} />
 
       {/* Actions */}
       <div className="flex gap-2 pt-2 sticky bottom-4">
