@@ -84,6 +84,22 @@ def _run_in_background(task_id: str, crew_fn_name: str, profile_dict: dict, memo
         result = loop.run_until_complete(crew_fn(profile_dict, memory_dict))
         loop.close()
 
+        # A crew that exhausted every retry attempt (structural failure,
+        # guardrail rejection, or judge rejection -- see
+        # _run_crew_with_retry in crew_agents.py) returns {"error": ...}
+        # with neither plan key present. This used to still get saved as a
+        # "pending" AISuggestion and reported as status="ready" -- the
+        # frontend showed 100% success and the user only discovered the
+        # failure later, after clicking "approve" and getting a 422. Report
+        # the real failure immediately instead, and don't persist a
+        # suggestion with no usable content.
+        if isinstance(result, dict) and result.get("error") and not (result.get("meal_plan") or result.get("workout_plan")):
+            task_store[task_id] = {
+                "status": "error",
+                "error": "יצירת התוכנית נכשלה אחרי מספר ניסיונות — נסה שוב",
+            }
+            return
+
         db = SessionLocal()
         try:
             suggestion = AISuggestion(

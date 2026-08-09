@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Optional
+from typing import Callable, Optional
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.fitness import ExerciseMaster
@@ -88,6 +88,12 @@ def get_nutrition_agent():
 
 
 def get_workout_agent():
+    from crewai import LLM
+    # Explicit max_tokens (was a bare model-name string with no override,
+    # unlike get_nutrition_agent() below) -- a full 7-day plan with several
+    # exercises per day was observed getting cut off mid-week under the
+    # implicit default ceiling. Matches nutrition's existing 16000.
+    llm = LLM(model="anthropic/claude-sonnet-4-6", max_tokens=16000)
     return Agent(
         role="Professional Hebrew Fitness Coach",
         goal="Build a personalized weekly workout plan in Hebrew as JSON only",
@@ -96,7 +102,7 @@ def get_workout_agent():
         Your entire response must be a single valid JSON object starting with { and ending with }.""",
         verbose=False,
         allow_delegation=False,
-        llm="anthropic/claude-sonnet-4-6",
+        llm=llm,
     )
 
 
@@ -170,6 +176,63 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
         agent=agent,
         expected_output="JSON object only with meal_plan containing all 7 days (sunday through saturday), each with full meal arrays, plus daily_totals and grocery_list. No text outside the JSON braces.",
     )
+
+
+_NUTRITION_MEAL_FIELD_SPECS = {
+    "total_calories": (0, 3000),
+    "total_protein": (0, 300),
+    "total_carbs": (0, 500),
+    "total_fat": (0, 300),
+}
+_NUTRITION_ITEM_FIELD_SPECS = {
+    "qty_g": (0, 2000),
+    "calories": (0, 2000),
+    "protein": (0, 300),
+    "carbs": (0, 300),
+    "fat": (0, 300),
+}
+
+
+def validate_nutrition_plan_guardrails(result: dict) -> list:
+    """Deterministic schema + sane-value guardrail for a meal_plan, run inside
+    the retry loop (before the paid judge call). Unlike workout, nutrition has
+    no "rest day" concept and no closed equipment-style catalog to constrain
+    against (food_master is only a lookup fallback in the calorie calculator,
+    not a name list fed into this prompt) -- so this checks structure/values
+    only, not a membership constraint. Empty return means the plan passed."""
+    plan = result.get("meal_plan")
+    if not isinstance(plan, dict):
+        return ["meal_plan חסר או אינו אובייקט"]
+
+    violations = []
+    for day, meals in plan.items():
+        if day not in _DAY_SET:
+            continue
+        if not isinstance(meals, list) or not meals:
+            violations.append(f"{day}: meals חסר/ריק")
+            continue
+        for meal in meals:
+            if not isinstance(meal, dict):
+                violations.append(f"{day}: ארוחה שאינה אובייקט")
+                continue
+            meal_label = meal.get("name") or meal.get("meal_type") or "?"
+            violations.extend(
+                f"{day}/{meal_label}: {v}" for v in _validate_numeric_fields(meal, _NUTRITION_MEAL_FIELD_SPECS)
+            )
+            items = meal.get("items")
+            if not isinstance(items, list) or not items:
+                violations.append(f"{day}/{meal_label}: items חסר/ריק")
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    violations.append(f"{day}/{meal_label}: מרכיב שאינו אובייקט")
+                    continue
+                item_label = item.get("name", "?")
+                violations.extend(
+                    f"{day}/{meal_label}/{item_label}: {v}"
+                    for v in _validate_numeric_fields(item, _NUTRITION_ITEM_FIELD_SPECS)
+                )
+    return violations
 
 
 def get_canonical_exercises():
@@ -322,12 +385,65 @@ def validate_workout_exercises(result: dict) -> list:
     return unknown
 
 
-def build_workout_task(agent, profile: dict, memory: dict) -> Task:
+_WORKOUT_EXERCISE_FIELD_SPECS = {
+    "sets": (1, 20),
+    "reps": (1, 100),
+    "weight_kg": (0, 500),
+    "rest_seconds": (0, 600),
+}
+_WORKOUT_DAY_TYPES = {"strength", "cardio", "rest"}
+
+
+def validate_workout_plan_guardrails(result: dict, allowed_names: set) -> list:
+    """Deterministic schema + sane-value + equipment guardrail for a
+    workout_plan, run inside the retry loop (before the paid judge call) --
+    unlike validate_workout_exercises() above (observation-only, logs but
+    never rejects), a violation found here actually triggers a retry. Empty
+    return means the plan passed everything."""
+    plan = result.get("workout_plan")
+    if not isinstance(plan, dict):
+        return ["workout_plan חסר או אינו אובייקט"]
+
+    violations = []
+    for day, day_plan in plan.items():
+        if day not in _DAY_SET or not isinstance(day_plan, dict):
+            continue
+
+        day_type = day_plan.get("type")
+        if day_type not in _WORKOUT_DAY_TYPES:
+            violations.append(f"{day}: type לא תקין ({day_type!r})")
+
+        exercises = day_plan.get("exercises")
+        if not isinstance(exercises, list):
+            violations.append(f"{day}: exercises חסר או אינו מערך")
+            continue
+        if day_type != "rest" and not exercises:
+            violations.append(f"{day}: יום {day_type} בלי אף תרגיל")
+
+        for ex in exercises:
+            if not isinstance(ex, dict):
+                violations.append(f"{day}: תרגיל שאינו אובייקט")
+                continue
+            name = ex.get("name")
+            if not name or not isinstance(name, str):
+                violations.append(f"{day}: תרגיל בלי שם")
+                continue
+            if allowed_names and name.strip().lower() not in allowed_names:
+                violations.append(f"{day}: תרגיל '{name}' לא ברשימה המורשית/הציוד הזמין")
+
+            field_violations = _validate_numeric_fields(ex, _WORKOUT_EXERCISE_FIELD_SPECS)
+            violations.extend(f"{day}/{name}: {v}" for v in field_violations)
+
+    return violations
+
+
+def build_workout_task(agent, profile: dict, memory: dict, allowed_exercises: Optional[list] = None) -> Task:
     preferred_ex = memory.get("preferred_exercises", [])
     skipped_ex = memory.get("skipped_exercises", [])
 
-    equipment = _parse_equipment(profile.get("equipment"))
-    allowed_exercises = _filter_exercises_by_equipment(get_canonical_exercises(), equipment)
+    if allowed_exercises is None:
+        equipment = _parse_equipment(profile.get("equipment"))
+        allowed_exercises = _filter_exercises_by_equipment(get_canonical_exercises(), equipment)
     allowed_names_he = ", ".join(ex["name_he"] for ex in allowed_exercises if ex.get("name_he"))
 
     return Task(
@@ -343,6 +459,8 @@ def build_workout_task(agent, profile: dict, memory: dict) -> Task:
 - חשוב: השתמש אך ורק בשמות תרגילים מהרשימה הזו. אסור להמציא שמות חדשים.
 - תרגילים מועדפים: {', '.join(preferred_ex) if preferred_ex else 'לא צוין'}
 - תרגילים שנדלגו: {', '.join(skipped_ex) if skipped_ex else 'לא צוין'}
+- לכל יום אימון (לא מנוחה) — עד 6 תרגילים בלבד, הערות (notes) קצרות עד 8 מילים. שמור על JSON קומפקטי כדי שהתשובה לא תיחתך.
+- תרגילי משקל-גוף (מתח, שכיבות סמיכה, פלאנק וכו') — weight_kg: 0 הוא ערך תקין ונכון, לא שגיאה.
 
 החזר אך ורק את ה-JSON הבא — ללא הסבר, ללא markdown, ללא ```json:
 {{
@@ -540,7 +658,8 @@ def _judge_plan(plan_key: str, plan_value: dict, profile: dict) -> tuple:
 המטרה היחידה שלך היא לתפוס תוכניות **שבורות לגמרי**, לא לבקר תוכניות סבירות. \
 תסמן valid=false **רק** אם קורה אחד מאלה בפועל:
 - ימים ריקים לגמרי (מלבד ימי מנוחה מכוונים) או ערכי placeholder ברורים (למשל "foo", "xyz", "lorem ipsum", שם/מספר חסרי משמעות)
-- ערכים בלתי אפשריים (למשל 0 חזרות בתרגיל פעיל, מאות סטים, משקל שלילי)
+- ערכים בלתי אפשריים (למשל 0 חזרות בתרגיל פעיל, מאות סטים, משקל שלילי — \
+אך שים לב: weight_kg: 0 הוא ערך **תקין ונפוץ** לתרגילי משקל-גוף כמו מתח/שכיבות סמיכה/פלאנק, לא באג)
 - כל הימים זהים לחלוטין מילה במילה (העתק-הדבק ברור, לא רק דמיון סביר)
 - שימוש בציוד שהמשתמש בבירור *אין* לו בכלל (למשל תרגיל מוט/ברבל כשצוין "ללא ציוד")
 
@@ -562,11 +681,36 @@ def _judge_plan(plan_key: str, plan_value: dict, profile: dict) -> tuple:
         return True, f"judge call failed — failing open ({e})"
 
 
-def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str, profile: dict) -> dict:
+# ─── Stage 1.5: deterministic output guardrails ────────────────────────────
+# Distinct from both the structural check (JSON *shape* only) and the judge
+# (semantic, LLM-based, fails open) -- this is a cheap, fully deterministic
+# check on individual field values, shared by both nutrition and workout
+# guardrails below since both domains reduce to "a list of dicts with
+# bounded numeric fields", just at different nesting depths. Runs before the
+# (paid) judge call so an attempt that's already deterministically broken
+# never wastes an extra LLM call.
+def _validate_numeric_fields(item: dict, specs: dict) -> list:
+    """specs: {field_name: (min, max)}. Returns a list of Hebrew violation
+    strings for any field that's missing, non-numeric, or out of range;
+    empty list means the item passed every spec."""
+    violations = []
+    for field, (lo, hi) in specs.items():
+        val = item.get(field)
+        if not isinstance(val, (int, float)) or isinstance(val, bool) or not (lo <= val <= hi):
+            violations.append(f"{field}={val!r} (מותר {lo}-{hi})")
+    return violations
+
+
+def _run_crew_with_retry(
+    build_agent_and_task, plan_key: str, label: str, profile: dict,
+    extra_validator: Optional[Callable[[dict], list]] = None,
+) -> dict:
     """Run a fresh agent+task+crew up to MAX_PLAN_ATTEMPTS times, retrying
     whenever the result either (a) doesn't contain a full 7-day plan under
-    `plan_key` (structural check), or (b) does, but the judge (semantic check,
-    see above) rejects it as not actually sane content. Each attempt is an
+    `plan_key` (structural check), (a.5) fails `extra_validator` (deterministic
+    schema/value/constraint guardrail, see above -- optional per-domain), or
+    (b) does, but the judge (semantic check, see above) rejects it as not
+    actually sane content. Each attempt is an
     independent LLM call (rebuilt from scratch) — the failure mode is a flaky
     LLM formatting slip, not a deterministic one, so a fresh attempt is
     expected to have a good chance of succeeding even when the prior one
@@ -585,6 +729,18 @@ def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str, profil
         last_result = _kickoff_and_extract(crew)
 
         if _plan_key_with_all_days(last_result) == plan_key:
+            if extra_validator:
+                violations = extra_validator(last_result)
+                if violations:
+                    reason = "; ".join(violations[:5])
+                    print(
+                        f"[crew_agents] WARNING: {label} attempt {attempt}/{MAX_PLAN_ATTEMPTS} passed the "
+                        f"structural 7-day check but FAILED guardrail validation ({reason})"
+                        + (" — retrying" if attempt < MAX_PLAN_ATTEMPTS else " — giving up, treating as no output")
+                    )
+                    last_result = {"error": "no output", "guardrail_rejected": True, "guardrail_reasons": violations}
+                    continue
+
             valid, reason = _judge_plan(plan_key, last_result[plan_key], profile)
             if valid:
                 if attempt > 1:
@@ -613,23 +769,39 @@ def _run_crew_with_retry(build_agent_and_task, plan_key: str, label: str, profil
 
 
 async def run_nutrition_crew(profile: dict, memory: dict) -> dict:
-    """Run only the nutrition agent, retrying on an incomplete (not-7-day) plan
-    or a judge-rejected one (see _judge_plan)."""
+    """Run only the nutrition agent, retrying on an incomplete (not-7-day)
+    plan, a guardrail violation (schema/values, see
+    validate_nutrition_plan_guardrails), or a judge-rejected one (see
+    _judge_plan)."""
     def build():
         agent = get_nutrition_agent()
         return agent, build_nutrition_task(agent, profile, memory)
 
-    return _run_crew_with_retry(build, "meal_plan", "nutrition crew", profile)
+    return _run_crew_with_retry(
+        build, "meal_plan", "nutrition crew", profile,
+        extra_validator=validate_nutrition_plan_guardrails,
+    )
 
 
 async def run_workout_crew(profile: dict, memory: dict) -> dict:
-    """Run only the workout agent, retrying on an incomplete (not-7-day) plan
-    or a judge-rejected one (see _judge_plan)."""
+    """Run only the workout agent, retrying on an incomplete (not-7-day) plan,
+    a guardrail violation (schema/values/equipment, see
+    validate_workout_plan_guardrails), or a judge-rejected one (see
+    _judge_plan). allowed_exercises/allowed_names are computed once here
+    (not per-attempt inside build_workout_task) -- equipment/profile don't
+    change between retries, so there's no need to re-query the DB each time."""
+    equipment = _parse_equipment(profile.get("equipment"))
+    allowed_exercises = _filter_exercises_by_equipment(get_canonical_exercises(), equipment)
+    allowed_names = _build_exercise_name_set(allowed_exercises)
+
     def build():
         agent = get_workout_agent()
-        return agent, build_workout_task(agent, profile, memory)
+        return agent, build_workout_task(agent, profile, memory, allowed_exercises)
 
-    result = _run_crew_with_retry(build, "workout_plan", "workout crew", profile)
+    result = _run_crew_with_retry(
+        build, "workout_plan", "workout crew", profile,
+        extra_validator=lambda r: validate_workout_plan_guardrails(r, allowed_names),
+    )
     validate_workout_exercises(result)
     return result
 

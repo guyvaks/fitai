@@ -3,7 +3,11 @@
 (app.core.database.SessionLocal, separate from the request-scoped get_db
 override) is redirected to the same in-memory test DB so nothing touches
 the real staging/production database."""
+import uuid
+
 import app.core.database as database_module
+from app.models.fitness import AISuggestion
+from app.models.user import User
 from app.services import crew_agents
 from tests.conftest import TestingSessionLocal, get_auth_headers
 
@@ -185,13 +189,15 @@ def test_approve_suggestion_success_activates_nutrition_plan(client, monkeypatch
     assert sorted(plan_response.json()["plan_data"]["meal_plan"].keys()) == sorted(DAYS)
 
 
-def test_approve_suggestion_with_no_plan_generated_returns_422(client, monkeypatch):
-    """A total generation failure (neither meal_plan nor workout_plan present
-    at all — the {"error": "no output"} shape _kickoff_and_extract falls back
-    to) must be rejected as a distinct, identifiable error type (422 +
-    error_type: "no_plan_generated"), not the same generic 400 used for a
-    partial plan or other validation failures — so the frontend can show a
-    specific "try again" message instead of a generic alert."""
+def test_generate_nutrition_total_failure_reports_error_status_and_no_suggestion(client, monkeypatch):
+    """After every retry attempt is exhausted (see _run_crew_with_retry in
+    crew_agents.py — structural failure, guardrail rejection, or judge
+    rejection all collapse to the same {"error": ...} shape), the background
+    runner must report the real failure immediately (status: "error")
+    instead of the old behavior: silently saving a "pending" AISuggestion
+    with {"error": ...} content and reporting status: "ready", which only
+    surfaced as a failure later when the user clicked approve and got a 422.
+    No suggestion should be created at all for a total failure."""
     _patch_background_db(monkeypatch)
     monkeypatch.setattr(crew_agents, "run_nutrition_crew", _fake_invalid_crew)
 
@@ -199,7 +205,51 @@ def test_approve_suggestion_with_no_plan_generated_returns_422(client, monkeypat
     _create_profile(client, headers)
 
     task_id = client.post("/api/v1/agents/nutrition", headers=headers).json()["task_id"]
-    suggestion_id = client.get(f"/api/v1/agents/status/{task_id}", headers=headers).json()["suggestion_id"]
+    status_data = client.get(f"/api/v1/agents/status/{task_id}", headers=headers).json()
+
+    assert status_data["status"] == "error"
+    assert "suggestion_id" not in status_data
+    assert client.get("/api/v1/agents/pending", headers=headers).json() == []
+
+
+def test_generate_workout_total_failure_reports_error_status_and_no_suggestion(client, monkeypatch):
+    _patch_background_db(monkeypatch)
+    monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_invalid_crew)
+
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
+    status_data = client.get(f"/api/v1/agents/status/{task_id}", headers=headers).json()
+
+    assert status_data["status"] == "error"
+    assert "suggestion_id" not in status_data
+
+
+def test_approve_suggestion_with_no_plan_generated_returns_422(client, monkeypatch):
+    """Defense-in-depth: a total generation failure no longer creates a
+    pending AISuggestion at all (see
+    test_generate_nutrition_total_failure_reports_error_status_and_no_suggestion
+    above), but the approve-time completeness guard must still reject a
+    suggestion whose content has neither plan key if one somehow exists
+    (e.g. a row that predates this fix) — with the distinct, identifiable
+    422 no_plan_generated error type, not the generic 400 used for a
+    partial plan."""
+    headers = get_auth_headers(client)
+    _create_profile(client, headers)
+
+    session = TestingSessionLocal()
+    try:
+        user = session.query(User).filter(User.email == "test@example.com").first()
+        suggestion = AISuggestion(
+            id=uuid.uuid4(), user_id=user.id, suggestion_type="nutrition",
+            content={"error": "no output"}, status="pending", task_id="manual-test",
+        )
+        session.add(suggestion)
+        session.commit()
+        suggestion_id = str(suggestion.id)
+    finally:
+        session.close()
 
     approve_response = client.post(f"/api/v1/agents/approve/{suggestion_id}", headers=headers)
     assert approve_response.status_code == 422
@@ -402,37 +452,30 @@ def test_get_pending_suggestions_unauthenticated(client):
     assert response.status_code == 401
 
 
-def test_regenerate_workout_supersedes_previous_failed_pending_suggestion(client, monkeypatch):
-    """Regression for the 'no_plan_generated' regenerate flow: clicking
-    regenerate (calling POST /agents/workout again) after a failed generation
-    must not accumulate a second pending row alongside the first forever —
-    the old one is marked 'superseded' so GET /pending only ever surfaces the
-    latest attempt, and the failed one isn't left dangling in 'pending'."""
+def test_regenerate_workout_after_total_failure_creates_single_suggestion(client, monkeypatch):
+    """Regression for the no_plan_generated regenerate flow: a total
+    generation failure no longer creates any pending suggestion at all (see
+    test_generate_workout_total_failure_reports_error_status_and_no_suggestion),
+    so there's nothing to "supersede" any more — clicking regenerate (POST
+    /agents/workout again) must simply succeed cleanly and leave exactly one
+    suggestion pending, with nothing dangling from the failed first attempt."""
     _patch_background_db(monkeypatch)
     headers = get_auth_headers(client)
     _create_profile(client, headers)
 
-    # First attempt fails (no_plan_generated shape)
+    # First attempt fails — no suggestion created at all.
     monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_invalid_crew)
     first_task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
-    first_suggestion_id = client.get(
-        f"/api/v1/agents/status/{first_task_id}", headers=headers
-    ).json()["suggestion_id"]
+    assert client.get(f"/api/v1/agents/status/{first_task_id}", headers=headers).json()["status"] == "error"
+    assert client.get("/api/v1/agents/pending", headers=headers).json() == []
 
-    pending_after_first = client.get("/api/v1/agents/pending", headers=headers).json()
-    assert len(pending_after_first) == 1
-    assert pending_after_first[0]["id"] == first_suggestion_id
-
-    # Regenerate: second attempt succeeds
+    # Regenerate: second attempt succeeds.
     monkeypatch.setattr(crew_agents, "run_workout_crew", _fake_workout_crew)
     second_task_id = client.post("/api/v1/agents/workout", headers=headers).json()["task_id"]
     second_suggestion_id = client.get(
         f"/api/v1/agents/status/{second_task_id}", headers=headers
     ).json()["suggestion_id"]
-    assert second_suggestion_id != first_suggestion_id
 
-    # Only the new suggestion is pending; the old failed one was superseded,
-    # not left dangling.
     pending_after_second = client.get("/api/v1/agents/pending", headers=headers).json()
     assert len(pending_after_second) == 1
     assert pending_after_second[0]["id"] == second_suggestion_id

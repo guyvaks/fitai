@@ -88,7 +88,32 @@ def _ask_claude(system: str, content) -> list[dict]:
     items = json.loads(text)["items"]
     for item in items:
         item["source"] = "ai_estimate"
-    return items
+    return [item for item in items if _is_sane_item(item)]
+
+
+# Value-sanity guardrail: ITEMS_SCHEMA (via output_config.json_schema) already
+# guarantees well-formed *shape* -- every field present with the right type --
+# but says nothing about plausible *ranges*. A single bad estimate (e.g. a
+# hallucinated 9000-calorie item) shouldn't fail the whole request when other
+# items in the same response are fine, so out-of-range items are dropped
+# individually here rather than raising -- unlike the CrewAI plan generators
+# (crew_agents.py), there's no multi-attempt retry loop in this synchronous,
+# single-call flow to send a rejected item back through.
+_ITEM_FIELD_RANGES = {
+    "estimated_quantity_g": (0, 2000),
+    "calories": (0, 2000),
+    "protein_g": (0, 300),
+    "fat_g": (0, 300),
+    "carbs_g": (0, 300),
+}
+
+
+def _is_sane_item(item: dict) -> bool:
+    for field, (lo, hi) in _ITEM_FIELD_RANGES.items():
+        val = item.get(field)
+        if not isinstance(val, (int, float)) or isinstance(val, bool) or not (lo <= val <= hi):
+            return False
+    return True
 
 
 def calculate_from_text(query: str, db: Session) -> list[dict]:
