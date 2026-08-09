@@ -570,12 +570,20 @@ def _exercise_name_to_muscle_group(db: Session) -> dict:
 
 
 @router.get("/sessions/history")
-def get_sessions_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def get_sessions_history(
+    limit: int = 20,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
     sessions = (
         db.query(WorkoutSession)
         .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.status == "completed")
         .order_by(WorkoutSession.completed_at.desc())
-        .limit(20)
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
@@ -730,6 +738,30 @@ def _period_stats(db: Session, user_id, start_date: datetime.date, end_date: dat
             for pr in prs
         ],
     }
+
+
+@router.get("/frequency-history")
+def get_frequency_history(
+    weeks: int = 12,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Sessions-completed-per-week series, most recent `weeks` weeks including
+    the current (still in-progress) one -- reuses _period_stats() per week
+    rather than a dedicated aggregate query, since this is a page-load-only
+    call, not a hot path."""
+    weeks = min(max(weeks, 1), 52)
+    current_week_start = _week_start(datetime.date.today())
+    result = []
+    for i in range(weeks - 1, -1, -1):
+        week_start = current_week_start - datetime.timedelta(days=7 * i)
+        week_end = week_start + datetime.timedelta(days=6)
+        stats = _period_stats(db, current_user.id, week_start, week_end)
+        result.append({
+            "week_start": week_start.isoformat(),
+            "sessions_completed": stats["sessions_completed"],
+        })
+    return result
 
 
 @router.get("/reports/pending")

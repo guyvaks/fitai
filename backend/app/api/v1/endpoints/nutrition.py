@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.v1.endpoints.auth import get_current_user
@@ -129,6 +130,43 @@ def get_food_log(
         FoodLog.date == log_date
     ).all()
     return logs
+
+
+@router.get("/history")
+def get_nutrition_history(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Daily calorie/macro totals from FoodLog, ascending by date. FoodLog.date
+    is already a plain Date column (not a timezone-aware timestamp like
+    ExerciseLog.completed_at), so grouping is directly on the column -- no
+    func.date() wrapper needed here."""
+    days = min(max(days, 1), 365)
+    cutoff = datetime.date.today() - datetime.timedelta(days=days)
+    rows = (
+        db.query(
+            FoodLog.date.label("day"),
+            func.sum(FoodLog.calories).label("calories"),
+            func.sum(FoodLog.protein).label("protein"),
+            func.sum(FoodLog.carbs).label("carbs"),
+            func.sum(FoodLog.fat).label("fat"),
+        )
+        .filter(FoodLog.user_id == current_user.id, FoodLog.date >= cutoff)
+        .group_by(FoodLog.date)
+        .order_by(FoodLog.date.asc())
+        .all()
+    )
+    return [
+        {
+            "date": r.day.isoformat(),
+            "calories": round(float(r.calories or 0), 1),
+            "protein": round(float(r.protein or 0), 1),
+            "carbs": round(float(r.carbs or 0), 1),
+            "fat": round(float(r.fat or 0), 1),
+        }
+        for r in rows
+    ]
 
 
 @router.delete("/food-log/entry/{log_id}")
