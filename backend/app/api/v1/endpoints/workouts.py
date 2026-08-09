@@ -357,9 +357,12 @@ def get_exercise_history(
     """Per-set breakdown (not just a single aggregate like /exercise-memory)
     of the most recent *other* session that logged this exercise -- powers
     the set-logging table's PREVIOUS column, e.g. set 2 shows what set 2
-    was last time, not a single repeated value across every row. Excludes
-    the caller's currently-active session so an in-progress workout never
-    shows itself as its own "previous" reference."""
+    was last time, not a single repeated value across every row. Only
+    "completed" sessions qualify -- an abandoned session's sets are often
+    untouched draft defaults (e.g. 0kg, saved because it was the very first
+    time this exercise was ever logged and there was no prior weight to
+    default to) rather than a real performance, so surfacing them as
+    "previous" would be misleading."""
     last_session_id = (
         db.query(ExerciseLog.session_id)
         .join(WorkoutSession, WorkoutSession.id == ExerciseLog.session_id)
@@ -367,7 +370,7 @@ def get_exercise_history(
             ExerciseLog.user_id == current_user.id,
             ExerciseLog.exercise_name == exercise_name,
             ExerciseLog.completed.is_(True),
-            WorkoutSession.status != "active",
+            WorkoutSession.status == "completed",
         )
         .order_by(WorkoutSession.started_at.desc())
         .limit(1)
