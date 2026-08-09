@@ -13,7 +13,7 @@ import { startAuth, isConnected, disconnect as disconnectSpotify } from '../serv
 import {
   Check, Trophy, Dumbbell, Loader2, ChevronRight, ChevronLeft,
   Clock, StickyNote, Plus, X, Search, Type, Settings,
-  Music, Play, Pause, SkipBack, SkipForward, Unlink,
+  Music, Play, Pause, SkipBack, SkipForward, Unlink, Info,
 } from 'lucide-react'
 
 const FREE_MUSCLE_GROUPS = Object.values(MUSCLE_GROUP_LABELS)
@@ -239,6 +239,7 @@ export default function LiveWorkout() {
   const [freeExName, setFreeExName] = useState('')
   const [freeExMuscleGroup, setFreeExMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
   const [showAnimation, setShowAnimation] = useState(false)
+  const [showRirInfo, setShowRirInfo] = useState(false)
   const { byNameHe: exerciseMediaByName } = useExerciseMasterMedia()
   const [showSettings, setShowSettings] = useState(false)
   const [restTimerOverride, setRestTimerOverride] = useState('') // seconds, empty = use plan default
@@ -613,7 +614,33 @@ export default function LiveWorkout() {
             <span>סט</span>
             <span>קודם</span>
             <span>ק"ג</span>
-            <span>חזרות</span>
+            <span className="relative flex items-center justify-center gap-0.5">
+              חזרות
+              <button
+                type="button"
+                onClick={() => setShowRirInfo(v => !v)}
+                className="shrink-0 text-text-mid hover:text-volt transition"
+                aria-label="הסבר על RIR"
+              >
+                <Info className="w-3 h-3" />
+              </button>
+              {showRirInfo && (
+                <>
+                  {/* Full-screen transparent backdrop -- tap anywhere outside
+                      the popover to dismiss it (tap-based, not hover, so it
+                      works on touch devices). */}
+                  <div className="fixed inset-0 z-40" onClick={() => setShowRirInfo(false)} />
+                  <div
+                    className="absolute top-full mt-2 right-1/2 translate-x-1/2 z-50 w-56 bg-surface-2 border border-line-strong rounded-elem shadow-2xl p-3 text-right"
+                    dir="rtl"
+                  >
+                    <p className="text-xs font-normal text-text-hi leading-relaxed normal-case">
+                      <span className="font-bold text-volt">RIR (חזרות בקופה)</span> — כמה חזרות נוספות היית יכול לעשות באותו סט לפני כשל מוחלט. למשל: 10 חזרות עם RIR 2 = יכולת לעשות עוד כ-2 חזרות.
+                    </p>
+                  </div>
+                </>
+              )}
+            </span>
             <span>✓</span>
           </div>
           {(() => {
@@ -677,8 +704,8 @@ export default function LiveWorkout() {
                         value={draft.rir}
                         onChange={e => updateSetDraft(currentExerciseIdx, i, currentExercise, { rir: e.target.value })}
                         placeholder="RIR"
-                        className="w-8 shrink-0 min-w-0 bg-white/6 border border-line-strong rounded-elem px-0.5 py-1 text-text-hi text-center text-xs font-bold focus:outline-none focus:border-volt/60"
-                        title="חזרות בכיס (RIR)"
+                        className="w-10 shrink-0 min-w-0 bg-violet-soft border border-violet/40 rounded-elem px-0.5 py-1 text-violet text-center text-xs font-bold placeholder:text-violet/70 focus:outline-none focus:border-violet"
+                        title="חזרות בכיס (RIR) — כמה חזרות נוספות היית יכול לעשות"
                       />
                     </div>
                   )}
