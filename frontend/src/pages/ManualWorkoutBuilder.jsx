@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { workoutsAPI } from '../services/api'
 import ExerciseSearch from '../components/ExerciseSearch'
 import { MUSCLE_GROUP_COLOR, MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
+import { normalizeReps } from '../utils/repsRange'
 import { Dumbbell, Search, Type, Plus, X, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 
 const DAYS = [
@@ -28,23 +29,30 @@ const DAY_KEYS = DAYS.map(d => d.key)
 // rest_seconds is intentionally dropped, there's no manual-plan field for
 // it. Passing an already-manual exercise through just re-shapes it
 // defensively (matches the pre-existing behavior).
+// Edit-state sets carry reps as separate reps_min/reps_max fields (not the
+// stored {min,max} object) so each is its own bindable <input> -- normalizeReps
+// collapses whatever shape came from plan_data (range object, or a plain
+// number from an old plan) into one consistent {min,max} pair here.
 function normaliseExerciseForEditing(ex) {
   if (Array.isArray(ex.sets)) {
     return {
       name: ex.name,
       muscle_group: ex.muscle_group || '',
       notes: ex.notes ?? null,
-      sets: ex.sets.map(s => ({ weight_kg: s.weight_kg ?? 0, reps: s.reps ?? 0 })),
+      sets: ex.sets.map(s => {
+        const { min, max } = normalizeReps(s.reps)
+        return { weight_kg: s.weight_kg ?? 0, reps_min: min, reps_max: max }
+      }),
     }
   }
   const setCount = Math.max(1, parseInt(ex.sets, 10) || 1)
   const weight_kg = ex.weight_kg ?? 0
-  const reps = ex.reps ?? 10
+  const { min, max } = normalizeReps(ex.reps ?? { min: 8, max: 12 })
   return {
     name: ex.name,
     muscle_group: ex.muscle_group || '',
     notes: ex.notes ?? null,
-    sets: Array.from({ length: setCount }, () => ({ weight_kg, reps })),
+    sets: Array.from({ length: setCount }, () => ({ weight_kg, reps_min: min, reps_max: max })),
   }
 }
 
@@ -80,14 +88,14 @@ function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, 
 
       {/* Sets table */}
       <div className="space-y-1.5">
-        <div className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 text-center text-xs text-text-mid px-1">
+        <div className="grid grid-cols-[2rem_1fr_1.4fr_2rem] gap-2 text-center text-xs text-text-mid px-1">
           <span>סט</span>
           <span>ק"ג</span>
-          <span>חזרות</span>
+          <span>חזרות (טווח)</span>
           <span />
         </div>
         {exercise.sets.map((set, si) => (
-          <div key={si} className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 items-center">
+          <div key={si} className="grid grid-cols-[2rem_1fr_1.4fr_2rem] gap-2 items-center">
             <span className="text-center text-text-mid text-sm font-medium tabular-nums">{si + 1}</span>
             <input
               type="number"
@@ -96,13 +104,27 @@ function ExerciseCard({ exercise, onUpdateSet, onAddSet, onRemoveSet, onRemove, 
               onChange={e => onUpdateSet(si, 'weight_kg', e.target.value)}
               className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
             />
-            <input
-              type="number"
-              min="0"
-              value={set.reps}
-              onChange={e => onUpdateSet(si, 'reps', e.target.value)}
-              className="w-full min-w-0 bg-white/6 border border-line-strong rounded-elem px-2 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
-            />
+            {/* min-max range, same dash-separated compact pattern as RIR's
+                "reps @ RIR" combo cell in LiveWorkout.jsx */}
+            <div className="flex items-center gap-1 min-w-0" dir="ltr">
+              <input
+                type="number"
+                min="1"
+                value={set.reps_min}
+                onChange={e => onUpdateSet(si, 'reps_min', e.target.value)}
+                title="מינימום חזרות"
+                className="w-0 flex-1 min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
+              />
+              <span className="text-text-mid text-xs shrink-0">-</span>
+              <input
+                type="number"
+                min="1"
+                value={set.reps_max}
+                onChange={e => onUpdateSet(si, 'reps_max', e.target.value)}
+                title="מקסימום חזרות"
+                className="w-0 flex-1 min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1.5 text-text-hi text-center text-sm focus:outline-none focus:border-volt/60"
+              />
+            </div>
             <button
               type="button"
               onClick={() => onRemoveSet(si)}
@@ -134,7 +156,7 @@ export default function ManualWorkoutBuilder() {
   const [searchParams] = useSearchParams()
   const initialDay = searchParams.get('day')
   const [activeDay, setActiveDay] = useState(DAY_KEYS.includes(initialDay) ? initialDay : 'sunday')
-  const [week, setWeek] = useState({}) // { [day]: [{ name, muscle_group, notes, sets: [{weight_kg, reps}] }] }
+  const [week, setWeek] = useState({}) // { [day]: [{ name, muscle_group, notes, sets: [{weight_kg, reps_min, reps_max}] }] } -- edit state; saved as reps: {min, max}
   const [addMode, setAddMode] = useState('search') // 'search' | 'free'
   const [freeName, setFreeName] = useState('')
   const [freeMuscleGroup, setFreeMuscleGroup] = useState(FREE_MUSCLE_GROUPS[0])
@@ -175,7 +197,7 @@ export default function ManualWorkoutBuilder() {
   const addExerciseToDay = (exercise) => {
     setWeek(w => ({
       ...w,
-      [activeDay]: [...(w[activeDay] || []), { ...exercise, sets: [{ weight_kg: 0, reps: 10 }] }],
+      [activeDay]: [...(w[activeDay] || []), { ...exercise, sets: [{ weight_kg: 0, reps_min: 8, reps_max: 12 }] }],
     }))
   }
 
@@ -207,7 +229,7 @@ export default function ManualWorkoutBuilder() {
   const handleAddSet = (exIdx) => {
     updateDayExercises(exs => {
       const ex = { ...exs[exIdx] }
-      const last = ex.sets[ex.sets.length - 1] || { weight_kg: 0, reps: 10 }
+      const last = ex.sets[ex.sets.length - 1] || { weight_kg: 0, reps_min: 8, reps_max: 12 }
       ex.sets = [...ex.sets, { ...last }]
       exs[exIdx] = ex
       return exs
@@ -259,10 +281,14 @@ export default function ManualWorkoutBuilder() {
           name: e.name,
           muscle_group: e.muscle_group || '',
           notes: e.notes || null,
-          sets: e.sets.map(s => ({
-            weight_kg: Math.max(0, parseFloat(s.weight_kg) || 0),
-            reps: Math.max(1, parseInt(s.reps) || 1),
-          })),
+          sets: e.sets.map(s => {
+            const min = Math.max(1, parseInt(s.reps_min) || 1)
+            const max = Math.max(min, parseInt(s.reps_max) || min)
+            return {
+              weight_kg: Math.max(0, parseFloat(s.weight_kg) || 0),
+              reps: { min, max },
+            }
+          }),
         }))
       }
       await workoutsAPI.createManualPlan(payload)

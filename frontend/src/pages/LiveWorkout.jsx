@@ -5,6 +5,7 @@ import { workoutsAPI } from '../services/api'
 import api from '../services/api'
 import ExerciseSearch from '../components/ExerciseSearch'
 import { MUSCLE_GROUP_LABELS } from '../utils/exerciseMeta'
+import { normalizeReps, formatReps } from '../utils/repsRange'
 import ExerciseMediaModal from '../components/ExerciseMediaModal'
 import { useExerciseMasterMedia } from '../hooks/useExerciseMasterMedia'
 import spotifyIconGreen from '../assets/spotify-icon-green.svg'
@@ -331,17 +332,32 @@ export default function LiveWorkout() {
   }
 
   // Default draft values for a not-yet-touched row: prefer last session's
-  // same-set-number weight/reps (previousSets), then this plan's per-set
-  // target, then the exercise's flat default.
+  // same-set-number weight/reps (previousSets, always a real logged single
+  // number), then this plan's per-set target, then the exercise's flat
+  // default. Target reps may now be a range ({min,max}, or a plain number
+  // from an old plan -- normalizeReps handles both). A degenerate range
+  // (min===max, including every old plan) still auto-fills exactly like
+  // before; a genuine range is left blank with the range shown as a
+  // placeholder hint instead of guessing a number for the user.
   const getSetDraft = (exIdx, setIdx, ex) => {
     const key = `${exIdx}_${setIdx}`
     if (setDrafts[key]) return setDrafts[key]
     const prev = previousSets.find(s => s.set_number === setIdx + 1)
     const target = ex._setTargets?.[setIdx]
     const weight = prev?.weight_kg ?? target?.weight_kg ?? ex.weight_kg ?? 0
-    const reps = prev?.reps ?? target?.reps ?? ex.reps ?? 0
+    const targetReps = target?.reps ?? ex.reps
+    const repsRange = normalizeReps(targetReps)
+    const isRangeTarget = repsRange.min !== repsRange.max
+    const reps = prev?.reps ?? (isRangeTarget ? null : repsRange.min) ?? 0
+    const repsPlaceholder = prev == null && isRangeTarget ? formatReps(targetReps) : ''
     const rir = prev?.rir
-    return { weight: weight ? String(weight) : '', reps: reps ? String(reps) : '', rir: rir != null ? String(rir) : '', failure: false }
+    return {
+      weight: weight ? String(weight) : '',
+      reps: reps ? String(reps) : '',
+      repsPlaceholder,
+      rir: rir != null ? String(rir) : '',
+      failure: false,
+    }
   }
 
   const updateSetDraft = (exIdx, setIdx, ex, patch) => {
@@ -450,7 +466,7 @@ export default function LiveWorkout() {
       name: exercise.name,
       muscle_group: exercise.muscle_group || '',
       sets: 3,
-      reps: 10,
+      reps: { min: 8, max: 12 },
       weight_kg: 0,
       rest_seconds: 90,
     }])
@@ -694,8 +710,9 @@ export default function LiveWorkout() {
                         min="0"
                         value={draft.reps}
                         onChange={e => updateSetDraft(currentExerciseIdx, i, currentExercise, { reps: e.target.value })}
+                        placeholder={draft.repsPlaceholder}
                         className="w-0 flex-1 min-w-0 bg-white/6 border border-line-strong rounded-elem px-1 py-1 text-text-hi text-center text-sm font-bold focus:outline-none focus:border-volt/60"
-                        title="חזרות"
+                        title={draft.repsPlaceholder ? `חזרות (יעד: ${draft.repsPlaceholder})` : 'חזרות'}
                       />
                       <span className="text-text-mid text-xs shrink-0">@</span>
                       <input

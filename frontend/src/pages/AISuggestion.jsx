@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { agentsAPI } from '../services/api'
+import { formatReps } from '../utils/repsRange'
 import { Bot, Salad, Dumbbell, ShoppingCart, Moon, Check, X, AlertTriangle, Loader2, CheckCircle2, RefreshCw } from 'lucide-react'
 
 const REGENERATE_FN_BY_TYPE = {
@@ -212,7 +213,7 @@ function WorkoutPlanFull({ workoutPlan }) {
               </div>
               <div className="flex gap-2 flex-wrap mt-2">
                 <span className="bg-volt-soft text-volt text-xs px-2 py-1 rounded-lg font-medium tabular-nums" dir="ltr">
-                  {ex.sets} × {ex.reps}
+                  {ex.sets} × {formatReps(ex.reps)}
                 </span>
                 {ex.weight_kg > 0 && (
                   <span className="bg-amber-soft text-amber text-xs px-2 py-1 rounded-lg font-medium">

@@ -9,8 +9,8 @@ from app.models.fitness import (
     WorkoutPlan, WorkoutSession, ExerciseLog,
     ExerciseMemory, PersonalRecord, ExerciseMaster
 )
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, List, Union
 import datetime
 import uuid
 
@@ -39,9 +39,24 @@ class SessionSetComplete(BaseModel):
     set_type: str = "normal"
     rir: Optional[int] = None
 
+class RepsRange(BaseModel):
+    min: int = Field(..., ge=1, le=100)
+    max: int = Field(..., ge=1, le=100)
+
+    @model_validator(mode="after")
+    def check_order(self):
+        if self.min > self.max:
+            raise ValueError("reps.min must be <= reps.max")
+        return self
+
 class ManualWorkoutSet(BaseModel):
     weight_kg: float = Field(0, ge=0)
-    reps: int = Field(..., ge=1)
+    # Accepts a plain number too (old plans, or any caller mid-rollout that
+    # hasn't switched to sending a range yet) -- stored exactly as received,
+    # not normalized here. Every reader normalizes a plain number into a
+    # degenerate {min, max} range at read time instead (see
+    # frontend/src/utils/repsRange.js).
+    reps: Union[int, RepsRange] = Field(...)
 
 class ManualWorkoutExercise(BaseModel):
     name: str
