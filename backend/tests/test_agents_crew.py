@@ -247,20 +247,34 @@ def test_run_nutrition_crew_end_to_end_returns_full_week(monkeypatch):
     monkeypatch.setattr(crew_agents, "Crew", make_fake_crew_class(lambda: FakeCrewResult(full_week_json())))
     monkeypatch.setattr(crew_agents, "get_nutrition_agent", lambda: object())
     monkeypatch.setattr(crew_agents, "build_nutrition_task", lambda agent, profile, memory: object())
+    # This test only exercises the structural retry/wiring path -- the fake
+    # {"meals": []} placeholder shape doesn't need to pass the (separately
+    # tested below) value/schema guardrail.
+    monkeypatch.setattr(crew_agents, "validate_nutrition_plan_guardrails", lambda result: [])
     _mock_judge_always_valid(monkeypatch)
 
     result = asyncio.run(crew_agents.run_nutrition_crew({}, {}))
     assert sorted(result["meal_plan"].keys()) == sorted(DAYS)
 
 
-def test_run_workout_crew_end_to_end_returns_full_week(monkeypatch):
+def test_run_workout_crew_end_to_end_returns_full_week(monkeypatch, db_session):
+    # run_workout_crew now computes allowed_exercises/allowed_names up front
+    # via get_canonical_exercises(), which opens its own SessionLocal() --
+    # must be repointed at the in-memory test DB like the other DB-touching
+    # tests in this file (db_session fixture also ensures the tables exist),
+    # or it would try to reach real staging Postgres.
+    monkeypatch.setattr(crew_agents, "SessionLocal", TestingSessionLocal)
     monkeypatch.setattr(
         crew_agents,
         "Crew",
         make_fake_crew_class(lambda: FakeCrewResult(full_week_json(plan_key="workout_plan"))),
     )
     monkeypatch.setattr(crew_agents, "get_workout_agent", lambda: object())
-    monkeypatch.setattr(crew_agents, "build_workout_task", lambda agent, profile, memory: object())
+    monkeypatch.setattr(crew_agents, "build_workout_task", lambda agent, profile, memory, allowed_exercises: object())
+    # Same rationale as the nutrition test above: the {"meals": []} fake
+    # shape isn't real workout content, so the guardrail (tested separately
+    # below) is bypassed here to keep this test's scope to structural wiring.
+    monkeypatch.setattr(crew_agents, "validate_workout_plan_guardrails", lambda result, allowed_names: [])
     _mock_judge_always_valid(monkeypatch)
 
     result = asyncio.run(crew_agents.run_workout_crew({}, {}))
@@ -425,3 +439,173 @@ def test_filter_exercises_by_gym_machines_equipment_opts_in_to_machine_exercises
         ex["name_he"] for ex in crew_agents._filter_exercises_by_equipment(exercises, equipment_unset)
     }
     assert allowed_unset == {"שכיבות סמיכה", "לחיצת רגליים במכונה"}  # unchanged: "no restriction" fallback, pre-existing
+
+
+# ─── Output guardrails (deterministic schema/value/constraint checks) ─────
+# Regression coverage for the 9.8.2026 fix: the workout agent was observed
+# generating cut-off/impossible-value/wrong-equipment plans repeatedly, and
+# the retry loop had no deterministic check to catch that before the (fail-
+# open, semantic-only) judge -- see validate_workout_plan_guardrails /
+# validate_nutrition_plan_guardrails / _run_crew_with_retry's extra_validator
+# param in crew_agents.py.
+
+def sane_workout_plan():
+    return {
+        "workout_plan": {
+            "sunday": {"type": "strength", "name": "פלג גוף עליון", "exercises": [
+                {"name": "לחיצת חזה", "muscle_group": "חזה", "sets": 4, "reps": 10, "weight_kg": 60, "rest_seconds": 90, "notes": ""},
+            ]},
+            "monday": {"type": "rest", "name": "מנוחה", "exercises": []},
+            "tuesday": {"type": "strength", "name": "פלג גוף תחתון", "exercises": [
+                {"name": "סקוואט", "muscle_group": "רגליים", "sets": 4, "reps": 8, "weight_kg": 80, "rest_seconds": 120, "notes": ""},
+            ]},
+            "wednesday": {"type": "cardio", "name": "אירובי", "exercises": [
+                {"name": "ריצה", "muscle_group": "לב-ריאה", "sets": 1, "reps": 1, "weight_kg": 0, "rest_seconds": 0, "notes": ""},
+            ]},
+            "thursday": {"type": "strength", "name": "גב", "exercises": [
+                {"name": "מתח שלילי", "muscle_group": "גב", "sets": 3, "reps": 8, "weight_kg": 0, "rest_seconds": 90, "notes": ""},
+            ]},
+            "friday": {"type": "rest", "name": "מנוחה", "exercises": []},
+            "saturday": {"type": "rest", "name": "מנוחה", "exercises": []},
+        }
+    }
+
+
+_ALLOWED_WORKOUT_NAMES = {"לחיצת חזה", "סקוואט", "ריצה", "מתח שלילי"}
+
+
+def test_validate_workout_plan_guardrails_accepts_sane_plan():
+    assert crew_agents.validate_workout_plan_guardrails(sane_workout_plan(), _ALLOWED_WORKOUT_NAMES) == []
+
+
+def test_validate_workout_plan_guardrails_allows_weight_kg_zero_for_bodyweight_exercise():
+    """Regression for the false-positive the judge used to raise on
+    weight_kg: 0 for bodyweight moves like negative pull-ups (see the judge
+    prompt clarification in _judge_plan) -- the deterministic guardrail must
+    never flag 0 as out of range; 0-500 is the accepted range."""
+    violations = crew_agents.validate_workout_plan_guardrails(sane_workout_plan(), _ALLOWED_WORKOUT_NAMES)
+    assert not any("מתח שלילי" in v and "weight_kg" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_rejects_zero_sets():
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["sets"] = 0
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("sets" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_rejects_unlisted_exercise_name():
+    """This is what turns validate_workout_exercises() (pre-existing,
+    observation-only, never rejects) into actual enforcement -- an
+    equipment-violating/invented name now fails the guardrail and triggers
+    a retry instead of only being logged."""
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["name"] = "תרגיל מומצא"
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("תרגיל מומצא" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_ignores_equipment_check_when_allowed_names_empty():
+    """An empty allowed_names set means "don't restrict" (mirrors
+    _filter_exercises_by_equipment's own no-equipment-listed behaviour), not
+    "reject everything"."""
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"][0]["name"] = "תרגיל כלשהו"
+    assert crew_agents.validate_workout_plan_guardrails(plan, set()) == []
+
+
+def test_validate_workout_plan_guardrails_rejects_empty_exercises_on_strength_day():
+    plan = sane_workout_plan()
+    plan["workout_plan"]["sunday"]["exercises"] = []
+    violations = crew_agents.validate_workout_plan_guardrails(plan, _ALLOWED_WORKOUT_NAMES)
+    assert any("sunday" in v and "בלי אף תרגיל" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_allows_empty_exercises_on_rest_day():
+    violations = crew_agents.validate_workout_plan_guardrails(sane_workout_plan(), _ALLOWED_WORKOUT_NAMES)
+    assert not any("monday" in v for v in violations)
+
+
+def test_validate_workout_plan_guardrails_missing_plan_key():
+    assert crew_agents.validate_workout_plan_guardrails({"error": "no output"}, set()) != []
+
+
+def sane_nutrition_plan():
+    meal = {
+        "meal_type": "breakfast", "name": "ארוחת בוקר",
+        "items": [{"name": "ביצים", "qty_g": 100, "calories": 150, "protein": 12, "carbs": 1, "fat": 10}],
+        "total_calories": 150, "total_protein": 12, "total_carbs": 1, "total_fat": 10,
+    }
+    return {"meal_plan": {day: [dict(meal, items=[dict(meal["items"][0])])] for day in DAYS}}
+
+
+def test_validate_nutrition_plan_guardrails_accepts_sane_plan():
+    assert crew_agents.validate_nutrition_plan_guardrails(sane_nutrition_plan()) == []
+
+
+def test_validate_nutrition_plan_guardrails_rejects_out_of_range_calories():
+    plan = sane_nutrition_plan()
+    plan["meal_plan"]["sunday"][0]["items"][0]["calories"] = 9000
+    violations = crew_agents.validate_nutrition_plan_guardrails(plan)
+    assert any("calories" in v for v in violations)
+
+
+def test_validate_nutrition_plan_guardrails_rejects_empty_meals_for_a_day():
+    plan = sane_nutrition_plan()
+    plan["meal_plan"]["sunday"] = []
+    violations = crew_agents.validate_nutrition_plan_guardrails(plan)
+    assert any("sunday" in v for v in violations)
+
+
+def test_validate_nutrition_plan_guardrails_missing_plan_key():
+    assert crew_agents.validate_nutrition_plan_guardrails({"error": "no output"}) != []
+
+
+def test_run_crew_with_retry_retries_after_guardrail_violation(monkeypatch):
+    attempts = {"n": 0}
+
+    def fake_kickoff():
+        attempts["n"] += 1
+        return FakeCrewResult(full_week_json(plan_key="workout_plan"))
+
+    monkeypatch.setattr(crew_agents, "Crew", make_fake_crew_class(fake_kickoff))
+    _mock_judge_always_valid(monkeypatch)
+
+    def validator(result):
+        return [] if attempts["n"] >= 2 else ["forced violation"]
+
+    def build():
+        return object(), object()
+
+    result = crew_agents._run_crew_with_retry(build, "workout_plan", "test", {}, extra_validator=validator)
+    assert crew_agents._plan_key_with_all_days(result) == "workout_plan"
+    assert attempts["n"] == 2
+
+
+def test_run_crew_with_retry_gives_up_after_guardrail_rejects_every_attempt(monkeypatch):
+    """Final-exhaustion shape must match the judge-rejection shape
+    (guardrail_rejected/guardrail_reasons alongside the existing
+    judge_rejected/judge_reason), and the guardrail must be checked BEFORE
+    the (paid) judge call -- an attempt that's already deterministically
+    broken must never waste an extra LLM call on the judge."""
+    monkeypatch.setattr(
+        crew_agents, "Crew", make_fake_crew_class(lambda: FakeCrewResult(full_week_json(plan_key="workout_plan")))
+    )
+    judge_calls = {"n": 0}
+
+    def fake_judge(plan_key, plan_value, profile):
+        judge_calls["n"] += 1
+        return True, "mocked"
+
+    monkeypatch.setattr(crew_agents, "_judge_plan", fake_judge)
+
+    def build():
+        return object(), object()
+
+    result = crew_agents._run_crew_with_retry(
+        build, "workout_plan", "test", {}, extra_validator=lambda r: ["always broken"]
+    )
+    assert "workout_plan" not in result
+    assert result.get("guardrail_rejected") is True
+    assert result["guardrail_reasons"] == ["always broken"]
+    assert judge_calls["n"] == 0

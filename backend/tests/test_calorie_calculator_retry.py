@@ -97,6 +97,45 @@ def test_ask_claude_raises_visible_502_on_persistent_connection_error(monkeypatc
     assert exc_info.value.status_code == 502
 
 
+# ─── Value-sanity guardrail (9.8.2026) ─────────────────────────────────────
+# ITEMS_SCHEMA (via output_config.json_schema) already guarantees well-formed
+# *shape* -- every field present with the right type -- but says nothing
+# about plausible *ranges*. _is_sane_item()/the filtering in _ask_claude()
+# drops any individual item whose values fall outside a sane range, rather
+# than failing the whole request, since one bad estimate shouldn't discard
+# other good ones in the same response.
+
+def test_ask_claude_filters_out_item_with_absurd_calories(monkeypatch):
+    _patch_client(monkeypatch, response_items=[
+        {"name": "תפוח", "estimated_quantity_g": 100, "calories": 52,
+         "protein_g": 0.3, "fat_g": 0.2, "carbs_g": 14},
+        {"name": "משהו מוזר", "estimated_quantity_g": 100, "calories": 9000,
+         "protein_g": 5, "fat_g": 5, "carbs_g": 5},
+    ])
+    items = calorie_calculator._ask_claude("system", "תפוח ומשהו מוזר")
+    assert len(items) == 1
+    assert items[0]["name"] == "תפוח"
+
+
+def test_ask_claude_filters_out_item_with_negative_macro(monkeypatch):
+    _patch_client(monkeypatch, response_items=[
+        {"name": "עוף", "estimated_quantity_g": 100, "calories": 165,
+         "protein_g": -5, "fat_g": 3.6, "carbs_g": 0},
+    ])
+    assert calorie_calculator._ask_claude("system", "עוף") == []
+
+
+def test_ask_claude_keeps_all_items_when_all_within_sane_ranges(monkeypatch):
+    _patch_client(monkeypatch, response_items=[
+        {"name": "תפוח", "estimated_quantity_g": 100, "calories": 52,
+         "protein_g": 0.3, "fat_g": 0.2, "carbs_g": 14},
+        {"name": "עוף", "estimated_quantity_g": 150, "calories": 248,
+         "protein_g": 33, "fat_g": 5.4, "carbs_g": 0},
+    ])
+    items = calorie_calculator._ask_claude("system", "תפוח ועוף")
+    assert len(items) == 2
+
+
 def test_calculate_from_text_matches_alias_uses_internal_db_not_claude(client, db_session, monkeypatch):
     """A query matching only an alias (not canonical_name_he) must still hit
     the internal_db path, not fall through to the Claude fallback."""
