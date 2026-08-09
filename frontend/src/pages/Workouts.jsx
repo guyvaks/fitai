@@ -4,6 +4,7 @@ import { workoutsAPI, agentsAPI } from '../services/api'
 import { usePolling } from '../hooks/usePolling'
 import { useExerciseMasterMedia } from '../hooks/useExerciseMasterMedia'
 import { normalizeReps, formatReps } from '../utils/repsRange'
+import ExerciseMediaModal from '../components/ExerciseMediaModal'
 import { Bot, Loader2, Dumbbell, Pencil, Play, Check, CheckCircle2, Moon, Inbox, ChevronLeft } from 'lucide-react'
 
 const DAYS = [
@@ -71,6 +72,7 @@ export default function Workouts() {
   const [done, setDone] = useState(false)
   const [genError, setGenError] = useState(null)
   const [lastWeights, setLastWeights] = useState({})
+  const [previewExercise, setPreviewExercise] = useState(null) // { ex, media } | null -- ExerciseMediaModal preview
   const progressRef = useRef(null)
   const weekDates = useRef(getWeekDates()).current
 
@@ -367,7 +369,7 @@ export default function Workouts() {
               <button
                 key={i}
                 type="button"
-                onClick={() => navigate(`/workouts/manual-builder?day=${activeDay}`)}
+                onClick={() => media && setPreviewExercise({ ex, media })}
                 className="card-glass card-hover p-3 flex items-center gap-3 w-full text-right"
               >
                 {media?.thumbnail_png_url ? (
@@ -395,15 +397,27 @@ export default function Workouts() {
                     {(lastWeights[ex.name] ?? lastSetWeight(ex)) ? `${lastWeights[ex.name] ?? lastSetWeight(ex)}kg` : '—'}
                   </p>
                 </div>
-                {/* Previously purely decorative -- the whole row is now the
-                    click target (navigates into ManualWorkoutBuilder with
-                    this day pre-selected), this just keeps the existing
-                    "tap for detail" visual affordance honest. */}
+                {/* The whole row is the click target -- opens the exercise
+                    demo/detail modal (no-op if this exercise has no matching
+                    exercises_master media, e.g. free-text/manual entries).
+                    Editing the plan itself is the separate "בנה ידנית"
+                    button above, not this row. */}
                 <ChevronLeft className="w-4 h-4 text-text-mid shrink-0" />
               </button>
               )
             })}
           </div>
+
+          {previewExercise && (
+            <ExerciseMediaModal
+              name={previewExercise.ex.name}
+              animationWebpUrl={previewExercise.media.animation_webp_url}
+              thumbnailPngUrl={previewExercise.media.thumbnail_png_url}
+              videoMp4Url={previewExercise.media.video_mp4_url}
+              tips={previewExercise.media.tips}
+              onClose={() => setPreviewExercise(null)}
+            />
+          )}
 
           {/* Promo banner */}
           <div className="relative rounded-card overflow-hidden h-40 ring-1 ring-line">

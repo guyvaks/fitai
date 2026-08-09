@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
-import { Menu, Home, Sun, Moon, Bell, ChevronDown, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { Menu, Home, ArrowRight, Sun, Moon, Bell, ChevronDown, Settings as SettingsIcon, LogOut } from "lucide-react";
 import Avatar from "../Avatar";
 import api from "../../services/api";
 import { PENDING_COUNT_CHANGED_EVENT } from "../../utils/pendingUpdates";
@@ -246,6 +246,23 @@ export default function Header({ onToggleSidebar }) {
           <span className="text-text-mid text-sm hover:text-text-hi transition-colors">{user?.full_name}</span>
           <Avatar user={user} className="w-8 h-8 text-xs" />
         </NavLink>
+
+        {/* Mobile: back button -- browser-history navigation, hidden on the
+            actual home page (nowhere meaningful to go "back" to from there;
+            navigate(-1) has no reliable "can go back" check in general, so
+            this denylist-of-one is the pragmatic scope, not a full in-app
+            history tracker). RTL convention: "back" points right (ArrowRight),
+            same direction as the existing prev/next chevrons elsewhere
+            (LiveWorkout.jsx, Workouts.jsx). */}
+        {location.pathname !== '/dashboard' && (
+          <button
+            className="md:hidden text-text-mid hover:text-volt p-2 transition-colors"
+            onClick={() => navigate(-1)}
+            aria-label="חזרה"
+          >
+            <ArrowRight className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Mobile: home button */}
         <button
