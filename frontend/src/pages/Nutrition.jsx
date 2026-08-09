@@ -5,11 +5,13 @@ import { usePolling } from '../hooks/usePolling'
 import { useAuth } from '../context/AuthContext'
 import ManualPlanModal from '../components/ManualPlanModal'
 import FoodLog from './FoodLog'
-import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog, CalendarDays, ClipboardList, Sun, Soup, Moon, Apple } from 'lucide-react'
+import NutritionHistory from './NutritionHistory'
+import { Bot, Loader2, Salad, Droplets, Beef, Flame, Check, ChevronLeft, CheckCircle2, Cog, CalendarDays, ClipboardList, TrendingUp, Sun, Soup, Moon, Apple } from 'lucide-react'
 
 const TABS = [
   { key: 'weekly', label: 'תכנון שבועי', Icon: CalendarDays },
   { key: 'daily',  label: 'מעקב יומי',  Icon: ClipboardList },
+  { key: 'history', label: 'היסטוריה', Icon: TrendingUp },
 ]
 
 const DAYS = [
@@ -68,9 +70,10 @@ export default function Nutrition() {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') === 'daily' ? 'daily' : 'weekly'
+  const tabParam = searchParams.get('tab')
+  const activeTab = tabParam === 'daily' || tabParam === 'history' ? tabParam : 'weekly'
   const setActiveTab = (tab) =>
-    setSearchParams(tab === 'daily' ? { tab: 'daily' } : {}, { replace: true })
+    setSearchParams(tab === 'weekly' ? {} : { tab }, { replace: true })
   const [plan, setPlan] = useState(null)
   const [activeDay, setActiveDay] = useState('sunday')
   const [generating, setGenerating] = useState(false)
@@ -188,6 +191,8 @@ export default function Nutrition() {
 
       {activeTab === 'daily' ? (
         <FoodLog />
+      ) : activeTab === 'history' ? (
+        <NutritionHistory />
       ) : (
       <>
       {/* Weekly plan actions */}

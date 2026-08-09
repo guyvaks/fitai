@@ -65,6 +65,7 @@ export const nutritionAPI = {
   getDayLog: (date) => api.get(`/api/v1/nutrition/food-log/${date}`),
   deleteLog: (id) => api.delete(`/api/v1/nutrition/food-log/entry/${id}`),
   calculateCalories: (payload) => api.post('/api/v1/nutrition/calculate-calories', payload),
+  getHistory: (days = 90) => api.get('/api/v1/nutrition/history', { params: { days } }),
 }
 
 export const agentsAPI = {
@@ -91,7 +92,9 @@ export const workoutsAPI = {
   getExerciseStats: (name, range = '3m') =>
     api.get(`/api/v1/workouts/exercise-stats/${encodeURIComponent(name)}`, { params: { range } }),
   getVolumeHistory: () => api.get('/api/v1/workouts/volume-history'),
-  getSessionsHistory: () => api.get('/api/v1/workouts/sessions/history'),
+  getFrequencyHistory: (weeks = 12) => api.get('/api/v1/workouts/frequency-history', { params: { weeks } }),
+  getSessionsHistory: (limit = 20, offset = 0) =>
+    api.get('/api/v1/workouts/sessions/history', { params: { limit, offset } }),
   getSessionDetail: (sessionId) => api.get(`/api/v1/workouts/sessions/${sessionId}/detail`),
   getPendingReports: () => api.get('/api/v1/workouts/reports/pending'),
   dismissReport: (period, periodStart) =>
