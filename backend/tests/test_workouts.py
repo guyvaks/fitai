@@ -98,6 +98,58 @@ def test_create_manual_plan_rejects_reps_range_with_min_greater_than_max(client)
     assert response.status_code == 422
 
 
+# ─── Default rest time (9.8.2026) — exercise-level rest_seconds, manual plans ─
+
+def test_create_manual_plan_defaults_rest_seconds_to_90_when_not_sent(client):
+    """MANUAL_PLAN_PAYLOAD (used throughout this file) never sends
+    rest_seconds -- confirms the schema default matches ExerciseUpdate's
+    existing 90 and LiveWorkout.jsx's `currentExercise.rest_seconds || 90`
+    fallback, so old callers/plans keep behaving the same."""
+    headers = get_auth_headers(client)
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=MANUAL_PLAN_PAYLOAD)
+    assert response.status_code == 200
+    assert response.json()["plan_data"]["sunday"]["exercises"][0]["rest_seconds"] == 90
+
+
+def test_create_manual_plan_accepts_custom_rest_seconds(client):
+    headers = get_auth_headers(client)
+    payload = {
+        "week": {
+            "sunday": [
+                {
+                    "name": "Bench Press",
+                    "muscle_group": "chest",
+                    "notes": None,
+                    "rest_seconds": 45,
+                    "sets": [{"weight_kg": 60, "reps": 10}],
+                }
+            ]
+        }
+    }
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=payload)
+    assert response.status_code == 200
+    assert response.json()["plan_data"]["sunday"]["exercises"][0]["rest_seconds"] == 45
+
+
+def test_create_manual_plan_rejects_rest_seconds_out_of_bounds(client):
+    headers = get_auth_headers(client)
+    payload = {
+        "week": {
+            "sunday": [
+                {
+                    "name": "Bench Press",
+                    "muscle_group": "chest",
+                    "notes": None,
+                    "rest_seconds": 601,
+                    "sets": [{"weight_kg": 60, "reps": 10}],
+                }
+            ]
+        }
+    }
+    response = client.post("/api/v1/workouts/plan/manual", headers=headers, json=payload)
+    assert response.status_code == 422
+
+
 def test_create_manual_plan_unauthenticated(client):
     response = client.post("/api/v1/workouts/plan/manual", json=MANUAL_PLAN_PAYLOAD)
     assert response.status_code == 401

@@ -3,9 +3,11 @@
 (app.core.database.SessionLocal, separate from the request-scoped get_db
 override) is redirected to the same in-memory test DB so nothing touches
 the real staging/production database."""
+import types
 import uuid
 
 import app.core.database as database_module
+from app.api.v1.endpoints.agents import _build_profile_dict
 from app.models.fitness import AISuggestion
 from app.models.user import User
 from app.services import crew_agents
@@ -49,6 +51,33 @@ async def _fake_workout_crew(profile, memory):
 
 async def _fake_invalid_crew(profile, memory):
     return {"error": "no output"}
+
+
+# ─── Default rest-time preference forwarded to the workout agent (9.8.2026) ─
+
+def _fake_profile(workout_preferences=None):
+    return types.SimpleNamespace(
+        age=30, gender="male", height_cm=180, weight_kg=80, target_calories=2500,
+        goal="muscle_gain", allergies=None, injuries=None, equipment=None,
+        meals_per_day=4, activity_level="moderately_active",
+        workout_preferences=workout_preferences,
+    )
+
+
+def test_build_profile_dict_forwards_rest_timer_preference():
+    profile = _fake_profile(workout_preferences={"rest_timer_seconds": 45, "auto_start_rest": True})
+    assert _build_profile_dict(profile)["default_rest_seconds"] == 45
+
+
+def test_build_profile_dict_default_rest_seconds_none_when_no_preference_set():
+    assert _build_profile_dict(_fake_profile(workout_preferences=None))["default_rest_seconds"] is None
+
+
+def test_build_profile_dict_default_rest_seconds_none_when_key_missing():
+    """workout_preferences can hold other keys (e.g. only auto_start_rest was
+    ever saved) without rest_timer_seconds being present at all."""
+    profile = _fake_profile(workout_preferences={"auto_start_rest": False})
+    assert _build_profile_dict(profile)["default_rest_seconds"] is None
 
 
 def test_generate_nutrition_unauthenticated(client):

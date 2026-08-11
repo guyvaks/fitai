@@ -469,6 +469,17 @@ def build_workout_task(agent, profile: dict, memory: dict, allowed_exercises: Op
         allowed_exercises = _filter_exercises_by_equipment(get_canonical_exercises(), equipment)
     allowed_names_he = ", ".join(ex["name_he"] for ex in allowed_exercises if ex.get("name_he"))
 
+    default_rest = profile.get("default_rest_seconds")
+    # Only added when the user actually set a preference (Settings.jsx /
+    # LiveWorkout's own settings modal) -- omitted entirely otherwise, so a
+    # user with no preference sees the exact same prompt as before this was
+    # wired in. A hint, not a hard requirement: the agent may still deviate
+    # per exercise (e.g. longer rest for heavy compound lifts).
+    rest_hint = (
+        f"- זמן מנוחה מועדף בין סטים: {default_rest} שניות (אפשר לסטות במידת הצורך, זה רק כיוון)\n"
+        if default_rest else ""
+    )
+
     return Task(
         description=f"""החזר JSON בלבד. אסור טקסט לפני או אחרי ה-JSON. התחל ישירות עם {{ וסיים עם }}.
 
@@ -482,7 +493,7 @@ def build_workout_task(agent, profile: dict, memory: dict, allowed_exercises: Op
 - חשוב: השתמש אך ורק בשמות תרגילים מהרשימה הזו. אסור להמציא שמות חדשים.
 - תרגילים מועדפים: {', '.join(preferred_ex) if preferred_ex else 'לא צוין'}
 - תרגילים שנדלגו: {', '.join(skipped_ex) if skipped_ex else 'לא צוין'}
-- לכל יום אימון (לא מנוחה) — עד 6 תרגילים בלבד, הערות (notes) קצרות עד 8 מילים. שמור על JSON קומפקטי כדי שהתשובה לא תיחתך.
+{rest_hint}- לכל יום אימון (לא מנוחה) — עד 6 תרגילים בלבד, הערות (notes) קצרות עד 8 מילים. שמור על JSON קומפקטי כדי שהתשובה לא תיחתך.
 - תרגילי משקל-גוף (מתח, שכיבות סמיכה, פלאנק וכו') — weight_kg: 0 הוא ערך תקין ונכון, לא שגיאה.
 - reps הוא תמיד טווח, לא מספר בודד: אובייקט {{"min": X, "max": Y}}, למשל {{"min": 8, "max": 12}}. X חייב להיות קטן-או-שווה ל-Y.
 

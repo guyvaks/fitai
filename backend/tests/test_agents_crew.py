@@ -281,6 +281,25 @@ def test_run_workout_crew_end_to_end_returns_full_week(monkeypatch, db_session):
     assert sorted(result["workout_plan"].keys()) == sorted(DAYS)
 
 
+# ─── Default rest-time preference in the workout prompt (9.8.2026) ─────────
+
+def test_build_workout_task_includes_rest_hint_when_preference_set():
+    task = crew_agents.build_workout_task(
+        None, {"default_rest_seconds": 45}, {}, allowed_exercises=[]
+    )
+    assert "45 שניות" in task.description
+    assert "זמן מנוחה מועדף" in task.description
+
+
+def test_build_workout_task_omits_rest_hint_when_no_preference_set():
+    """A user who never set a rest-time preference must see the exact same
+    prompt as before this feature -- no hint line, no behavior change."""
+    task = crew_agents.build_workout_task(
+        None, {"default_rest_seconds": None}, {}, allowed_exercises=[]
+    )
+    assert "זמן מנוחה מועדף" not in task.description
+
+
 def test_extract_json_prefers_candidate_with_all_days():
     text = (
         "some preamble text "
