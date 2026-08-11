@@ -3,28 +3,31 @@ import api from '../services/api'
 import { Timer, Loader2 } from 'lucide-react'
 
 // Compact, non-blocking card for confirming/changing the rest-time default
-// (workout_preferences.rest_timer_seconds) at the moment a plan is created
-// or approved -- deliberately NOT a modal/overlay, so it never gates the
-// actual save/approve action the way the old LiveWorkout gear-icon modal
-// did. Settings.jsx keeps its own full copy of this control (including the
-// unrelated auto_start_rest toggle, out of scope here) for anytime access.
+// (workout_preferences.rest_timer_seconds + auto_start_rest) at the moment a
+// plan is created or approved -- deliberately NOT a modal/overlay, so it
+// never gates the actual save/approve action the way the old LiveWorkout
+// gear-icon modal did. Settings.jsx keeps its own full copy of the same two
+// fields for anytime access.
 //
-// If `value` is provided, the card trusts it as the current default and
-// skips its own profile fetch (the parent -- e.g. ManualWorkoutBuilder --
-// already loaded it for another reason). Otherwise it fetches on mount.
+// If `value` is provided, the card trusts it as the current rest-seconds
+// default and skips its own profile fetch (the parent -- e.g.
+// ManualWorkoutBuilder -- already loaded it for another reason); auto_start_rest
+// is always fetched here regardless, since no parent passes it in today.
 export default function RestTimeDefaultCard({ value, onSaved }) {
   const [restSeconds, setRestSeconds] = useState(value != null ? String(value) : '')
-  const [autoStartRest, setAutoStartRest] = useState(true) // preserved on save, not editable here
+  const [autoStartRest, setAutoStartRest] = useState(true)
   const [loading, setLoading] = useState(value == null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (value != null) return
+    // auto_start_rest isn't passed in by either consumer (ManualWorkoutBuilder
+    // only passes rest-seconds via `value`), so it's always fetched here --
+    // otherwise saving would silently reset it to the true default.
     api.get('/api/v1/users/profile')
       .then(({ data }) => {
         const prefs = data?.workout_preferences
-        if (prefs?.rest_timer_seconds != null) setRestSeconds(String(prefs.rest_timer_seconds))
+        if (value == null && prefs?.rest_timer_seconds != null) setRestSeconds(String(prefs.rest_timer_seconds))
         if (prefs?.auto_start_rest === false) setAutoStartRest(false)
       })
       .catch(() => {})
@@ -68,16 +71,27 @@ export default function RestTimeDefaultCard({ value, onSaved }) {
           dir="ltr"
         />
         <span className="text-text-mid text-xs shrink-0">שניות</span>
+      </div>
+      <label className="flex items-center justify-between gap-3 cursor-pointer">
+        <span className="text-text-mid text-xs">התחלה אוטומטית של טיימר מנוחה</span>
         <button
           type="button"
-          onClick={handleSave}
-          disabled={saving || loading}
-          className="btn-volt px-3 py-2 text-xs shrink-0 flex items-center gap-1"
+          onClick={() => { setAutoStartRest(v => !v); setSaved(false) }}
+          disabled={loading}
+          className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${autoStartRest ? "bg-volt" : "bg-white/15"}`}
         >
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {saving ? 'שומר...' : saved ? 'נשמר ✓' : 'שמור'}
+          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${autoStartRest ? "right-0.5" : "right-5.5"}`} />
         </button>
-      </div>
+      </label>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || loading}
+        className="btn-volt w-full py-2 text-xs flex items-center justify-center gap-1"
+      >
+        {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+        {saving ? 'שומר...' : saved ? 'נשמר ✓' : 'שמור'}
+      </button>
     </div>
   )
 }
