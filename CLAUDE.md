@@ -47,6 +47,7 @@
 - כל הסודות רוטטו (ANTHROPIC_API_KEY, SECRET_KEY, Postgres passwords, admin password)
 - `.env.local` (gitignored) מצביע ל-staging DB
 - `DATABASE_URL` ב-Railway הוא **reference variable** (מתעדכן אוטומטית ברוטציה)
+- **RLS ב-staging (Supabase Postgres)**: כל טבלה קיימת ב-`public` עברה `ENABLE ROW LEVEL SECURITY` + `REVOKE` על `anon`/`authenticated` (מיגרציה `34282a7fdf47`, 2026-08-12), ו-`ALTER DEFAULT PRIVILEGES` מונע grant אוטומטי לתפקידים האלה על טבלאות עתידיות (מיגרציה `5b3a80e7fd1e`). **חשוב**: זה לא מפעיל RLS אוטומטית על טבלה חדשה — Postgres אין לו `ALTER DEFAULT ... ENABLE RLS`. **כל מיגרציה עתידית שמוסיפה טבלה חדשה חייבת לכלול `op.execute('ALTER TABLE public."<table>" ENABLE ROW LEVEL SECURITY;')` בעצמה**, אחרת הטבלה תיוולד בלי grant (בטוחה מ-PostgREST) אך גם בלי RLS מופעל (לא מוגנת אם grant יתווסף בטעות מאוחר יותר).
 
 ## 🧪 טסטים
 
