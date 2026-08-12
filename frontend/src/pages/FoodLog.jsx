@@ -132,6 +132,10 @@ export default function FoodLog() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [modalStep, setModalStep] = useState('select') // 'select' | 'summary'
+  const [stagedItems, setStagedItems] = useState([]) // client-side only, not yet saved
+  const [batchError, setBatchError] = useState(null)
+  const [savingBatch, setSavingBatch] = useState(false)
   const [showCalcModal, setShowCalcModal] = useState(false)
   const [calcMealType, setCalcMealType] = useState('breakfast')
 
@@ -147,7 +151,6 @@ export default function FoodLog() {
     fat:        '',
     meal_type:  'breakfast',
   })
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   // Independent of `logs` on purpose -- fetchLogs()'s refetch after a save
   // must not clear this, so the picker stays visible through the refetch.
@@ -208,7 +211,10 @@ export default function FoodLog() {
     setDate(d)
   }
 
-  const handleSubmit = async (e) => {
+  // Adds the currently-filled form as a staged item (client-side only --
+  // no API call here). Lets the user keep searching and add several
+  // products before anything is actually persisted as a meal.
+  const handleAddStagedItem = (e) => {
     e.preventDefault()
     setError(null)
     if (!form.food_name || !form.calories) {
@@ -241,27 +247,71 @@ export default function FoodLog() {
       }
       macros[key] = Number.isFinite(num) ? num : 0
     }
-    setSubmitting(true)
-    try {
-      const { data: createdLog } = await nutritionAPI.logFood({
-        date:       dateStr,
-        meal_type:  form.meal_type,
-        food_name:  form.food_name,
-        quantity_g,
-        calories:   macros.calories,
-        protein:    macros.protein,
-        carbs:      macros.carbs,
-        fat:        macros.fat,
-      })
-      setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: form.meal_type })
-      setSelectedFood(null)
-      setShowAddModal(false)
-      setPendingSatietyLog({ id: createdLog.id, food_name: createdLog.food_name })
-      fetchLogs()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'שגיאה בשמירה')
-    } finally {
-      setSubmitting(false)
+    setStagedItems(items => [...items, {
+      tempId:     `${Date.now()}-${Math.random()}`,
+      food_name:  form.food_name,
+      quantity_g,
+      calories:   macros.calories,
+      protein:    macros.protein,
+      carbs:      macros.carbs,
+      fat:        macros.fat,
+      meal_type:  form.meal_type,
+    }])
+    setForm(f => ({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: f.meal_type }))
+    setSelectedFood(null)
+  }
+
+  const removeStagedItem = (tempId) => {
+    setStagedItems(items => items.filter(i => i.tempId !== tempId))
+  }
+
+  const closeAddModal = () => {
+    setShowAddModal(false)
+    setModalStep('select')
+    setStagedItems([])
+    setSelectedFood(null)
+    setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: 'breakfast' })
+    setError(null)
+    setBatchError(null)
+  }
+
+  // Persists every staged item, then shows the satiety picker once for the
+  // whole meal (based on the last item that saved successfully). Failures
+  // are surfaced explicitly and the failed items stay staged for retry.
+  const handleConfirmBatch = async () => {
+    setBatchError(null)
+    setSavingBatch(true)
+    const failedNames = []
+    const succeededIds = []
+    let lastCreatedLog = null
+    for (const item of stagedItems) {
+      try {
+        const { data: createdLog } = await nutritionAPI.logFood({
+          date:       dateStr,
+          meal_type:  item.meal_type,
+          food_name:  item.food_name,
+          quantity_g: item.quantity_g,
+          calories:   item.calories,
+          protein:    item.protein,
+          carbs:      item.carbs,
+          fat:        item.fat,
+        })
+        succeededIds.push(item.tempId)
+        lastCreatedLog = createdLog
+      } catch {
+        failedNames.push(item.food_name)
+      }
+    }
+    setSavingBatch(false)
+    if (succeededIds.length > 0) fetchLogs()
+    if (lastCreatedLog) {
+      setPendingSatietyLog({ id: lastCreatedLog.id, food_name: lastCreatedLog.food_name })
+    }
+    if (failedNames.length > 0) {
+      setStagedItems(items => items.filter(i => !succeededIds.includes(i.tempId)))
+      setBatchError(`שמירה נכשלה עבור: ${failedNames.join(', ')}. הפריטים האחרים נשמרו, אפשר לנסות שוב.`)
+    } else {
+      closeAddModal()
     }
   }
 
@@ -445,99 +495,179 @@ export default function FoodLog() {
 
       {/* Add food modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeAddModal}>
           <div
             className="bg-surface-2 border border-line-strong rounded-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between">
-              <h3 className="text-text-hi font-bold">הוסף מאכל</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
-            </div>
-            {error && <p className="text-coral text-sm">{error}</p>}
+            {modalStep === 'select' ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-text-hi font-bold">הוסף מאכל</h3>
+                  <button onClick={closeAddModal} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
+                </div>
+                {error && <p className="text-coral text-sm">{error}</p>}
 
-            {/* noValidate: validation is handled explicitly in handleSubmit so
-                decimal macro values (e.g. 24.8g protein) are never silently
-                blocked by the browser's native step-mismatch check, which
-                defaults to whole numbers only and gives no visible in-app
-                feedback when it fires. */}
-            <form onSubmit={handleSubmit} className="space-y-3" noValidate>
-              <div className="grid grid-cols-2 gap-3">
-                <FoodSearch onSelect={handleFoodSelect} />
+                {/* noValidate: validation is handled explicitly in handleAddStagedItem so
+                    decimal macro values (e.g. 24.8g protein) are never silently
+                    blocked by the browser's native step-mismatch check, which
+                    defaults to whole numbers only and gives no visible in-app
+                    feedback when it fires. */}
+                <form onSubmit={handleAddStagedItem} className="space-y-3" noValidate>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FoodSearch onSelect={handleFoodSelect} />
 
-                {selectedFood && (
-                  <div className="col-span-2 flex items-center gap-2 bg-volt-soft border border-volt/25 rounded-elem px-3 py-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
-                      {selectedFood.category}
-                    </span>
-                    <span className="text-volt text-sm font-medium">{selectedFood.name}</span>
-                    <span className="text-text-mid text-xs mr-auto">לכל 100ג׳: <span dir="ltr">{selectedFood.calories}</span> קק״ל · חלבון <span dir="ltr">{selectedFood.protein}g</span> · פחמ׳ <span dir="ltr">{selectedFood.carbs}g</span> · שומן <span dir="ltr">{selectedFood.fat}g</span></span>
+                    {selectedFood && (
+                      <div className="col-span-2 flex items-center gap-2 bg-volt-soft border border-volt/25 rounded-elem px-3 py-2 flex-wrap">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${CATEGORY_COLOR[selectedFood.category] || ''}`}>
+                          {selectedFood.category}
+                        </span>
+                        <span className="text-volt text-sm font-medium">{selectedFood.name}</span>
+                        <span className="text-text-mid text-xs mr-auto">לכל 100ג׳: <span dir="ltr">{selectedFood.calories}</span> קק״ל · חלבון <span dir="ltr">{selectedFood.protein}g</span> · פחמ׳ <span dir="ltr">{selectedFood.carbs}g</span> · שומן <span dir="ltr">{selectedFood.fat}g</span></span>
+                      </div>
+                    )}
+
+                    <div className="col-span-2">
+                      <label className="text-text-mid text-xs mb-1 block">כמות (גרם)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="100"
+                        value={form.quantity_g}
+                        onChange={e => handleQuantityChange(e.target.value)}
+                        className="input-volt"
+                      />
+                    </div>
+
+                    {[
+                      { key: 'calories', label: 'קלוריות',    placeholder: '0' },
+                      { key: 'protein',  label: 'חלבון (g)',  placeholder: '0' },
+                      { key: 'carbs',    label: 'פחמימות (g)', placeholder: '0' },
+                      { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
+                    ].map(field => (
+                      <div key={field.key}>
+                        <label className="text-text-mid text-xs mb-1 block">{field.label}</label>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          step="0.1"
+                          placeholder={field.placeholder}
+                          value={form[field.key]}
+                          onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
+                          className={`input-volt ${selectedFood ? '!border-volt/40' : ''}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-text-mid text-xs mb-2 block">ארוחה</label>
+                    <div className="flex flex-wrap gap-2">
+                      {MEAL_TYPES.map(mt => (
+                        <button
+                          key={mt.value}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
+                          className={`px-3 py-1.5 rounded-elem text-xs font-medium transition ${
+                            form.meal_type === mt.value
+                              ? 'bg-volt text-ink'
+                              : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
+                          }`}
+                        >
+                          {mt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" /> הוסף לרשימה
+                  </button>
+                </form>
+
+                {stagedItems.length > 0 && (
+                  <div className="space-y-2 border-t border-line pt-3">
+                    <h4 className="text-text-hi text-sm font-bold">פריטים שנוספו ({stagedItems.length})</h4>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {stagedItems.map(item => (
+                        <label key={item.tempId} className="flex items-center gap-2 bg-white/4 rounded-elem px-3 py-2 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked
+                            onChange={() => removeStagedItem(item.tempId)}
+                            className="accent-volt shrink-0"
+                            aria-label={`הסר ${item.food_name}`}
+                          />
+                          <span className="flex-1 text-text-hi truncate">{item.food_name}</span>
+                          <span className="text-text-mid shrink-0" dir="ltr">{item.quantity_g}g</span>
+                          <span className="text-volt font-semibold shrink-0" dir="ltr">{item.calories} קל'</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setModalStep('summary')}
+                      className="btn-volt w-full py-2.5 text-sm"
+                    >
+                      המשך ({stagedItems.length} פריטים)
+                    </button>
                   </div>
                 )}
-
-                <div className="col-span-2">
-                  <label className="text-text-mid text-xs mb-1 block">כמות (גרם)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="100"
-                    value={form.quantity_g}
-                    onChange={e => handleQuantityChange(e.target.value)}
-                    className="input-volt"
-                  />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-text-hi font-bold">סיכום ארוחה</h3>
+                  <button onClick={closeAddModal} className="text-text-mid hover:text-text-hi transition p-1" aria-label="סגור"><X className="w-5 h-5" /></button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setModalStep('select')}
+                  className="text-text-mid text-xs hover:text-text-hi transition inline-flex items-center gap-1"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" /> חזרה להוספת פריטים
+                </button>
 
-                {[
-                  { key: 'calories', label: 'קלוריות',    placeholder: '0' },
-                  { key: 'protein',  label: 'חלבון (g)',  placeholder: '0' },
-                  { key: 'carbs',    label: 'פחמימות (g)', placeholder: '0' },
-                  { key: 'fat',      label: 'שומן (g)',   placeholder: '0' },
-                ].map(field => (
-                  <div key={field.key}>
-                    <label className="text-text-mid text-xs mb-1 block">{field.label}</label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.1"
-                      placeholder={field.placeholder}
-                      value={form[field.key]}
-                      onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))}
-                      className={`input-volt ${selectedFood ? '!border-volt/40' : ''}`}
-                    />
-                  </div>
-                ))}
-              </div>
+                {batchError && <p className="text-coral text-sm">{batchError}</p>}
 
-              <div>
-                <label className="text-text-mid text-xs mb-2 block">ארוחה</label>
-                <div className="flex flex-wrap gap-2">
-                  {MEAL_TYPES.map(mt => (
-                    <button
-                      key={mt.value}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, meal_type: mt.value }))}
-                      className={`px-3 py-1.5 rounded-elem text-xs font-medium transition ${
-                        form.meal_type === mt.value
-                          ? 'bg-volt text-ink'
-                          : 'bg-white/4 border border-line text-text-mid hover:text-text-hi'
-                      }`}
-                    >
-                      {mt.label}
-                    </button>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {stagedItems.map(item => (
+                    <label key={item.tempId} className="card-glass flex items-center gap-3 px-3 py-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked
+                        onChange={() => removeStagedItem(item.tempId)}
+                        className="accent-volt shrink-0"
+                        aria-label={`הסר ${item.food_name}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-text-hi text-sm font-medium truncate">{item.food_name}</p>
+                          <span className="text-text-mid text-xs shrink-0">{MEAL_LABELS[item.meal_type] || item.meal_type}</span>
+                        </div>
+                        <p className="text-text-mid text-xs" dir="ltr">
+                          {item.quantity_g}g · {item.calories} קק״ל · ח׳ {item.protein}g · פחמ׳ {item.carbs}g · שומן {item.fat}g
+                        </p>
+                      </div>
+                    </label>
                   ))}
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
-              >
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                {submitting ? 'שומר...' : 'הוסף לאכילה'}
-              </button>
-            </form>
+                <button
+                  type="button"
+                  disabled={savingBatch || stagedItems.length === 0}
+                  onClick={handleConfirmBatch}
+                  className="btn-volt w-full py-2.5 text-sm flex items-center justify-center gap-1.5"
+                >
+                  {savingBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {savingBatch ? 'שומר...' : 'הוסף ארוחה'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
