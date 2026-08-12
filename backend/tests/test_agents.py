@@ -64,20 +64,31 @@ def _fake_profile(workout_preferences=None):
     )
 
 
-def test_build_profile_dict_forwards_rest_timer_preference():
+def test_build_profile_dict_forwards_rest_timer_preference(db_session):
     profile = _fake_profile(workout_preferences={"rest_timer_seconds": 45, "auto_start_rest": True})
-    assert _build_profile_dict(profile)["default_rest_seconds"] == 45
+    assert _build_profile_dict(profile, db_session, uuid.uuid4())["default_rest_seconds"] == 45
 
 
-def test_build_profile_dict_default_rest_seconds_none_when_no_preference_set():
-    assert _build_profile_dict(_fake_profile(workout_preferences=None))["default_rest_seconds"] is None
+def test_build_profile_dict_default_rest_seconds_none_when_no_preference_set(db_session):
+    profile = _fake_profile(workout_preferences=None)
+    assert _build_profile_dict(profile, db_session, uuid.uuid4())["default_rest_seconds"] is None
 
 
-def test_build_profile_dict_default_rest_seconds_none_when_key_missing():
+def test_build_profile_dict_default_rest_seconds_none_when_key_missing(db_session):
     """workout_preferences can hold other keys (e.g. only auto_start_rest was
     ever saved) without rest_timer_seconds being present at all."""
     profile = _fake_profile(workout_preferences={"auto_start_rest": False})
-    assert _build_profile_dict(profile)["default_rest_seconds"] is None
+    assert _build_profile_dict(profile, db_session, uuid.uuid4())["default_rest_seconds"] is None
+
+
+# ─── Average-satiety hint forwarded to the nutrition agent (12.8.2026) ──────
+
+def test_build_profile_dict_satiety_hint_none_with_no_logged_meals(db_session):
+    """A brand-new user_id with no FoodLog rows at all must get None, not an
+    error -- get_avg_satiety_last_7_meals requires at least 3 non-null
+    values, so zero rows is just the ordinary "not enough data yet" case."""
+    profile = _fake_profile()
+    assert _build_profile_dict(profile, db_session, uuid.uuid4())["satiety_hint"] is None
 
 
 def test_generate_nutrition_unauthenticated(client):

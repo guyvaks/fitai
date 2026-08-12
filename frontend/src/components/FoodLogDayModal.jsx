@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Loader2, Sun, Soup, Moon, Apple } from 'lucide-react'
 import { nutritionAPI } from '../services/api'
+import { SATIETY_EMOJIS, SATIETY_LABELS } from '../utils/satiety'
 
 const MEAL_NAMES = {
   breakfast: 'ארוחת בוקר',
@@ -81,9 +82,14 @@ export default function FoodLogDayModal({ date, onClose }) {
               </div>
               <div className="space-y-1">
                 {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-sm px-1">
+                  <div key={item.id} className="flex items-center justify-between text-sm px-1 gap-2">
                     <span className="text-text-mid truncate">{item.food_name}</span>
-                    <span className="text-text-hi tabular-nums shrink-0" dir="ltr">{item.calories} קל'</span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {item.satiety_level != null && (
+                        <span title={SATIETY_LABELS[item.satiety_level]}>{SATIETY_EMOJIS[item.satiety_level]}</span>
+                      )}
+                      <span className="text-text-hi tabular-nums" dir="ltr">{item.calories} קל'</span>
+                    </span>
                   </div>
                 ))}
               </div>

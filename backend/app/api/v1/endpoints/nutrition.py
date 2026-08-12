@@ -6,8 +6,9 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.models.user import User
 from app.models.fitness import NutritionPlan, FoodLog
 from app.schemas.nutrition import (
-    FoodLogCreate, ManualPlanCreate, CalorieCalcRequest
+    FoodLogCreate, FoodLogSatietyUpdate, ManualPlanCreate, CalorieCalcRequest
 )
+from app.services.satiety import get_avg_satiety_last_7_meals, is_low_satiety
 import datetime
 
 router = APIRouter()
@@ -167,6 +168,34 @@ def get_nutrition_history(
         }
         for r in rows
     ]
+
+
+@router.patch("/food-log/entry/{log_id}/satiety")
+def set_food_log_satiety(
+    log_id: str,
+    payload: FoodLogSatietyUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    import uuid
+    log = db.query(FoodLog).filter(
+        FoodLog.id == uuid.UUID(log_id),
+        FoodLog.user_id == current_user.id
+    ).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    log.satiety_level = payload.satiety_level
+    db.commit()
+    db.refresh(log)
+    return log
+
+
+@router.get("/satiety-summary")
+def get_satiety_summary(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return {
+        "avg_satiety": get_avg_satiety_last_7_meals(db, current_user.id),
+        "low_satiety_flag": is_low_satiety(db, current_user.id),
+    }
 
 
 @router.delete("/food-log/entry/{log_id}")

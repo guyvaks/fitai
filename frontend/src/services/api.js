@@ -64,6 +64,8 @@ export const nutritionAPI = {
   logFood: (entry) => api.post('/api/v1/nutrition/food-log', entry),
   getDayLog: (date) => api.get(`/api/v1/nutrition/food-log/${date}`),
   deleteLog: (id) => api.delete(`/api/v1/nutrition/food-log/entry/${id}`),
+  setSatiety: (id, satiety_level) => api.patch(`/api/v1/nutrition/food-log/entry/${id}/satiety`, { satiety_level }),
+  getSatietySummary: () => api.get('/api/v1/nutrition/satiety-summary'),
   calculateCalories: (payload) => api.post('/api/v1/nutrition/calculate-calories', payload),
   getHistory: (days = 90) => api.get('/api/v1/nutrition/history', { params: { days } }),
 }
