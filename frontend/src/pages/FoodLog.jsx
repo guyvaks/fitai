@@ -381,12 +381,6 @@ export default function FoodLog() {
             <p>לא נרשמו ארוחות עדיין</p>
             <div className="flex items-center justify-center gap-2 flex-wrap">
               <button
-                onClick={() => setShowAddModal(true)}
-                className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" /> הוסף ארוחה
-              </button>
-              <button
                 onClick={() => setShowCalcModal(true)}
                 className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition inline-flex items-center gap-1.5"
               >
@@ -402,12 +396,6 @@ export default function FoodLog() {
                 className="border border-volt/40 text-volt px-4 py-2 rounded-elem text-sm font-medium hover:bg-volt-soft transition inline-flex items-center gap-1.5"
               >
                 <Calculator className="w-4 h-4" /> חשב עם AI
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="btn-volt px-4 py-2 text-sm inline-flex items-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" /> הוסף ארוחה
               </button>
             </div>
             {groupedLogs.map(({ mealType, items }) => {
