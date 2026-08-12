@@ -38,6 +38,14 @@ table MUST include its own:
     op.execute('ALTER TABLE public."<new_table>" ENABLE ROW LEVEL SECURITY;')
 
 See the CLAUDE.md migration-conventions note added alongside this file.
+
+*** PRODUCTION GUARD (added 2026-08-13, before this ever ran there) ***
+Same issue as 34282a7fdf47: `anon`/`authenticated` don't exist on
+production's plain Railway Postgres (confirmed via pg_roles, 0 rows), so a
+bare `ALTER DEFAULT PRIVILEGES ... FROM anon, authenticated` would raise
+`role "anon" does not exist` and abort the migration chain there. Wrapped
+the same way -- a DO block that only names whichever of the two roles
+actually exists, and does nothing at all when neither does.
 """
 from typing import Sequence, Union
 
@@ -51,10 +59,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
-        "REVOKE ALL ON TABLES FROM anon, authenticated;"
-    )
+    # Guarded (see module docstring) so this is a no-op on a DB where
+    # anon/authenticated don't exist, e.g. production's plain Railway
+    # Postgres.
+    op.execute("""
+        DO $$
+        DECLARE
+            target_roles text;
+        BEGIN
+            SELECT string_agg(quote_ident(rolname), ', ')
+            INTO target_roles
+            FROM pg_roles
+            WHERE rolname IN ('anon', 'authenticated');
+
+            IF target_roles IS NOT NULL THEN
+                EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM %s', target_roles);
+            END IF;
+        END
+        $$;
+    """)
 
 
 def downgrade() -> None:
@@ -62,7 +85,20 @@ def downgrade() -> None:
     # get the blanket anon/authenticated grant automatically. Matches what
     # 34282a7fdf47's downgrade() restores for already-existing tables, so a
     # full downgrade of both leaves the DB exactly as it was pre-2026-08-12.
-    op.execute(
-        "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
-        "GRANT ALL ON TABLES TO anon, authenticated;"
-    )
+    # Guarded the same way as upgrade().
+    op.execute("""
+        DO $$
+        DECLARE
+            target_roles text;
+        BEGIN
+            SELECT string_agg(quote_ident(rolname), ', ')
+            INTO target_roles
+            FROM pg_roles
+            WHERE rolname IN ('anon', 'authenticated');
+
+            IF target_roles IS NOT NULL THEN
+                EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO %s', target_roles);
+            END IF;
+        END
+        $$;
+    """)

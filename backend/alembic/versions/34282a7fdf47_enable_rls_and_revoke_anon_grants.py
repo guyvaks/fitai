@@ -32,6 +32,20 @@ Does NOT touch ALTER DEFAULT PRIVILEGES, so a table added by a future
 migration will again be born with RLS off and anon/authenticated grants,
 per Supabase's project-level defaults -- out of scope here, flagged for a
 follow-up if new tables become a recurring source of this drift.
+
+*** PRODUCTION GUARD (added 2026-08-13, before this ever ran there) ***
+`anon`/`authenticated` are Supabase-provisioned roles that don't exist on
+production's database (plain Railway Postgres, confirmed via
+`SELECT rolname FROM pg_roles WHERE rolname IN ('anon','authenticated')`
+returning 0 rows there). A bare `REVOKE ... FROM anon, authenticated`
+would raise `role "anon" does not exist` and abort the migration chain.
+The REVOKE/GRANT below are wrapped in a DO block that only targets
+whichever of those two roles actually exists, and is a no-op (does
+nothing, including on production) when neither does. The ENABLE/DISABLE
+ROW LEVEL SECURITY loops don't reference either role and are unaffected
+by this -- RLS still gets enabled everywhere, including on production,
+which is correct and desired regardless of the anon/authenticated
+question.
 """
 from typing import Sequence, Union
 
@@ -84,8 +98,25 @@ def upgrade() -> None:
 
     # Defense-in-depth: even if RLS were ever disabled again (or a
     # permissive policy added) by mistake, anon/authenticated have no
-    # table-level grant left to fall back on.
-    op.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;")
+    # table-level grant left to fall back on. Guarded (see module
+    # docstring) so this is a no-op on a DB where those roles don't exist,
+    # e.g. production's plain Railway Postgres.
+    op.execute("""
+        DO $$
+        DECLARE
+            target_roles text;
+        BEGIN
+            SELECT string_agg(quote_ident(rolname), ', ')
+            INTO target_roles
+            FROM pg_roles
+            WHERE rolname IN ('anon', 'authenticated');
+
+            IF target_roles IS NOT NULL THEN
+                EXECUTE format('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM %s', target_roles);
+            END IF;
+        END
+        $$;
+    """)
 
 
 def downgrade() -> None:
@@ -93,8 +124,23 @@ def downgrade() -> None:
     # matching the pre-migration state exactly (confirmed via
     # information_schema.role_table_grants: both roles held every privilege
     # -- SELECT/INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER -- which is
-    # what `ALL` expands to for a table).
-    op.execute("GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;")
+    # what `ALL` expands to for a table). Guarded the same way as upgrade().
+    op.execute("""
+        DO $$
+        DECLARE
+            target_roles text;
+        BEGIN
+            SELECT string_agg(quote_ident(rolname), ', ')
+            INTO target_roles
+            FROM pg_roles
+            WHERE rolname IN ('anon', 'authenticated');
+
+            IF target_roles IS NOT NULL THEN
+                EXECUTE format('GRANT ALL ON ALL TABLES IN SCHEMA public TO %s', target_roles);
+            END IF;
+        END
+        $$;
+    """)
 
     for table in PUBLIC_TABLES:
         op.execute(f'ALTER TABLE public."{table}" DISABLE ROW LEVEL SECURITY;')
