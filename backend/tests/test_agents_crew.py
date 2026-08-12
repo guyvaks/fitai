@@ -300,6 +300,24 @@ def test_build_workout_task_omits_rest_hint_when_no_preference_set():
     assert "זמן מנוחה מועדף" not in task.description
 
 
+# ─── Average-satiety hint in the nutrition prompt (12.8.2026) ──────────────
+
+def test_build_nutrition_task_includes_satiety_hint_when_present():
+    task = crew_agents.build_nutrition_task(
+        None,
+        {"satiety_hint": "Average satiety over last 7 logged meals: 4.2/5 (גבוה)"},
+        {},
+    )
+    assert "Average satiety over last 7 logged meals: 4.2/5 (גבוה)" in task.description
+
+
+def test_build_nutrition_task_omits_satiety_hint_when_none():
+    """A user with fewer than 3 rated meals must see the exact same prompt
+    as before this feature -- no hint line, no behavior change."""
+    task = crew_agents.build_nutrition_task(None, {"satiety_hint": None}, {})
+    assert "Average satiety" not in task.description
+
+
 def test_extract_json_prefers_candidate_with_all_days():
     text = (
         "some preamble text "

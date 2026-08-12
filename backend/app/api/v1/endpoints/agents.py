@@ -49,7 +49,9 @@ def _normalise_content(raw: dict) -> dict:
     return raw
 
 
-def _build_profile_dict(profile) -> dict:
+def _build_profile_dict(profile, db: Session, user_id) -> dict:
+    from app.services.satiety import build_satiety_hint
+
     return {
         "age": profile.age,
         "gender": profile.gender,
@@ -67,6 +69,10 @@ def _build_profile_dict(profile) -> dict:
         # -- forwarded as a hint for the workout agent's own rest_seconds
         # choice per exercise, not previously passed to the crew at all.
         "default_rest_seconds": (profile.workout_preferences or {}).get("rest_timer_seconds"),
+        # Pre-computed single-sentence hint (avg satiety over the last 7
+        # logged meals), never raw per-meal data. None if there's not
+        # enough rated-meal history yet. Consumed by build_nutrition_task.
+        "satiety_hint": build_satiety_hint(db, user_id),
     }
 
 
@@ -215,7 +221,7 @@ def _start_task(background_tasks: BackgroundTasks, db: Session, current_user: Us
         _run_in_background,
         task_id,
         crew_fn_name,
-        _build_profile_dict(profile),
+        _build_profile_dict(profile, db, current_user.id),
         memory,
         current_user.id,
         suggestion_type,

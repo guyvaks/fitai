@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import FoodSearch, { CATEGORY_COLOR } from '../components/FoodSearch'
 import CalorieCalculatorPanel from '../components/CalorieCalculatorPanel'
 import { ChevronRight, ChevronLeft, Flame, Trash2, Plus, X, Loader2, Calculator } from 'lucide-react'
+import { SATIETY_EMOJIS, SATIETY_LABELS } from '../utils/satiety'
 
 const MEAL_TYPES = [
   { value: 'breakfast', label: 'בוקר' },
@@ -63,6 +64,52 @@ function MiniRing({ value, max, color, size = 44 }) {
   )
 }
 
+function SatietyPicker({ log, onPick, onDismiss }) {
+  const [saving, setSaving] = useState(false)
+
+  const handlePick = async (level) => {
+    setSaving(true)
+    try {
+      await nutritionAPI.setSatiety(log.id, level)
+    } catch {
+      // fully optional field -- don't block the UI on a failed PATCH
+    } finally {
+      setSaving(false)
+      onPick()
+    }
+  }
+
+  return (
+    <div className="anim-rise card-glass p-3 flex items-center justify-between gap-2" dir="rtl">
+      <div className="min-w-0">
+        <p className="text-text-mid text-xs truncate">כמה שבע/ה הרגשת אחרי "{log.food_name}"?</p>
+        <div className="flex items-center gap-1.5 mt-1.5">
+          {Object.entries(SATIETY_EMOJIS).map(([level, emoji]) => (
+            <button
+              key={level}
+              type="button"
+              disabled={saving}
+              onClick={() => handlePick(Number(level))}
+              className="text-xl hover:scale-110 transition disabled:opacity-40"
+              aria-label={SATIETY_LABELS[level]}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="text-text-mid hover:text-text-hi transition p-1 shrink-0"
+        aria-label="דלג"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
 function RemainingRing({ consumed, target, size = 96 }) {
   const r = (size - 14) / 2
   const circumference = 2 * Math.PI * r
@@ -102,6 +149,9 @@ export default function FoodLog() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  // Independent of `logs` on purpose -- fetchLogs()'s refetch after a save
+  // must not clear this, so the picker stays visible through the refetch.
+  const [pendingSatietyLog, setPendingSatietyLog] = useState(null) // {id, food_name} | null
 
   const dateStr = toIso(date)
 
@@ -193,7 +243,7 @@ export default function FoodLog() {
     }
     setSubmitting(true)
     try {
-      await nutritionAPI.logFood({
+      const { data: createdLog } = await nutritionAPI.logFood({
         date:       dateStr,
         meal_type:  form.meal_type,
         food_name:  form.food_name,
@@ -206,6 +256,7 @@ export default function FoodLog() {
       setForm({ food_name: '', quantity_g: '100', calories: '', protein: '', carbs: '', fat: '', meal_type: form.meal_type })
       setSelectedFood(null)
       setShowAddModal(false)
+      setPendingSatietyLog({ id: createdLog.id, food_name: createdLog.food_name })
       fetchLogs()
     } catch (e) {
       setError(e.response?.data?.detail || 'שגיאה בשמירה')
@@ -216,7 +267,7 @@ export default function FoodLog() {
 
   const handleAddFromCalculator = async (item) => {
     try {
-      await nutritionAPI.logFood({
+      const { data: createdLog } = await nutritionAPI.logFood({
         date: dateStr,
         meal_type: calcMealType,
         food_name: item.name,
@@ -226,6 +277,7 @@ export default function FoodLog() {
         carbs: item.carbs,
         fat: item.fat,
       })
+      setPendingSatietyLog({ id: createdLog.id, food_name: createdLog.food_name })
       fetchLogs()
     } catch (e) {
       setError(e.response?.data?.detail || 'שגיאה בהוספה ליומן')
@@ -271,6 +323,14 @@ export default function FoodLog() {
         <span className="text-text-hi font-medium">{dayLabel}</span>
         <button onClick={() => changeDay(1)}  className="text-text-mid hover:text-volt transition-colors px-2" aria-label="יום הבא"><ChevronLeft className="w-5 h-5" /></button>
       </div>
+
+      {pendingSatietyLog && (
+        <SatietyPicker
+          log={pendingSatietyLog}
+          onPick={() => setPendingSatietyLog(null)}
+          onDismiss={() => setPendingSatietyLog(null)}
+        />
+      )}
 
       {/* Daily summary rings */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -372,6 +432,9 @@ export default function FoodLog() {
                         <p className="text-text-hi text-sm font-medium truncate">{log.food_name}</p>
                         <p className="text-text-mid text-xs"><span dir="ltr">{log.quantity_g}</span> גרם</p>
                       </div>
+                      {log.satiety_level != null && (
+                        <span title={SATIETY_LABELS[log.satiety_level]} className="shrink-0">{SATIETY_EMOJIS[log.satiety_level]}</span>
+                      )}
                       <span className="text-volt font-semibold text-sm shrink-0 tabular-nums"><span dir="ltr">{log.calories}</span> קל'</span>
                     </div>
                   ))}

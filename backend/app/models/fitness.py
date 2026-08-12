@@ -56,6 +56,8 @@ class FoodLog(Base):
     protein = Column(Float)
     carbs = Column(Float)
     fat = Column(Float)
+    # 1-5, per-entry, optional, set post-creation via PATCH (not at log time).
+    satiety_level = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     user = relationship("User", back_populates="food_logs")

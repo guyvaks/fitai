@@ -22,9 +22,13 @@ class FoodLogResponse(BaseModel):
     protein: float
     carbs: float
     fat: float
+    satiety_level: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+class FoodLogSatietyUpdate(BaseModel):
+    satiety_level: int = Field(..., ge=1, le=5)
 
 class ManualFoodItem(BaseModel):
     name: str

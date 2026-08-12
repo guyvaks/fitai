@@ -166,6 +166,43 @@ function WorkoutReportCard({ report, onDismiss }) {
   );
 }
 
+// Dismissible, non-blocking (not a modal) banner for the "3 consecutive
+// low-satiety meals" flag -- same card-glass/border-tint/X shell as
+// WorkoutReportCard above. Accept only navigates to the nutrition plan
+// page; it never triggers a plan change or AI call by itself.
+function SatietyBanner({ onAccept, onDismiss }) {
+  return (
+    <div className="anim-rise card-glass p-4 space-y-3" style={{ borderColor: "rgba(163,230,53,0.35)" }} dir="rtl">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-9 h-9 rounded-full bg-volt-soft text-volt flex items-center justify-center shrink-0">
+            <UtensilsCrossed className="w-4.5 h-4.5" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-text-hi font-bold text-sm truncate">שמנו לב שאת/ה מרגיש/ה פחות שבע/ה לאחרונה</p>
+            <p className="text-text-mid text-xs">שלוש הארוחות האחרונות שדירגת סומנו כתחושת שובע נמוכה</p>
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-text-mid hover:text-text-hi transition p-1 shrink-0"
+          aria-label="סגור"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <button onClick={onAccept} className="btn-volt px-3 py-1.5 text-xs">
+          בדוק אפשרויות
+        </button>
+        <button onClick={onDismiss} className="text-text-mid hover:text-text-hi text-xs px-3 py-1.5">
+          לא עכשיו
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -180,6 +217,8 @@ export default function Dashboard() {
   const [records, setRecords] = useState([]);
   const [weightHistory, setWeightHistory] = useState([]);
   const [pendingReports, setPendingReports] = useState([]);
+  const [satietySummary, setSatietySummary] = useState(null);
+  const [satietyBannerDismissed, setSatietyBannerDismissed] = useState(false);
   const firstName = user?.full_name?.split(" ")[0] || "משתמש";
   const today = new Date();
   const todayDayKey = DAY_KEYS[today.getDay()];
@@ -225,6 +264,10 @@ export default function Dashboard() {
     workoutsAPI.getPendingReports()
       .then(({ data }) => setPendingReports(data || []))
       .catch(() => setPendingReports([]));
+
+    nutritionAPI.getSatietySummary()
+      .then(({ data }) => setSatietySummary(data))
+      .catch(() => setSatietySummary(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -330,6 +373,14 @@ export default function Dashboard() {
       {pendingReports.map((report) => (
         <WorkoutReportCard key={report.period} report={report} onDismiss={dismissReport} />
       ))}
+
+      {/* Low-satiety suggestion banner */}
+      {satietySummary?.low_satiety_flag && !satietyBannerDismissed && (
+        <SatietyBanner
+          onAccept={() => navigate("/nutrition")}
+          onDismiss={() => setSatietyBannerDismissed(true)}
+        />
+      )}
 
       {/* AI pending suggestion banner */}
       {hasPendingSuggestion && (

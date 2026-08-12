@@ -143,6 +143,13 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
         for day in DAYS
     )
 
+    # Pre-computed single-sentence hint (avg satiety over the user's last 7
+    # logged meals) -- see _build_profile_dict/build_satiety_hint. Omitted
+    # entirely when there's not enough rated-meal history, same pattern as
+    # rest_hint in build_workout_task. Never raw per-meal data.
+    satiety_hint_text = profile.get("satiety_hint")
+    satiety_hint = f"- {satiety_hint_text}\n" if satiety_hint_text else ""
+
     return Task(
         description=f"""אתה תזונאי מומחה. בנה תפריט שבועי מלא לכל 7 ימי השבוע.
 החזר JSON בלבד בפורמט הבא בדיוק — ללא טקסט לפני או אחרי:
@@ -156,7 +163,7 @@ def build_nutrition_task(agent, profile: dict, memory: dict) -> Task:
 - מספר ארוחות ביום: {meals_per_day} ({', '.join(meal_types)})
 - מאכלים מועדפים: {', '.join(preferred) if preferred else 'לא צוין'}
 - מאכלים לא מועדפים: {', '.join(disliked) if disliked else 'לא צוין'}
-
+{satiety_hint}
 כללים מחייבים:
 - כל 7 הימים (sunday, monday, tuesday, wednesday, thursday, friday, saturday) חייבים להופיע
 - לכל יום בנה {meals_per_day} ארוחות שונות ומגוונות עם מרכיבים אמיתיים בעברית
